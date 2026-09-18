@@ -1,0 +1,7 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <ItemGroup>
+      <ProjectReference Include="..\ContextDepot.Domain\ContextDepot.Domain.csproj" />
+    </ItemGroup>
+
+</Project>

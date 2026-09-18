@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ContextDepot.Application/ContextDepot.Application.csproj" />
+    <Project Path="src/ContextDepot.Domain/ContextDepot.Domain.csproj" />
+    <Project Path="src/ContextDepot.Infrastructure/ContextDepot.Infrastructure.csproj" />
+    <Project Path="src/ContextDepot/ContextDepot.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ContextDepot.Application.Tests/ContextDepot.Application.Tests.csproj" />
+  </Folder>
+</Solution>

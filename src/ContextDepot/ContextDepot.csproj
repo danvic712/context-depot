@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <ItemGroup>
+        <PackageReference Include="Serilog.AspNetCore" />
+        <PackageReference Include="Serilog.Settings.Configuration" />
+        <PackageReference Include="Serilog.Sinks.Console" />
+        <PackageReference Include="Serilog.Sinks.File" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\ContextDepot.Application\ContextDepot.Application.csproj" />
+      <ProjectReference Include="..\ContextDepot.Infrastructure\ContextDepot.Infrastructure.csproj" />
+    </ItemGroup>
+
+</Project>
