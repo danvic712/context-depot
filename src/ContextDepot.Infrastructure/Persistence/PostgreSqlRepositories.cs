@@ -71,8 +71,11 @@ public sealed class PostgreSqlContextRepository(ContextDepotDbContext db) : ICon
     public Task<ContextItem?> GetActiveByKeyAsync(Guid ownerId, Guid workspaceId, string key, CancellationToken cancellationToken) =>
         db.ContextItems.SingleOrDefaultAsync(x => x.OwnerId == ownerId && x.WorkspaceId == workspaceId && x.Key == key && x.Status == ContextStatus.Active, cancellationToken);
 
-    public Task<bool> HasActiveDuplicateAsync(Guid ownerId, Guid workspaceId, ContextKind kind, string normalizedContent, CancellationToken cancellationToken) =>
-        db.ContextItems.AnyAsync(x => x.OwnerId == ownerId && x.WorkspaceId == workspaceId && x.Kind == kind && x.Status == ContextStatus.Active && x.Content.ToLower() == normalizedContent, cancellationToken);
+    public Task<ContextItem?> GetActiveBySourceAsync(Guid ownerId, Guid workspaceId, SourceType sourceType, string sourceRef, CancellationToken cancellationToken) =>
+        db.ContextItems.SingleOrDefaultAsync(x => x.OwnerId == ownerId && x.WorkspaceId == workspaceId && x.SourceType == sourceType && x.SourceRef == sourceRef && x.Status == ContextStatus.Active, cancellationToken);
+
+    public Task<ContextItem?> GetActiveDuplicateAsync(Guid ownerId, Guid workspaceId, ContextKind kind, string normalizedContent, CancellationToken cancellationToken) =>
+        db.ContextItems.SingleOrDefaultAsync(x => x.OwnerId == ownerId && x.WorkspaceId == workspaceId && x.Kind == kind && x.Status == ContextStatus.Active && x.Content == normalizedContent, cancellationToken);
 
     public Task AddAsync(ContextItem context, CancellationToken cancellationToken)
     {

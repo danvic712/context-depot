@@ -23,7 +23,9 @@ public interface IContextRepository
 
     Task<ContextItem?> GetActiveByKeyAsync(Guid ownerId, Guid workspaceId, string key, CancellationToken cancellationToken);
 
-    Task<bool> HasActiveDuplicateAsync(Guid ownerId, Guid workspaceId, ContextKind kind, string normalizedContent, CancellationToken cancellationToken);
+    Task<ContextItem?> GetActiveBySourceAsync(Guid ownerId, Guid workspaceId, SourceType sourceType, string sourceRef, CancellationToken cancellationToken);
+
+    Task<ContextItem?> GetActiveDuplicateAsync(Guid ownerId, Guid workspaceId, ContextKind kind, string normalizedContent, CancellationToken cancellationToken);
 
     Task AddAsync(ContextItem context, CancellationToken cancellationToken);
 

@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using ContextDepot.Application.Abstractions;
 using ContextDepot.Application.Workspaces;
 using ContextDepot.Application.Safety;
+using ContextDepot.Application.Contexts;
 using ContextDepot.Infrastructure.CurrentOwner;
 using Microsoft.Extensions.Options;
 
@@ -42,6 +43,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<IWorkspaceAppService, WorkspaceAppService>();
+        services.AddScoped<IContextAppService, ContextAppService>();
         services.AddSingleton<ISecretDetector, HighConfidenceSecretDetector>();
         services.AddSingleton<IProvenancePolicy, ProvenancePolicy>();
         services.AddScoped<ISourceSafetyService, SourceSafetyService>();

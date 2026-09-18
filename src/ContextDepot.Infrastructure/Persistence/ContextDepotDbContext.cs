@@ -84,6 +84,7 @@ public sealed class ContextDepotDbContext(DbContextOptions<ContextDepotDbContext
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasColumnType("timestamp with time zone");
             entity.HasIndex(x => new { x.Id, x.OwnerId, x.WorkspaceId }).IsUnique().HasDatabaseName("ux_context_items_id_owner_workspace");
             entity.HasIndex(x => new { x.OwnerId, x.WorkspaceId, x.Key }).HasDatabaseName("ix_context_items_owner_workspace_key");
+            entity.HasIndex(x => new { x.OwnerId, x.WorkspaceId, x.Key }).IsUnique().HasDatabaseName("ux_context_items_active_key").HasFilter("status = 'Active' AND key IS NOT NULL");
             entity.HasOne(x => x.Workspace).WithMany(x => x.ContextItems).HasForeignKey(x => new { x.WorkspaceId, x.OwnerId }).HasPrincipalKey(x => new { x.Id, x.OwnerId }).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.Supersedes).WithMany().HasForeignKey(x => new { x.SupersedesId, x.OwnerId, x.WorkspaceId }).HasPrincipalKey(x => new { x.Id, x.OwnerId, x.WorkspaceId }).OnDelete(DeleteBehavior.Restrict);
         });

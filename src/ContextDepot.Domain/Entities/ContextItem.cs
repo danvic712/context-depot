@@ -163,4 +163,10 @@ public sealed class ContextItem
         ValidUntil = validUntil;
         ExpiresAt = expiresAt;
     }
+
+    public void SetQuality(short importance, decimal? confidence)
+    {
+        Importance = importance;
+        Confidence = confidence;
+    }
 }
