@@ -100,6 +100,17 @@ public sealed class PostgreSqlDocumentRepository(ContextDepotDbContext db) : IDo
         return Task.CompletedTask;
     }
 
+    public void Update(Document document) => db.Documents.Update(document);
+
+    public void RemoveChunks(Document document)
+    {
+        var existing = document.Chunks.ToArray();
+        db.DocumentChunks.RemoveRange(existing);
+        document.Chunks.Clear();
+    }
+
+    public void AddChunk(DocumentChunk chunk) => db.DocumentChunks.Add(chunk);
+
     public Task SaveChangesAsync(CancellationToken cancellationToken) => db.SaveChangesAsync(cancellationToken);
 }
 

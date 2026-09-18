@@ -40,6 +40,12 @@ public interface IDocumentRepository
 
     Task AddAsync(Document document, CancellationToken cancellationToken);
 
+    void Update(Document document);
+
+    void RemoveChunks(Document document);
+
+    void AddChunk(DocumentChunk chunk);
+
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
 

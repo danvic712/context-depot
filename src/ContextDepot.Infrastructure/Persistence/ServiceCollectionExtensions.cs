@@ -6,7 +6,9 @@ using ContextDepot.Application.Abstractions;
 using ContextDepot.Application.Workspaces;
 using ContextDepot.Application.Safety;
 using ContextDepot.Application.Contexts;
+using ContextDepot.Application.Documents;
 using ContextDepot.Infrastructure.CurrentOwner;
+using ContextDepot.Infrastructure.Markdown;
 using Microsoft.Extensions.Options;
 
 namespace ContextDepot.Infrastructure.Persistence;
@@ -44,6 +46,16 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<IWorkspaceAppService, WorkspaceAppService>();
         services.AddScoped<IContextAppService, ContextAppService>();
+        services.AddScoped<IDocumentAppService, DocumentAppService>();
+        services.AddOptions<MarkdownStoreOptions>()
+            .Bind(configuration.GetSection("ContextDepot"))
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Root), "ContextDepot:MarkdownRoot must be configured.")
+            .ValidateOnStart();
+        services.AddSingleton<FileSystemMarkdownStore>();
+        services.AddSingleton<IMarkdownStore>(sp => sp.GetRequiredService<FileSystemMarkdownStore>());
+        services.AddSingleton<IMarkdownChunker, HeadingAwareMarkdownChunker>();
+        services.AddSingleton<DocumentWriteCoordinator>();
+        services.AddHealthChecks().AddCheck<MarkdownStoreHealthCheck>("markdown_root");
         services.AddSingleton<ISecretDetector, HighConfidenceSecretDetector>();
         services.AddSingleton<IProvenancePolicy, ProvenancePolicy>();
         services.AddScoped<ISourceSafetyService, SourceSafetyService>();
