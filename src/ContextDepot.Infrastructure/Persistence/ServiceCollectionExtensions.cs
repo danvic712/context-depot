@@ -7,6 +7,7 @@ using ContextDepot.Application.Workspaces;
 using ContextDepot.Application.Safety;
 using ContextDepot.Application.Contexts;
 using ContextDepot.Application.Documents;
+using ContextDepot.Application.Retrieval;
 using ContextDepot.Infrastructure.CurrentOwner;
 using ContextDepot.Infrastructure.Markdown;
 using Microsoft.Extensions.Options;
@@ -47,6 +48,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IWorkspaceAppService, WorkspaceAppService>();
         services.AddScoped<IContextAppService, ContextAppService>();
         services.AddScoped<IDocumentAppService, DocumentAppService>();
+        services.AddScoped<IContextBootstrapAppService, ContextBootstrapAppService>();
         services.AddOptions<MarkdownStoreOptions>()
             .Bind(configuration.GetSection("ContextDepot"))
             .Validate(options => !string.IsNullOrWhiteSpace(options.Root), "ContextDepot:MarkdownRoot must be configured.")

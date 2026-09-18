@@ -51,6 +51,8 @@ public interface IDocumentRepository
 
 public interface IBootstrapRepository
 {
+    Task<IReadOnlyList<Workspace>> GetWorkspacesAsync(Guid ownerId, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<ContextItem>> GetActiveContextsAsync(Guid ownerId, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<DocumentChunk>> GetIndexedDocumentChunksAsync(Guid ownerId, CancellationToken cancellationToken);

@@ -116,9 +116,12 @@ public sealed class PostgreSqlDocumentRepository(ContextDepotDbContext db) : IDo
 
 public sealed class PostgreSqlBootstrapRepository(ContextDepotDbContext db) : IBootstrapRepository
 {
+    public async Task<IReadOnlyList<Workspace>> GetWorkspacesAsync(Guid ownerId, CancellationToken cancellationToken) =>
+        await db.Workspaces.AsNoTracking().Where(x => x.OwnerId == ownerId).OrderBy(x => x.Slug).ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyList<ContextItem>> GetActiveContextsAsync(Guid ownerId, CancellationToken cancellationToken) =>
         await db.ContextItems.AsNoTracking().Where(x => x.OwnerId == ownerId && x.Status == ContextStatus.Active && (x.ExpiresAt == null || x.ExpiresAt > DateTimeOffset.UtcNow)).OrderByDescending(x => x.Importance).ThenByDescending(x => x.UpdatedAt).ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<DocumentChunk>> GetIndexedDocumentChunksAsync(Guid ownerId, CancellationToken cancellationToken) =>
-        await db.DocumentChunks.AsNoTracking().Where(x => x.OwnerId == ownerId && x.Document != null && x.Document.Status == DocumentStatus.Active && x.Document.IndexStatus == DocumentIndexStatus.Indexed).OrderBy(x => x.DocumentId).ThenBy(x => x.Ordinal).ToListAsync(cancellationToken);
+        await db.DocumentChunks.AsNoTracking().Include(x => x.Document).Where(x => x.OwnerId == ownerId && x.Document != null && x.Document.Status == DocumentStatus.Active && x.Document.IndexStatus == DocumentIndexStatus.Indexed).OrderBy(x => x.DocumentId).ThenBy(x => x.Ordinal).ToListAsync(cancellationToken);
 }
