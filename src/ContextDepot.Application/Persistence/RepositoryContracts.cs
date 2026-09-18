@@ -12,6 +12,8 @@ public interface IWorkspaceRepository
 
     Task AddAsync(Workspace workspace, CancellationToken cancellationToken);
 
+    void Update(Workspace workspace);
+
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
 

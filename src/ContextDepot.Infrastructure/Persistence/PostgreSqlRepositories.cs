@@ -38,6 +38,8 @@ public sealed class PostgreSqlWorkspaceRepository(ContextDepotDbContext db) : IW
         return Task.CompletedTask;
     }
 
+    public void Update(Workspace workspace) => db.Workspaces.Update(workspace);
+
     public Task SaveChangesAsync(CancellationToken cancellationToken) => db.SaveChangesAsync(cancellationToken);
 
     private static async Task<Workspace?> FindByPathAsync(IQueryable<Workspace> query, IReadOnlyList<string> slugs, CancellationToken cancellationToken)

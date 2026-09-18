@@ -5,6 +5,7 @@
       <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
       <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
       <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+      <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
       <ProjectReference Include="..\ContextDepot.Application\ContextDepot.Application.csproj" />
       <ProjectReference Include="..\ContextDepot.Domain\ContextDepot.Domain.csproj" />
     </ItemGroup>

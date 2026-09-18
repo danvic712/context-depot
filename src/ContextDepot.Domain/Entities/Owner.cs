@@ -26,4 +26,10 @@ public sealed class Owner
     public DateTimeOffset UpdatedAt { get; private set; }
 
     public ICollection<Workspace> Workspaces { get; } = new List<Workspace>();
+
+    public void UpdateDisplayName(string displayName, DateTimeOffset now)
+    {
+        DisplayName = displayName;
+        UpdatedAt = now;
+    }
 }
