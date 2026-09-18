@@ -13,6 +13,8 @@ public interface IClock
 public interface ICurrentOwnerContext
 {
     Guid OwnerId { get; }
+
+    string DisplayName { get; }
 }
 
 public sealed class ContextDepotApplicationException(string errorCode, string message) : Exception(message)
