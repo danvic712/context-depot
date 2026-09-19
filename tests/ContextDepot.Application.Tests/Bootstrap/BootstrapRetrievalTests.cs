@@ -6,11 +6,19 @@ using ContextDepot.Application.Shared.Runtime.Contracts;
 using ContextDepot.Application.Workspaces.Contracts;
 using ContextDepot.Application.Workspaces.Dtos;
 using ContextDepot.Application.Contexts.Dtos;
+using ContextDepot.Application.Embeddings;
+using ContextDepot.Application.SemanticRetrieval;
+using ContextDepot.Application.SemanticRetrieval.Contracts;
+using ContextDepot.Application.SemanticRetrieval.Dtos;
+using ContextDepot.Application.Shared.Safety;
 using ContextDepot.Domain.Contexts;
 using ContextDepot.Domain.Contexts.Enums;
 using ContextDepot.Application.Bootstrap.Enums;
 using ContextDepot.Domain.Owners;
+using Microsoft.Extensions.AI;
 using Moq;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace ContextDepot.Application.Tests.Bootstrap;
 
@@ -110,6 +118,58 @@ public sealed class BootstrapRetrievalTests
         Assert.Equal("projects/context-depot/docs/README.md", Assert.Single(result.Documents).Path);
     }
 
+    [Fact]
+    public async Task Semantic_scope_fallback_reuses_one_query_embedding_for_final_retrieval()
+    {
+        var workspaceId = Guid.CreateVersion7();
+        var workspace = new BootstrapWorkspaceCandidate(workspaceId, OwnerId, null, "Travel", "travel");
+        var context = Context(workspaceId, "Prefer hotels.", "travel.accommodation");
+        var semanticRepository = new Mock<ISemanticRetrievalRepository>();
+        var queryVectors = new List<float[]>();
+        var semanticCandidate = new SemanticContextCandidateRecord(context, 0.92);
+        semanticRepository
+            .Setup(x => x.FindContextCandidatesAsync(
+                It.IsAny<SemanticCandidateQuery>(),
+                It.IsAny<ReadOnlyMemory<float>>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<SemanticCandidateQuery, ReadOnlyMemory<float>, CancellationToken>((_, vector, _) => queryVectors.Add(vector.ToArray()))
+            .ReturnsAsync([semanticCandidate]);
+        semanticRepository
+            .Setup(x => x.FindDocumentCandidatesAsync(
+                It.IsAny<SemanticCandidateQuery>(),
+                It.IsAny<ReadOnlyMemory<float>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        var repository = new Mock<IBootstrapRepository>();
+        repository.Setup(x => x.FindScopeCandidatesAsync(It.IsAny<BootstrapQuery>(), It.IsAny<CancellationToken>())).ReturnsAsync([workspace]);
+        repository.Setup(x => x.FindContextCandidatesAsync(It.IsAny<BootstrapQuery>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        repository.Setup(x => x.FindDocumentCandidatesAsync(It.IsAny<BootstrapQuery>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        var generator = new Mock<IEmbeddingGenerator<string, Embedding<float>>>();
+        generator.Setup(x => x.GenerateAsync(
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<EmbeddingGenerationOptions>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GeneratedEmbeddings<Embedding<float>>([new(new[] { 1f, 0f, 0f })]));
+        var service = CreateService(
+            Owner(),
+            new Mock<IWorkspaceAppService>(),
+            repository,
+            semanticRepository,
+            generator);
+
+        var result = await service.BootstrapAsync(new BootstrapRequest("之前喜欢的住宿方式", MaxTokens: 100), CancellationToken.None);
+
+        Assert.Equal(ScopeResolutionStatus.Resolved, result.ScopeResolution.Status);
+        Assert.Equal(context.Id, Assert.Single(result.Contexts).Id);
+        Assert.True(result.Diagnostics.SemanticUsed);
+        Assert.Equal(2, queryVectors.Count);
+        Assert.Equal(queryVectors[0], queryVectors[1]);
+        generator.Verify(x => x.GenerateAsync(
+            It.IsAny<IEnumerable<string>>(),
+            It.IsAny<EmbeddingGenerationOptions>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     private static BootstrapContextCandidate Context(Guid workspaceId, string content, string? key) => new(
         Guid.CreateVersion7(),
         OwnerId,
@@ -143,6 +203,32 @@ public sealed class BootstrapRetrievalTests
     private static ContextBootstrapAppService CreateService(
         Mock<ICurrentOwnerContext> owner,
         Mock<IWorkspaceAppService> workspaces,
-        Mock<IBootstrapRepository> repository) =>
-        new(owner.Object, workspaces.Object, repository.Object, TimeProvider.System);
+        Mock<IBootstrapRepository> repository,
+        Mock<ISemanticRetrievalRepository>? semanticRepository = null,
+        Mock<IEmbeddingGenerator<string, Embedding<float>>>? generator = null)
+    {
+        semanticRepository ??= new Mock<ISemanticRetrievalRepository>();
+        var services = new Mock<IServiceProvider>();
+        if (generator is not null)
+        {
+            services.Setup(x => x.GetService(typeof(IEmbeddingGenerator<string, Embedding<float>>)))
+                .Returns(generator.Object);
+        }
+        var embeddingGenerator = new EmbeddingGeneratorService(
+            services.Object,
+            Options.Create(new EmbeddingOptions { Dimensions = generator is null ? 1536 : 3 }),
+            new HighConfidenceSecretDetector(),
+            new EmbeddingResultValidator(),
+            NullLogger<EmbeddingGeneratorService>.Instance);
+        return new(
+            owner.Object,
+            workspaces.Object,
+            repository.Object,
+            semanticRepository.Object,
+            embeddingGenerator,
+            new SemanticFallbackDecider(Options.Create(new RetrievalOptions())),
+            new SemanticWorkspaceAggregator(),
+            TimeProvider.System,
+            NullLogger<ContextBootstrapAppService>.Instance);
+    }
 }

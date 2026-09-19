@@ -7,6 +7,7 @@ using ContextDepot.Application.Documents.Contracts;
 using ContextDepot.Application.Embeddings;
 using ContextDepot.Application.IndexRepair;
 using ContextDepot.Application.IndexRepair.Contracts;
+using ContextDepot.Application.SemanticRetrieval;
 using ContextDepot.Application.Shared.Safety;
 using ContextDepot.Application.Shared.Runtime.Contracts;
 using ContextDepot.Application.Shared.Safety.Contracts;
@@ -38,6 +39,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IValidateOptions<RetrievalOptions>, RetrievalOptionsValidator>();
         services.AddSingleton<EmbeddingResultValidator>();
         services.AddScoped<EmbeddingGeneratorService>();
+        services.AddScoped<SemanticFallbackDecider>();
+        services.AddSingleton<SemanticWorkspaceAggregator>();
         services.AddSingleton<ISecretDetector, HighConfidenceSecretDetector>();
         services.AddSingleton<IProvenancePolicy, ProvenancePolicy>();
         services.AddScoped<ISourceSafetyService, SourceSafetyService>();
