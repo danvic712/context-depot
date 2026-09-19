@@ -1,14 +1,15 @@
 using Microsoft.Extensions.Options;
+using ContextDepot.Application.Embeddings;
 
 namespace ContextDepot.Infrastructure.VectorStore;
 
 internal sealed class VectorCollectionInitializer(
     PostgreSqlVectorStore vectorStore,
-    IOptions<PostgreSqlVectorStoreOptions> options)
+    IOptions<EmbeddingOptions> embeddingOptions)
 {
     public async Task InitializeAsync(CancellationToken cancellationToken)
     {
-        var configuration = options.Value;
+        var configuration = embeddingOptions.Value;
         var contextName = VectorCollectionNamePolicy.CreateContextCollectionName(
             configuration.Provider,
             configuration.Model,

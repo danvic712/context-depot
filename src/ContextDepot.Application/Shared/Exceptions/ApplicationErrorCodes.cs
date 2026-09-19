@@ -36,4 +36,8 @@ public static class ApplicationErrorCodes
     public const string DatabaseUnavailable = "DatabaseUnavailable";
     public const string DesignTimeConfigurationMissing = "DesignTimeConfigurationMissing";
     public const string MarkdownRootUnavailable = "MarkdownRootUnavailable";
+    public const string EmbeddingConfigurationInvalid = "EmbeddingConfigurationInvalid";
+    public const string EmbeddingGeneratorUnavailable = "EmbeddingGeneratorUnavailable";
+    public const string EmbeddingGeneratorInvalidResponse = "EmbeddingGeneratorInvalidResponse";
+    public const string EmbeddingDimensionMismatch = "EmbeddingDimensionMismatch";
 }

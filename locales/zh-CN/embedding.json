@@ -1,0 +1,6 @@
+{
+  "EmbeddingConfigurationInvalid": "Embedding 配置无效，请检查模型、维度和检索参数。",
+  "EmbeddingGeneratorUnavailable": "语义索引暂时不可用，系统会稍后重试。",
+  "EmbeddingGeneratorInvalidResponse": "语义索引服务返回了无效结果，系统会稍后重试。",
+  "EmbeddingDimensionMismatch": "语义索引的向量维度与当前配置不一致，请联系管理员。"
+}

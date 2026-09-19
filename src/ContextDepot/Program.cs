@@ -32,7 +32,7 @@ try
         options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
         options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
     });
-    builder.Services.AddContextDepotApplication();
+    builder.Services.AddContextDepotApplication(builder.Configuration);
     builder.Services.AddContextDepotInfrastructure(builder.Configuration);
     builder.Services
         .AddMcpServer(options => options.ServerInstructions = ContextDepotMCPInstructions.Text)

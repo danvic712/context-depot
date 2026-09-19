@@ -1,0 +1,6 @@
+{
+  "EmbeddingConfigurationInvalid": "The embedding configuration is invalid. Check the model, dimensions, and retrieval settings.",
+  "EmbeddingGeneratorUnavailable": "Semantic indexing is temporarily unavailable. The service will retry later.",
+  "EmbeddingGeneratorInvalidResponse": "The semantic indexing service returned an invalid result. The service will retry later.",
+  "EmbeddingDimensionMismatch": "The semantic index dimensions do not match the active configuration. Please contact an administrator."
+}

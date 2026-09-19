@@ -2,6 +2,9 @@
 
     <ItemGroup>
       <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+      <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+      <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+      <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
       <ProjectReference Include="..\ContextDepot.Domain\ContextDepot.Domain.csproj" />
     </ItemGroup>
 

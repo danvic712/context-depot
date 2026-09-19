@@ -36,11 +36,8 @@ public static class ServiceCollectionExtensions
         services.AddDbContext<ContextDepotDbContext>(options =>
             options.UseNpgsql(connectionString, npgsql => npgsql.MigrationsHistoryTable("ef_migrations", "public")));
         services.AddOptions<PostgreSqlVectorStoreOptions>()
-            .Bind(configuration.GetSection("ContextDepot:Embedding"))
+            .Bind(configuration.GetSection("ContextDepot:VectorStore"))
             .Validate(options => !string.IsNullOrWhiteSpace(options.Schema), "The vector store schema is required.")
-            .Validate(options => !string.IsNullOrWhiteSpace(options.Provider), "The embedding provider is required.")
-            .Validate(options => !string.IsNullOrWhiteSpace(options.Model), "The embedding model is required.")
-            .Validate(options => options.Dimensions > 0, "The embedding dimensions must be greater than zero.")
             .ValidateOnStart();
         services.AddSingleton<NpgsqlDataSource>(_ =>
         {
