@@ -7,6 +7,7 @@ using ContextDepot.Application.Workspaces.Contracts;
 using ContextDepot.Application.Workspaces.Dtos;
 using ContextDepot.Application.Contexts.Dtos;
 using ContextDepot.Application.Embeddings;
+using ContextDepot.Application.Retrieval;
 using ContextDepot.Application.SemanticRetrieval;
 using ContextDepot.Application.SemanticRetrieval.Contracts;
 using ContextDepot.Application.SemanticRetrieval.Dtos;
@@ -228,6 +229,9 @@ public sealed class BootstrapRetrievalTests
             embeddingGenerator,
             new SemanticFallbackDecider(Options.Create(new RetrievalOptions())),
             new SemanticWorkspaceAggregator(),
+            new HybridCandidateRanker(),
+            new RetrievalDeduplicator(Options.Create(new RetrievalOptions())),
+            new ContextBudgetAllocator(),
             TimeProvider.System,
             NullLogger<ContextBootstrapAppService>.Instance);
     }
