@@ -1,0 +1,9 @@
+{
+  "WorkspaceNotFound": "We couldn't find that workspace. Check the path and try again.",
+  "WorkspaceParentNotFound": "We couldn't find the parent workspace. Create it first and try again.",
+  "WorkspaceConcurrencyConflict": "This workspace was updated by another operation. Refresh it and try again.",
+  "WorkspaceWriteFailed": "We couldn't save the workspace. Please try again later.",
+  "InvalidWorkspaceName": "A workspace name is required.",
+  "InvalidWorkspaceMetadata": "Workspace metadata must be a valid JSON object.",
+  "InvalidWorkspacePath": "The workspace path is invalid. Use a safe relative path."
+}

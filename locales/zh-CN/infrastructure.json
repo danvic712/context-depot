@@ -1,0 +1,6 @@
+{
+  "DatabaseMigrationFailed": "服务启动时无法完成数据库初始化，请检查数据库连接后重试。",
+  "DatabaseUnavailable": "暂时无法连接数据服务，请稍后重试。",
+  "DesignTimeConfigurationMissing": "执行数据库迁移前，请设置 CONTEXT_DEPOT_DESIGNTIME_CONNECTION 连接配置。",
+  "MarkdownRootUnavailable": "Markdown 存储目录当前不可用，请检查目录权限或联系管理员。"
+}

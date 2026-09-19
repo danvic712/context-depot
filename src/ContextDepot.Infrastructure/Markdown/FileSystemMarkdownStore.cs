@@ -1,7 +1,9 @@
-using System.Security.Cryptography;
 using System.Text;
-using ContextDepot.Application.Abstractions;
 using ContextDepot.Application.Documents;
+using ContextDepot.Application.Documents.Dtos;
+using ContextDepot.Application.Documents.Contracts;
+using ContextDepot.Application.Shared.Exceptions;
+using ContextDepot.Infrastructure.Options;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
@@ -20,13 +22,14 @@ public sealed class FileSystemMarkdownStore(IHostEnvironment environment, IOptio
         }
 
         var content = await File.ReadAllTextAsync(path, cancellationToken);
-        return new MarkdownDocument(relativePath, content, Hash(content));
+        return new MarkdownDocument(relativePath, content, DocumentContentHasher.Compute(content));
     }
 
     public async Task WriteAtomicAsync(string relativePath, string content, CancellationToken cancellationToken)
     {
         var path = ResolvePath(relativePath);
-        var directory = Path.GetDirectoryName(path) ?? throw new InvalidOperationException("Markdown path has no directory.");
+        var directory = Path.GetDirectoryName(path)
+            ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidDocumentPath);
         Directory.CreateDirectory(directory);
         var temporary = Path.Combine(directory, "." + Path.GetFileName(path) + "." + Path.GetRandomFileName() + ".tmp");
         try
@@ -78,14 +81,14 @@ public sealed class FileSystemMarkdownStore(IHostEnvironment environment, IOptio
         var normalized = relativePath.Replace('\\', '/').Trim();
         if (normalized.Length == 0 || Path.IsPathRooted(relativePath) || normalized.StartsWith('/') || normalized.Split('/').Any(segment => segment is "." or ".." or ""))
         {
-            throw new ContextDepotApplicationException("InvalidDocumentPath", "Markdown path is outside the configured root.");
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidDocumentPath);
         }
 
         var full = Path.GetFullPath(Path.Combine(root, normalized.Replace('/', Path.DirectorySeparatorChar)));
         var rootWithSeparator = root.EndsWith(Path.DirectorySeparatorChar) ? root : root + Path.DirectorySeparatorChar;
         if (!full.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase))
         {
-            throw new ContextDepotApplicationException("InvalidDocumentPath", "Markdown path is outside the configured root.");
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidDocumentPath);
         }
 
         return full;
@@ -95,12 +98,11 @@ public sealed class FileSystemMarkdownStore(IHostEnvironment environment, IOptio
     {
         if (string.IsNullOrWhiteSpace(configuredRoot))
         {
-            throw new InvalidOperationException("ContextDepot:MarkdownRoot is required.");
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.MarkdownRootUnavailable);
         }
 
         var root = Path.IsPathRooted(configuredRoot) ? configuredRoot : Path.Combine(contentRoot, configuredRoot);
         return Path.GetFullPath(root);
     }
 
-    private static string Hash(string content) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content))).ToLowerInvariant();
 }

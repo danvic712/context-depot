@@ -1,30 +1,53 @@
-using System.Collections.Concurrent;
-
 namespace ContextDepot.Application.Documents;
 
 public sealed class DocumentWriteCoordinator
 {
-    private readonly ConcurrentDictionary<string, SemaphoreSlim> locks = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, DocumentWriteLockEntry> locks = new(StringComparer.Ordinal);
+    private readonly object gate = new();
 
     public async ValueTask<IAsyncDisposable> AcquireAsync(string key, CancellationToken cancellationToken)
     {
-        var semaphore = locks.GetOrAdd(key, static _ => new SemaphoreSlim(1, 1));
-        await semaphore.WaitAsync(cancellationToken);
-        return new Releaser(key, semaphore, locks);
-    }
-
-    private sealed class Releaser(string key, SemaphoreSlim semaphore, ConcurrentDictionary<string, SemaphoreSlim> locks) : IAsyncDisposable
-    {
-        public ValueTask DisposeAsync()
+        DocumentWriteLockEntry entry;
+        lock (gate)
         {
-            semaphore.Release();
-            if (semaphore.CurrentCount == 1)
+            if (!locks.TryGetValue(key, out entry!))
             {
-                locks.TryRemove(new KeyValuePair<string, SemaphoreSlim>(key, semaphore));
+                entry = new DocumentWriteLockEntry();
+                locks.Add(key, entry);
             }
 
-            semaphore.Dispose();
-            return ValueTask.CompletedTask;
+            entry.AddReference();
+        }
+
+        try
+        {
+            await entry.WaitAsync(cancellationToken);
+            return new DocumentWriteLease(this, key, entry);
+        }
+        catch
+        {
+            ReleaseReference(key, entry);
+            throw;
+        }
+    }
+
+    internal void Release(string key, DocumentWriteLockEntry entry)
+    {
+        entry.Release();
+        ReleaseReference(key, entry);
+    }
+
+    private void ReleaseReference(string key, DocumentWriteLockEntry entry)
+    {
+        lock (gate)
+        {
+            if (!entry.RemoveReference() || !locks.TryGetValue(key, out var current) || !ReferenceEquals(current, entry))
+            {
+                return;
+            }
+
+            locks.Remove(key);
+            entry.Dispose();
         }
     }
 }

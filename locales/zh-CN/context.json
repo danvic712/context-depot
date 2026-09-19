@@ -1,0 +1,15 @@
+{
+  "ContextNotFound": "没有找到这条 Context，请刷新后重试。",
+  "ContextConcurrencyConflict": "这条 Context 刚刚被其他操作更新，请刷新后再试。",
+  "ContextWriteFailed": "无法保存这条 Context，请稍后重试。",
+  "ContextKindConflict": "相同 Key 已存在其他类型的 Context，请更换 Key 或使用已有 Context。",
+  "InvalidContextContent": "请填写 Context 内容后再保存。",
+  "InvalidContextKind": "Context 类型不受支持，请选择有效的类型。",
+  "InvalidContextKey": "Context Key 只能包含小写字母、数字、点、下划线和连字符。",
+  "InvalidContextMetadata": "Context 的 metadata 必须是有效的 JSON 对象。",
+  "InvalidContextQuality": "Importance 和 confidence 必须填写 0 到 1 之间的值。",
+  "InvalidStateKey": "State 类型的 Context 需要填写稳定的 Key。",
+  "InvalidSupersedeTarget": "只能替换当前 Workspace 中正在生效的 Context。",
+  "InvalidVerificationStatus": "当前来源不允许设置该验证状态。",
+  "ContextTooLarge": "Context 内容过长，请精简后再试。"
+}

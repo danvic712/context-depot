@@ -1,0 +1,9 @@
+{
+  "WorkspaceNotFound": "没有找到该 Workspace，请检查路径后重试。",
+  "WorkspaceParentNotFound": "找不到父 Workspace，请先创建父级 Workspace。",
+  "WorkspaceConcurrencyConflict": "Workspace 刚刚被其他操作更新，请刷新后再试。",
+  "WorkspaceWriteFailed": "无法保存 Workspace，请稍后重试。",
+  "InvalidWorkspaceName": "Workspace 名称不能为空，请输入名称。",
+  "InvalidWorkspaceMetadata": "Workspace 的 metadata 必须是有效的 JSON 对象。",
+  "InvalidWorkspacePath": "Workspace 路径无效，请使用安全的相对路径。"
+}

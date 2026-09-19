@@ -1,0 +1,15 @@
+{
+  "ContextNotFound": "We couldn't find that context. Refresh it and try again.",
+  "ContextConcurrencyConflict": "This context was updated by another operation. Refresh it and try again.",
+  "ContextWriteFailed": "We couldn't save this context. Please try again later.",
+  "ContextKindConflict": "The same key is already used by a different context type. Choose another key or use the existing context.",
+  "InvalidContextContent": "Enter context content before saving.",
+  "InvalidContextKind": "This context type is not supported. Choose a valid type.",
+  "InvalidContextKey": "Context keys may contain only lowercase letters, numbers, dots, underscores, and hyphens.",
+  "InvalidContextMetadata": "Context metadata must be a valid JSON object.",
+  "InvalidContextQuality": "Importance and confidence must be between 0 and 1.",
+  "InvalidStateKey": "State contexts require a stable key.",
+  "InvalidSupersedeTarget": "Only an active context in the current workspace can be replaced.",
+  "InvalidVerificationStatus": "This source does not allow that verification status.",
+  "ContextTooLarge": "This context is too long. Shorten it and try again."
+}

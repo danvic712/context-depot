@@ -1,7 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <ItemGroup>
+      <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
       <ProjectReference Include="..\ContextDepot.Domain\ContextDepot.Domain.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <EmbeddedResource Include="..\..\locales\**\*.json" Exclude="..\..\locales\**\domain.json">
+        <Link>locales\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      </EmbeddedResource>
     </ItemGroup>
 
 </Project>

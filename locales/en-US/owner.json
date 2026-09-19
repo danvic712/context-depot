@@ -1,0 +1,4 @@
+{
+  "OwnerNotConfigured": "The service has not been configured with an owner. Please contact an administrator.",
+  "OwnerConfigurationMismatch": "The configured owner does not match the stored data. Please contact an administrator."
+}

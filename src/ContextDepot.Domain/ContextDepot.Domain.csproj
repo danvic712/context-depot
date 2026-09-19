@@ -1,3 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+    <ItemGroup>
+      <EmbeddedResource Include="..\..\locales\*\domain.json">
+        <Link>locales\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      </EmbeddedResource>
+    </ItemGroup>
+
 </Project>

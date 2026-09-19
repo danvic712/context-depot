@@ -1,0 +1,7 @@
+{
+  "DocumentNotFound": "没有找到该文档，请检查路径后重试。",
+  "DocumentConflict": "文档内容已经被其他操作更新，请重新读取后再保存。",
+  "InvalidDocumentTitle": "文档标题不能为空，请输入标题。",
+  "InvalidDocumentPath": "文档路径无效，请使用安全的相对 Markdown 路径。",
+  "DocumentWriteFailed": "无法保存文档，请稍后重试。"
+}

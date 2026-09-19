@@ -1,0 +1,6 @@
+{
+  "DatabaseMigrationFailed": "The service couldn't initialize the database. Check the database connection and try again.",
+  "DatabaseUnavailable": "The data service is temporarily unavailable. Please try again later.",
+  "DesignTimeConfigurationMissing": "Set CONTEXT_DEPOT_DESIGNTIME_CONNECTION before running database migrations.",
+  "MarkdownRootUnavailable": "The Markdown storage directory is unavailable. Check its permissions or contact an administrator."
+}

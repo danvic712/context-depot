@@ -1,10 +1,16 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using ContextDepot.Application.Abstractions;
-using ContextDepot.Application.Persistence;
-using ContextDepot.Application.Safety;
-using ContextDepot.Application.Workspaces;
-using ContextDepot.Domain.Entities;
+using ContextDepot.Application.Contexts.Contracts;
+using ContextDepot.Application.Contexts.Enums;
+using ContextDepot.Application.Shared.Exceptions;
+using ContextDepot.Application.Shared.Runtime.Contracts;
+using ContextDepot.Application.Shared.Safety.Contracts;
+using ContextDepot.Application.Shared.Safety.Dtos;
+using ContextDepot.Application.Shared.Validation;
+using ContextDepot.Application.Workspaces.Contracts;
+using ContextDepot.Application.Contexts.Dtos;
+using ContextDepot.Domain.Contexts;
+using ContextDepot.Domain.Contexts.Enums;
 
 namespace ContextDepot.Application.Contexts;
 
@@ -14,131 +20,143 @@ public sealed partial class ContextAppService(
     IContextRepository repository,
     ISourceSafetyService sourceSafety,
     IIdGenerator idGenerator,
-    IClock clock) : IContextAppService
+    TimeProvider timeProvider) : IContextAppService
 {
     public async Task<SaveContextResult> SaveAsync(SaveContextCommand command, CancellationToken cancellationToken)
     {
         var workspace = await workspaceAppService.ResolveAsync(command.Workspace, cancellationToken)
-            ?? throw new ContextDepotApplicationException("WorkspaceNotFound", "The requested workspace does not exist.");
+            ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspaceNotFound);
         var content = NormalizeContent(command.Content);
         if (content.Length == 0)
         {
-            throw new ContextDepotApplicationException("InvalidContextContent", "Context content is required.");
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidContextContent);
         }
 
         Validate(command, content);
+        sourceSafety.EnsureSafe(workspace.Path);
         sourceSafety.EnsureSafe(content);
         sourceSafety.EnsureSafe(command.Title);
+        sourceSafety.EnsureSafe(command.Key);
+        sourceSafety.EnsureSafe(command.SourceAgent);
         sourceSafety.EnsureSafe(command.SourceRef);
-        ValidateMetadata(command.MetadataJson);
+        sourceSafety.EnsureSafe(command.MetadataJson);
+        foreach (var tag in command.Tags ?? [])
+        {
+            sourceSafety.EnsureSafe(tag);
+        }
+
+        JsonObjectValidator.EnsureObject(command.MetadataJson, ApplicationErrorCodes.InvalidContextMetadata);
         var provenance = sourceSafety.EvaluateProvenance(new ProvenanceInput(
             command.SourceType,
             command.VerificationStatus,
             command.RequestedProvenanceTrust,
             command.SourceAgent,
-            command.SourceRef));
+            command.SourceRef,
+            command.IsTrustedServer));
 
         var normalizedKey = NormalizeKey(command.Key);
-        var previous = normalizedKey is not null
-            ? await repository.GetActiveByKeyAsync(currentOwner.OwnerId, workspace.Id, normalizedKey, cancellationToken)
-            : null;
-        if (previous is not null && previous.Kind != command.Kind)
+        if (command.SupersedesId is not null && (normalizedKey is not null || command.Kind == ContextKind.State))
         {
-            throw new ContextDepotApplicationException("ContextKindConflict", "The stable key is already used by another context kind.");
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidSupersedeTarget);
         }
 
-        if (previous is null && command.Kind is ContextKind.Fact or ContextKind.Preference or ContextKind.Decision or ContextKind.Goal && command.SupersedesId is null)
-        {
-            var duplicate = await repository.GetActiveDuplicateAsync(currentOwner.OwnerId, workspace.Id, command.Kind, content, cancellationToken);
-            if (duplicate is not null)
-            {
-                return new SaveContextResult(ToModel(duplicate), SaveContextOutcome.ReusedExisting);
-            }
-        }
-
-        if (previous is null && command.Kind == ContextKind.Event && !string.IsNullOrWhiteSpace(command.SourceRef))
-        {
-            previous = await repository.GetActiveBySourceAsync(currentOwner.OwnerId, workspace.Id, command.SourceType, command.SourceRef.Trim(), cancellationToken);
-            if (previous is not null)
-            {
-                return new SaveContextResult(ToModel(previous), SaveContextOutcome.ReusedExisting);
-            }
-        }
-
-        ContextItem? explicitTarget = null;
-        if (command.SupersedesId is not null)
-        {
-            if (normalizedKey is not null || command.Kind == ContextKind.State)
-            {
-                throw new ContextDepotApplicationException("InvalidSupersede", "A stable key and explicit supersedesId cannot be used together.");
-            }
-
-            explicitTarget = await repository.GetByIdAsync(currentOwner.OwnerId, command.SupersedesId.Value, cancellationToken);
-            if (explicitTarget is null || explicitTarget.WorkspaceId != workspace.Id || explicitTarget.Status != ContextStatus.Active)
-            {
-                throw new ContextDepotApplicationException("SupersedeTargetNotFound", "The supersede target is not an active context in this workspace.");
-            }
-        }
-
-        if (previous is not null && command.Kind == ContextKind.Event && string.IsNullOrWhiteSpace(command.SourceRef))
-        {
-            previous = null;
-        }
-
-        if (previous is not null && NormalizeContent(previous.Content) == content && normalizedKey is not null)
-        {
-            return new SaveContextResult(ToModel(previous), SaveContextOutcome.ReusedExisting);
-        }
-
-        var now = clock.UtcNow;
-        var context = new ContextItem(idGenerator.NewId(), currentOwner.OwnerId, workspace.Id, command.Kind, normalizedKey, NormalizeOptional(command.Title), content, now);
+        var now = timeProvider.GetUtcNow();
+        var context = new ContextItem(
+            idGenerator.NewId(),
+            currentOwner.OwnerId,
+            workspace.Id,
+            command.Kind,
+            normalizedKey,
+            NormalizeOptional(command.Title),
+            content,
+            now);
         context.SetQuality(command.Importance, command.Confidence);
         context.SetValidity(command.ValidFrom, command.ValidUntil, command.ExpiresAt);
         context.SetTags(JsonSerializer.Serialize((command.Tags ?? []).Select(tag => tag.Trim()).Where(tag => tag.Length > 0).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)));
         context.SetMetadata(command.MetadataJson);
-        context.ConfigureProvenance(provenance.VerificationStatus, provenance.Trust, provenance.SourceType, provenance.SourceAgent, provenance.SourceRef);
+        context.ConfigureProvenance(
+            provenance.VerificationStatus,
+            provenance.Trust,
+            provenance.SourceType,
+            NormalizeOptional(provenance.SourceAgent),
+            NormalizeOptional(provenance.SourceRef));
 
-        var priorId = previous?.Id ?? explicitTarget?.Id;
-        if (previous is not null)
+        ContextPersistenceResult result;
+        if (command.SupersedesId is Guid supersedesId)
         {
-            previous.MarkSuperseded(now);
-            context.SetSupersedes(previous.Id);
+            result = await repository.SupersedeByIdAsync(context, supersedesId, now, cancellationToken);
         }
-        else if (explicitTarget is not null)
+        else if (normalizedKey is not null)
         {
-            explicitTarget.MarkSuperseded(now);
-            context.SetSupersedes(explicitTarget.Id);
+            result = await repository.SaveKeyedAsync(context, now, cancellationToken);
+        }
+        else
+        {
+            var duplicatePolicy = command.Kind switch
+            {
+                ContextKind.Fact or ContextKind.Preference or ContextKind.Decision or ContextKind.Goal => UnkeyedDuplicatePolicy.ExactContent,
+                ContextKind.Event when !string.IsNullOrWhiteSpace(context.SourceRef) => UnkeyedDuplicatePolicy.SourceIdentity,
+                _ => UnkeyedDuplicatePolicy.None
+            };
+            result = await repository.SaveUnkeyedAsync(context, duplicatePolicy, now, cancellationToken);
         }
 
-        await repository.AddAsync(context, cancellationToken);
-        await repository.SaveChangesAsync(cancellationToken);
-        var outcome = priorId is null ? SaveContextOutcome.Created : normalizedKey is null ? SaveContextOutcome.SupersededExisting : SaveContextOutcome.UpdatedCurrentTruth;
-        return new SaveContextResult(ToModel(context), outcome, priorId);
+        return result.Outcome switch
+        {
+            ContextPersistenceOutcome.Created => ToSaveResult(result, SaveContextOutcome.Created),
+            ContextPersistenceOutcome.Replaced => ToSaveResult(result, result.PreviousContextId is not null && normalizedKey is not null ? SaveContextOutcome.UpdatedCurrentTruth : SaveContextOutcome.SupersededExisting),
+            ContextPersistenceOutcome.ReusedExisting => ToSaveResult(result, SaveContextOutcome.ReusedExisting),
+            ContextPersistenceOutcome.KindConflict => throw new ContextDepotApplicationException(ApplicationErrorCodes.ContextKindConflict),
+            ContextPersistenceOutcome.InvalidTarget => throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidSupersedeTarget),
+            ContextPersistenceOutcome.ConcurrencyConflict => throw new ContextDepotApplicationException(ApplicationErrorCodes.ContextConcurrencyConflict),
+            _ => throw new ContextDepotApplicationException(ApplicationErrorCodes.ContextWriteFailed)
+        };
     }
 
     public async Task ArchiveAsync(Guid contextId, CancellationToken cancellationToken)
     {
-        var context = await repository.GetByIdAsync(currentOwner.OwnerId, contextId, cancellationToken)
-            ?? throw new ContextDepotApplicationException("ContextNotFound", "The requested context does not exist.");
-        context.MarkArchived(clock.UtcNow);
-        await repository.SaveChangesAsync(cancellationToken);
+        var result = await repository.ArchiveAsync(currentOwner.OwnerId, contextId, timeProvider.GetUtcNow(), cancellationToken);
+        if (result.Outcome == ContextPersistenceOutcome.NotFound)
+        {
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.ContextNotFound);
+        }
+
+        if (result.Outcome == ContextPersistenceOutcome.ConcurrencyConflict)
+        {
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.ContextConcurrencyConflict);
+        }
+    }
+
+    private static SaveContextResult ToSaveResult(ContextPersistenceResult result, SaveContextOutcome outcome)
+    {
+        if (result.Context is null)
+        {
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.ContextWriteFailed);
+        }
+
+        return new SaveContextResult(ToModel(result.Context), outcome, result.PreviousContextId);
     }
 
     private static void Validate(SaveContextCommand command, string content)
     {
+        if (command.Kind == ContextKind.Observation)
+        {
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidContextKind);
+        }
+
         if (command.Kind == ContextKind.State && string.IsNullOrWhiteSpace(command.Key))
         {
-            throw new ContextDepotApplicationException("ContextKeyRequired", "State contexts require a stable key.");
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidStateKey);
         }
 
         if (command.Importance is < 0 or > 100 || command.Confidence is < 0 or > 1)
         {
-            throw new ContextDepotApplicationException("InvalidContextQuality", "Importance and confidence are out of range.");
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidContextQuality);
         }
 
         if (content.Length > 100_000)
         {
-            throw new ContextDepotApplicationException("ContextTooLarge", "Context content exceeds the maximum size.");
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.ContextTooLarge);
         }
     }
 
@@ -154,29 +172,13 @@ public sealed partial class ContextAppService(
         var normalized = key.Trim().ToLowerInvariant();
         if (!KeyRegex().IsMatch(normalized))
         {
-            throw new ContextDepotApplicationException("InvalidContextKey", "Context key must contain lowercase letters, numbers, dots, underscores or hyphens.");
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidContextKey);
         }
 
         return normalized;
     }
 
     private static string? NormalizeOptional(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-
-    private static void ValidateMetadata(string metadataJson)
-    {
-        try
-        {
-            using var document = JsonDocument.Parse(metadataJson);
-            if (document.RootElement.ValueKind != JsonValueKind.Object)
-            {
-                throw new FormatException();
-            }
-        }
-        catch (Exception exception) when (exception is JsonException or FormatException)
-        {
-            throw new ContextDepotApplicationException("InvalidContextMetadata", "Context metadata must be a JSON object.");
-        }
-    }
 
     private static ContextModel ToModel(ContextItem context)
     {
