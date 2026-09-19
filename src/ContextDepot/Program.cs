@@ -3,11 +3,13 @@ using System.Text.Json.Serialization;
 using ContextDepot.Application;
 using ContextDepot.Background;
 using ContextDepot.Infrastructure;
+using ContextDepot.HealthChecks;
 using ContextDepot.MCP.Contexts;
 using ContextDepot.MCP.Documents;
 using ContextDepot.MCP.Owners;
 using ContextDepot.MCP.Shared;
 using ContextDepot.MCP.Workspaces;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using ModelContextProtocol.AspNetCore;
 using Serilog;
@@ -47,7 +49,10 @@ try
     var app = builder.Build();
 
     app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
-    app.MapHealthChecks("/readyz");
+    app.MapHealthChecks("/readyz", new HealthCheckOptions
+    {
+        ResponseWriter = ReadinessResponseWriter.WriteAsync
+    });
     app.MapMcp("/mcp");
 
     await app.RunAsync();

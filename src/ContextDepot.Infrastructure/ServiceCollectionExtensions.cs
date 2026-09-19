@@ -50,6 +50,7 @@ public static class ServiceCollectionExtensions
         });
         services.AddSingleton<PostgreSqlVectorStore>();
         services.AddSingleton<VectorCollectionInitializer>();
+        services.AddScoped<VectorCoverageSnapshotProvider>();
         services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
         services.AddScoped<IContextRepository, ContextRepository>();
         services.AddScoped<IContextQueryRepository, ContextQueryRepository>();
@@ -62,7 +63,8 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<ContextDepotInfrastructureInitializer>();
         services.AddHealthChecks()
             .AddCheck<PostgreSqlHealthCheck>("postgresql")
-            .AddCheck<CurrentOwnerHealthCheck>("current_owner");
+            .AddCheck<CurrentOwnerHealthCheck>("current_owner")
+            .AddCheck<VectorCoverageHealthCheck>("vector_coverage");
 
         services.AddOptions<CurrentOwnerOptions>()
             .Bind(configuration.GetSection("ContextDepot:Owner"))
