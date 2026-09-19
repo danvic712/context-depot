@@ -4,6 +4,7 @@ using ContextDepot.Application.Documents.Contracts;
 using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Application.Shared.Runtime.Contracts;
 using ContextDepot.Application.Workspaces.Contracts;
+using ContextDepot.Application.VectorIndex.Contracts;
 using ContextDepot.Infrastructure.CurrentOwner;
 using ContextDepot.Infrastructure.HealthChecks;
 using ContextDepot.Infrastructure.Markdown;
@@ -51,6 +52,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IContextRepository, ContextRepository>();
         services.AddScoped<IDocumentRepository, DocumentRepository>();
         services.AddScoped<IBootstrapRepository, BootstrapRepository>();
+        services.AddScoped<IVectorIndexRepository, VectorDataVectorIndexRepository>();
         services.AddScoped<CurrentOwnerBootstrapper>();
         services.AddHostedService<ContextDepotInfrastructureInitializer>();
         services.AddHealthChecks()
