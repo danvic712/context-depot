@@ -1,5 +1,6 @@
 using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Infrastructure.CurrentOwner;
+using ContextDepot.Infrastructure.VectorStore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -9,6 +10,7 @@ namespace ContextDepot.Infrastructure;
 
 internal sealed class ContextDepotInfrastructureInitializer(
     IServiceScopeFactory scopeFactory,
+    VectorCollectionInitializer vectorCollectionInitializer,
     ILogger<ContextDepotInfrastructureInitializer> logger) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -18,6 +20,7 @@ internal sealed class ContextDepotInfrastructureInitializer(
         {
             var db = scope.ServiceProvider.GetRequiredService<ContextDepotDbContext>();
             await db.Database.MigrateAsync(cancellationToken);
+            await vectorCollectionInitializer.InitializeAsync(cancellationToken);
             await scope.ServiceProvider
                 .GetRequiredService<CurrentOwnerBootstrapper>()
                 .InitializeAsync(cancellationToken);

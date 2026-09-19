@@ -5,6 +5,9 @@
       <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
       <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
       <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+      <PackageReference Include="Microsoft.Extensions.VectorData.Abstractions" />
+      <PackageReference Include="Npgsql" />
+      <PackageReference Include="Pgvector" />
       <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
       <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
       <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" />

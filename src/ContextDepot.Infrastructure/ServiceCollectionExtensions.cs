@@ -11,10 +11,13 @@ using ContextDepot.Infrastructure.Options;
 using ContextDepot.Infrastructure.Persistence;
 using ContextDepot.Infrastructure.Repositories;
 using ContextDepot.Infrastructure.Shared;
+using ContextDepot.Infrastructure.VectorStore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Npgsql;
+using Pgvector;
 
 namespace ContextDepot.Infrastructure;
 
@@ -32,6 +35,21 @@ public static class ServiceCollectionExtensions
 
         services.AddDbContext<ContextDepotDbContext>(options =>
             options.UseNpgsql(connectionString, npgsql => npgsql.MigrationsHistoryTable("ef_migrations", "public")));
+        services.AddOptions<PostgreSqlVectorStoreOptions>()
+            .Bind(configuration.GetSection("ContextDepot:Embedding"))
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Schema), "The vector store schema is required.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Provider), "The embedding provider is required.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Model), "The embedding model is required.")
+            .Validate(options => options.Dimensions > 0, "The embedding dimensions must be greater than zero.")
+            .ValidateOnStart();
+        services.AddSingleton<NpgsqlDataSource>(_ =>
+        {
+            var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
+            dataSourceBuilder.UseVector();
+            return dataSourceBuilder.Build();
+        });
+        services.AddSingleton<PostgreSqlVectorStore>();
+        services.AddSingleton<VectorCollectionInitializer>();
         services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
         services.AddScoped<IContextRepository, ContextRepository>();
         services.AddScoped<IDocumentRepository, DocumentRepository>();
