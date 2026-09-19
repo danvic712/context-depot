@@ -1,13 +1,14 @@
 using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Application.Shared.Safety.Contracts;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace ContextDepot.Application.Embeddings;
 
 public sealed class EmbeddingGeneratorService(
-    IEmbeddingGenerator<string, Embedding<float>> generator,
+    IServiceProvider services,
     IOptions<EmbeddingOptions> options,
     ISecretDetector secretDetector,
     EmbeddingResultValidator resultValidator,
@@ -37,6 +38,15 @@ public sealed class EmbeddingGeneratorService(
         }
 
         var profile = EmbeddingProfile.From(options.Value);
+        var generator = services.GetService<IEmbeddingGenerator<string, Embedding<float>>>();
+        if (generator is null)
+        {
+            logger.LogWarning(
+                "{ErrorCode} is unavailable because no embedding generator is registered.",
+                ApplicationErrorCodes.EmbeddingGeneratorUnavailable);
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.EmbeddingGeneratorUnavailable);
+        }
+
         GeneratedEmbeddings<Embedding<float>> generated;
         try
         {

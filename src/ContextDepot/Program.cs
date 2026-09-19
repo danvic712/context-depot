@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ContextDepot.Application;
+using ContextDepot.Background;
 using ContextDepot.Infrastructure;
 using ContextDepot.MCP.Contexts;
 using ContextDepot.MCP.Documents;
@@ -34,6 +35,7 @@ try
     });
     builder.Services.AddContextDepotApplication(builder.Configuration);
     builder.Services.AddContextDepotInfrastructure(builder.Configuration);
+    builder.Services.AddHostedService<IndexRepairHostedService>();
     builder.Services
         .AddMcpServer(options => options.ServerInstructions = ContextDepotMCPInstructions.Text)
         .WithHttpTransport(options => options.SessionMode = HttpServerSessionMode.Stateless)

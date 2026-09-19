@@ -1,6 +1,7 @@
 using ContextDepot.Application.Bootstrap.Contracts;
 using ContextDepot.Application.Contexts.Contracts;
 using ContextDepot.Application.Documents.Contracts;
+using ContextDepot.Application.IndexRepair.Contracts;
 using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Application.Shared.Runtime.Contracts;
 using ContextDepot.Application.Workspaces.Contracts;
@@ -51,6 +52,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
         services.AddScoped<IContextRepository, ContextRepository>();
         services.AddScoped<IDocumentRepository, DocumentRepository>();
+        services.AddScoped<IIndexRepairRepository, PostgreSqlIndexRepairRepository>();
         services.AddScoped<IBootstrapRepository, BootstrapRepository>();
         services.AddScoped<IVectorIndexRepository, VectorDataVectorIndexRepository>();
         services.AddScoped<CurrentOwnerBootstrapper>();

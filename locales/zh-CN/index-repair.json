@@ -1,0 +1,3 @@
+{
+  "IndexRepairRequestInvalid": "索引修复参数无效，请检查批大小和最大批次数。"
+}

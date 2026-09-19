@@ -59,6 +59,25 @@ public sealed class EmbeddingGeneratorServiceTests
     }
 
     [Fact]
+    public async Task Missing_generator_is_treated_as_a_degraded_dependency()
+    {
+        var generator = new Mock<IEmbeddingGenerator<string, Embedding<float>>>();
+        var services = new Mock<IServiceProvider>();
+        var service = new EmbeddingGeneratorService(
+            services.Object,
+            Options.Create(new EmbeddingOptions { Dimensions = 3 }),
+            new ContextDepot.Application.Shared.Safety.HighConfidenceSecretDetector(),
+            new EmbeddingResultValidator(),
+            NullLogger<EmbeddingGeneratorService>.Instance);
+
+        var exception = await Assert.ThrowsAsync<ContextDepotApplicationException>(() =>
+            service.GenerateAsync(["safe input"], CancellationToken.None));
+
+        Assert.Equal(ApplicationErrorCodes.EmbeddingGeneratorUnavailable, exception.ErrorCode);
+        generator.VerifyNoOtherCalls();
+    }
+
+    [Fact]
     public async Task Invalid_dimension_is_mapped_to_a_stable_error_code()
     {
         var generator = new Mock<IEmbeddingGenerator<string, Embedding<float>>>();
@@ -105,9 +124,17 @@ public sealed class EmbeddingGeneratorServiceTests
 
     private static EmbeddingGeneratorService CreateService(Mock<IEmbeddingGenerator<string, Embedding<float>>> generator) =>
         new(
-            generator.Object,
+            CreateServices(generator),
             Options.Create(new EmbeddingOptions { Dimensions = 3 }),
             new ContextDepot.Application.Shared.Safety.HighConfidenceSecretDetector(),
             new EmbeddingResultValidator(),
             NullLogger<EmbeddingGeneratorService>.Instance);
+
+    private static IServiceProvider CreateServices(Mock<IEmbeddingGenerator<string, Embedding<float>>> generator)
+    {
+        var services = new Mock<IServiceProvider>();
+        services.Setup(x => x.GetService(typeof(IEmbeddingGenerator<string, Embedding<float>>)))
+            .Returns(generator.Object);
+        return services.Object;
+    }
 }

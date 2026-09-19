@@ -5,6 +5,8 @@ using ContextDepot.Application.Bootstrap.Contracts;
 using ContextDepot.Application.Contexts.Contracts;
 using ContextDepot.Application.Documents.Contracts;
 using ContextDepot.Application.Embeddings;
+using ContextDepot.Application.IndexRepair;
+using ContextDepot.Application.IndexRepair.Contracts;
 using ContextDepot.Application.Shared.Safety;
 using ContextDepot.Application.Shared.Runtime.Contracts;
 using ContextDepot.Application.Shared.Safety.Contracts;
@@ -30,13 +32,12 @@ public static class ServiceCollectionExtensions
             .Bind(configuration.GetSection("ContextDepot:Embedding"))
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<EmbeddingOptions>, EmbeddingOptionsValidator>();
-        services.AddSingleton<IValidateOptions<EmbeddingOptions>, EmbeddingGeneratorRegistrationValidator>();
         services.AddOptions<RetrievalOptions>()
             .Bind(configuration.GetSection("ContextDepot:Retrieval"))
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<RetrievalOptions>, RetrievalOptionsValidator>();
         services.AddSingleton<EmbeddingResultValidator>();
-        services.AddSingleton<EmbeddingGeneratorService>();
+        services.AddScoped<EmbeddingGeneratorService>();
         services.AddSingleton<ISecretDetector, HighConfidenceSecretDetector>();
         services.AddSingleton<IProvenancePolicy, ProvenancePolicy>();
         services.AddScoped<ISourceSafetyService, SourceSafetyService>();
@@ -44,6 +45,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IContextAppService, ContextAppService>();
         services.AddScoped<IDocumentAppService, DocumentAppService>();
         services.AddScoped<IContextBootstrapAppService, ContextBootstrapAppService>();
+        services.AddScoped<IIndexRepairAppService, IndexRepairAppService>();
         return services;
     }
 }

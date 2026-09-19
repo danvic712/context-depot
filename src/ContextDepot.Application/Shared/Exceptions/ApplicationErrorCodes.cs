@@ -40,4 +40,6 @@ public static class ApplicationErrorCodes
     public const string EmbeddingGeneratorUnavailable = "EmbeddingGeneratorUnavailable";
     public const string EmbeddingGeneratorInvalidResponse = "EmbeddingGeneratorInvalidResponse";
     public const string EmbeddingDimensionMismatch = "EmbeddingDimensionMismatch";
+    public const string MarkdownFileMissing = "MarkdownFileMissing";
+    public const string IndexRepairRequestInvalid = "IndexRepairRequestInvalid";
 }

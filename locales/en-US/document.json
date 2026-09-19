@@ -3,5 +3,6 @@
   "DocumentConflict": "The document changed during the operation. Read the latest content and try again.",
   "InvalidDocumentTitle": "A document title is required.",
   "InvalidDocumentPath": "The document path is invalid. Use a safe relative Markdown path.",
-  "DocumentWriteFailed": "We couldn't save the document. Please try again later."
+  "DocumentWriteFailed": "We couldn't save the document. Please try again later.",
+  "MarkdownFileMissing": "The Markdown file for this document is missing. Indexing will retry when it is restored."
 }
