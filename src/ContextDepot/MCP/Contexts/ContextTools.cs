@@ -29,6 +29,36 @@ public sealed class ContextTools(ILogger<ContextTools> logger)
             logger);
     }
 
+    [McpServerTool(Name = "context_search", Title = "Search explicit context", ReadOnly = true, Idempotent = true, UseStructuredContent = true)]
+    [Description("Search the current owner's durable Context and Markdown excerpts for an explicit query. This does not infer an automatic workspace scope; omit workspaces for an owner-wide search or provide explicit workspace paths.")]
+    public async Task<ContextSearchResult> SearchAsync(
+        IContextQueryAppService service,
+        [Description("The information you explicitly want to find.")] string query,
+        [Description("Optional explicit workspace paths. Omit to search the current owner across all workspaces.")] IReadOnlyList<string>? workspaces = null,
+        [Description("Include child workspaces below each explicit workspace.")] bool includeDescendants = false,
+        [Description("Optional context kinds to include.")] IReadOnlyList<ContextKind>? kinds = null,
+        [Description("Maximum number of Context and Markdown matches combined.")] int? limit = null,
+        CancellationToken cancellationToken = default)
+    {
+        return await MCPToolExecutor.ExecuteAsync(
+            () => service.SearchAsync(
+                new ContextSearchRequest(query, workspaces, includeDescendants, kinds, limit),
+                cancellationToken),
+            logger);
+    }
+
+    [McpServerTool(Name = "context_get", Title = "Get context details", ReadOnly = true, Idempotent = true, UseStructuredContent = true)]
+    [Description("Read a known Context ID in the current owner scope, including archived and superseded lifecycle details. This never reads another owner and never changes lifecycle state.")]
+    public async Task<ContextDetailModel?> GetAsync(
+        IContextQueryAppService service,
+        Guid contextId,
+        CancellationToken cancellationToken = default)
+    {
+        return await MCPToolExecutor.ExecuteAsync(
+            () => service.GetAsync(contextId, cancellationToken),
+            logger);
+    }
+
     [McpServerTool(Name = "context_save", Title = "Save durable context", Destructive = false, UseStructuredContent = true)]
     [Description("Save durable fact, preference, decision, goal, state, or event after the user explicitly asks to remember it or it is clearly long-lived. The current owner is configured by the host; never provide ownerId.")]
     public async Task<SaveContextResult> SaveAsync(

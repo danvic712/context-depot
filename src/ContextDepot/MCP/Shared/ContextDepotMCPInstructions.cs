@@ -10,5 +10,8 @@ public static class ContextDepotMCPInstructions
         Never save secrets, credentials, private keys, chain-of-thought, hidden system or developer instructions, or temporary task runtime state.
         Use document_upsert for canonical technical designs, ADRs, runbooks, research, and implementation plans; do not split long documents into many duplicate Context records.
         context_bootstrap performs conservative lexical scope resolution and may return an ambiguous or broad scope. Treat that result as data and ask the user when clarification is needed.
+        Use context_search when the user explicitly asks to find remembered information. It searches the current owner across all workspaces unless explicit workspace paths are provided, and it does not infer an automatic scope.
+        Use context_get only when a known Context ID requires full lifecycle or provenance details. Do not mechanically call context_get for every context_search match.
+        Use document_get when a known Document ID requires the complete canonical Markdown document.
         """;
 }

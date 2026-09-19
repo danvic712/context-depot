@@ -50,6 +50,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISourceSafetyService, SourceSafetyService>();
         services.AddScoped<IWorkspaceAppService, WorkspaceAppService>();
         services.AddScoped<IContextAppService, ContextAppService>();
+        services.AddScoped<IContextQueryAppService, ContextQueryAppService>();
         services.AddScoped<IDocumentAppService, DocumentAppService>();
         services.AddScoped<IContextBootstrapAppService, ContextBootstrapAppService>();
         services.AddScoped<IIndexRepairAppService, IndexRepairAppService>();

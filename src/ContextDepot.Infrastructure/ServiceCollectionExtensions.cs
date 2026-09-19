@@ -52,6 +52,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<VectorCollectionInitializer>();
         services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
         services.AddScoped<IContextRepository, ContextRepository>();
+        services.AddScoped<IContextQueryRepository, ContextQueryRepository>();
         services.AddScoped<IDocumentRepository, DocumentRepository>();
         services.AddScoped<IIndexRepairRepository, PostgreSqlIndexRepairRepository>();
         services.AddScoped<ISemanticRetrievalRepository, VectorDataSemanticRetrievalRepository>();
