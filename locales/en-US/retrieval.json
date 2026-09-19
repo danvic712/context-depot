@@ -1,0 +1,4 @@
+{
+  "VectorSearchFailed": "Semantic retrieval is temporarily unavailable. Available keyword results will be kept and the service will retry later.",
+  "InvalidSearchQuery": "The search criteria are invalid. Check the query and scope and try again."
+}

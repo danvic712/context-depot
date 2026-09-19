@@ -42,4 +42,6 @@ public static class ApplicationErrorCodes
     public const string EmbeddingDimensionMismatch = "EmbeddingDimensionMismatch";
     public const string MarkdownFileMissing = "MarkdownFileMissing";
     public const string IndexRepairRequestInvalid = "IndexRepairRequestInvalid";
+    public const string VectorSearchFailed = "VectorSearchFailed";
+    public const string InvalidSearchQuery = "InvalidSearchQuery";
 }
