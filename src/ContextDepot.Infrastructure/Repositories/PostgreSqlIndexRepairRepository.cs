@@ -12,6 +12,8 @@ public sealed class PostgreSqlIndexRepairRepository(
     ContextDepotDbContext db,
     TimeProvider timeProvider) : IIndexRepairRepository
 {
+    private readonly Dictionary<Guid, IReadOnlyDictionary<Guid, string>> workspacePathsByDepot = [];
+
     public async Task<IReadOnlyList<DocumentIndexRepairCandidate>> FindDocumentIndexRepairCandidatesAsync(
         Guid depotId,
         int limit,
@@ -184,10 +186,17 @@ public sealed class PostgreSqlIndexRepairRepository(
         Guid depotId,
         CancellationToken cancellationToken)
     {
+        if (workspacePathsByDepot.TryGetValue(depotId, out var cachedPaths))
+        {
+            return cachedPaths;
+        }
+
         var workspaces = await db.Workspaces
             .AsNoTracking()
             .Where(x => x.DepotId == depotId)
             .ToListAsync(cancellationToken);
-        return WorkspacePath.BuildPaths(workspaces);
+        var paths = WorkspacePath.BuildPaths(workspaces);
+        workspacePathsByDepot[depotId] = paths;
+        return paths;
     }
 }

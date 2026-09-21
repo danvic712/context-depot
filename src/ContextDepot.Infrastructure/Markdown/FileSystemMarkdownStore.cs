@@ -13,9 +13,9 @@ public sealed class FileSystemMarkdownStore(IHostEnvironment environment, IOptio
 {
     private readonly string root = ResolveRoot(environment.ContentRootPath, options.Value.Root);
 
-    public async Task<MarkdownDocument?> GetAsync(string relativePath, CancellationToken cancellationToken)
+    public async Task<MarkdownDocument?> GetAsync(Guid depotId, string relativePath, CancellationToken cancellationToken)
     {
-        var path = ResolvePath(relativePath);
+        var path = ResolvePath(depotId, relativePath);
         if (!File.Exists(path))
         {
             return null;
@@ -25,9 +25,9 @@ public sealed class FileSystemMarkdownStore(IHostEnvironment environment, IOptio
         return new MarkdownDocument(relativePath, content, DocumentContentHasher.Compute(content));
     }
 
-    public async Task WriteAtomicAsync(string relativePath, string content, CancellationToken cancellationToken)
+    public async Task WriteAtomicAsync(Guid depotId, string relativePath, string content, CancellationToken cancellationToken)
     {
-        var path = ResolvePath(relativePath);
+        var path = ResolvePath(depotId, relativePath);
         var directory = Path.GetDirectoryName(path)
             ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidDocumentPath);
         Directory.CreateDirectory(directory);
@@ -76,16 +76,25 @@ public sealed class FileSystemMarkdownStore(IHostEnvironment environment, IOptio
         }
     }
 
-    private string ResolvePath(string relativePath)
+    private string ResolvePath(Guid depotId, string relativePath)
     {
+        if (depotId == Guid.Empty)
+        {
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidDocumentPath);
+        }
+
         var normalized = relativePath.Replace('\\', '/').Trim();
         if (normalized.Length == 0 || Path.IsPathRooted(relativePath) || normalized.StartsWith('/') || normalized.Split('/').Any(segment => segment is "." or ".." or ""))
         {
             throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidDocumentPath);
         }
 
-        var full = Path.GetFullPath(Path.Combine(root, normalized.Replace('/', Path.DirectorySeparatorChar)));
-        var rootWithSeparator = root.EndsWith(Path.DirectorySeparatorChar) ? root : root + Path.DirectorySeparatorChar;
+        // The database is scoped by DepotId, so the physical source of truth must be
+        // scoped by the same boundary. Never put two depots directly under the same
+        // Markdown root: identical workspace/document paths would otherwise alias.
+        var depotRoot = Path.Combine(root, depotId.ToString("N"));
+        var full = Path.GetFullPath(Path.Combine(depotRoot, normalized.Replace('/', Path.DirectorySeparatorChar)));
+        var rootWithSeparator = depotRoot.EndsWith(Path.DirectorySeparatorChar) ? depotRoot : depotRoot + Path.DirectorySeparatorChar;
         if (!full.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase))
         {
             throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidDocumentPath);

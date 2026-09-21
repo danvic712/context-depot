@@ -17,6 +17,7 @@ using ContextDepot.Infrastructure.Repositories;
 using ContextDepot.Infrastructure.Shared;
 using ContextDepot.Infrastructure.VectorStore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
@@ -38,6 +39,11 @@ public static class ServiceCollectionExtensions
 
         services.AddDbContext<ContextDepotDbContext>(options =>
             options.UseNpgsql(connectionString, npgsql => npgsql.MigrationsHistoryTable("ef_migrations", "public")));
+        services.AddMemoryCache();
+        services.AddOptions<VectorCoverageOptions>()
+            .Bind(configuration.GetSection("ContextDepot:VectorCoverage"))
+            .Validate(options => options.CacheDurationSeconds is >= 1 and <= 300, "Vector coverage cache duration must be between 1 and 300 seconds.")
+            .ValidateOnStart();
         services.AddOptions<PostgreSqlVectorStoreOptions>()
             .Bind(configuration.GetSection("ContextDepot:VectorStore"))
             .Validate(options => !string.IsNullOrWhiteSpace(options.Schema), "The vector store schema is required.")

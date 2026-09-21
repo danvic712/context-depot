@@ -6,11 +6,13 @@
       <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
       <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
       <PackageReference Include="Microsoft.Extensions.VectorData.Abstractions" />
+      <PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
       <PackageReference Include="Npgsql" />
       <PackageReference Include="Pgvector" />
       <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
       <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
       <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" />
+      <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
       <ProjectReference Include="..\ContextDepot.Application\ContextDepot.Application.csproj" />
       <ProjectReference Include="..\ContextDepot.Domain\ContextDepot.Domain.csproj" />
     </ItemGroup>

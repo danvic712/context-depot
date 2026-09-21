@@ -25,14 +25,13 @@ public sealed class VectorCoverageHealthCheck(
                 .OrderBy(depot => depot.Id)
                 .Select(depot => depot.Id)
                 .ToListAsync(cancellationToken);
-            var snapshots = new List<VectorCoverageSnapshot>(depotIds.Count);
-            foreach (var depotId in depotIds)
-            {
-                snapshots.Add(await snapshotProvider.GetAsync(
-                    depotId,
-                    timeProvider.GetUtcNow(),
-                    cancellationToken));
-            }
+            var snapshotsByDepot = await snapshotProvider.GetAsync(
+                depotIds,
+                timeProvider.GetUtcNow(),
+                cancellationToken);
+            var snapshots = depotIds
+                .Select(depotId => snapshotsByDepot[depotId])
+                .ToArray();
 
             var contextTotal = snapshots.Sum(snapshot => snapshot.ContextTotal);
             var contextIndexed = snapshots.Sum(snapshot => snapshot.ContextIndexed);

@@ -68,7 +68,7 @@ public sealed class DocumentAppServiceTests
         workspaces.Setup(x => x.ResolveAsync("projects/context-depot", It.IsAny<CancellationToken>())).ReturnsAsync(new WorkspaceModel(WorkspaceId, DepotId, "projects/context-depot", "ContextDepot", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
         workspaces.Setup(x => x.GetAsync(WorkspaceId, It.IsAny<CancellationToken>())).ReturnsAsync(new WorkspaceModel(WorkspaceId, DepotId, "projects/context-depot", "ContextDepot", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
         var markdown = new Mock<IMarkdownStore>();
-        markdown.Setup(x => x.GetAsync("projects/context-depot/docs/readme.md", It.IsAny<CancellationToken>())).ReturnsAsync(canonical);
+        markdown.Setup(x => x.GetAsync(DepotId, "projects/context-depot/docs/readme.md", It.IsAny<CancellationToken>())).ReturnsAsync(canonical);
         var chunker = new HeadingAwareMarkdownChunker();
         var safety = new Mock<ISourceSafetyService>();
         var ids = new Mock<IIdGenerator>();

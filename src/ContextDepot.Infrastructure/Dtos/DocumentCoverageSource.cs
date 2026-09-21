@@ -2,6 +2,7 @@ namespace ContextDepot.Infrastructure.Dtos;
 
 public sealed record DocumentCoverageSource(
     Guid Id,
+    Guid DepotId,
     Guid WorkspaceId,
     string Path,
     string Title,

@@ -4,9 +4,9 @@ namespace ContextDepot.Application.Documents.Contracts;
 
 public interface IMarkdownStore
 {
-    Task<MarkdownDocument?> GetAsync(string relativePath, CancellationToken cancellationToken);
+    Task<MarkdownDocument?> GetAsync(Guid depotId, string relativePath, CancellationToken cancellationToken);
 
-    Task WriteAtomicAsync(string relativePath, string content, CancellationToken cancellationToken);
+    Task WriteAtomicAsync(Guid depotId, string relativePath, string content, CancellationToken cancellationToken);
 
     bool CanReadAndWrite();
 }

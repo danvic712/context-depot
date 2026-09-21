@@ -130,7 +130,7 @@ public sealed class IndexRepairAppServiceTests
             "README");
         var repository = CreateRepository(documentCandidates: [document]);
         var markdown = new Mock<IMarkdownStore>();
-        markdown.Setup(x => x.GetAsync("projects/context-depot/docs/readme.md", It.IsAny<CancellationToken>()))
+        markdown.Setup(x => x.GetAsync(DepotId, "projects/context-depot/docs/readme.md", It.IsAny<CancellationToken>()))
             .ReturnsAsync((MarkdownDocument?)null);
         var repair = CreateService(repository, new Mock<IVectorIndexRepository>(), CreateGenerator(), markdown);
 
@@ -156,7 +156,7 @@ public sealed class IndexRepairAppServiceTests
             "README");
         var repository = CreateRepository(documentCandidates: [document]);
         var markdown = new Mock<IMarkdownStore>();
-        markdown.Setup(x => x.GetAsync("projects/context-depot/docs/readme.md", It.IsAny<CancellationToken>()))
+        markdown.Setup(x => x.GetAsync(DepotId, "projects/context-depot/docs/readme.md", It.IsAny<CancellationToken>()))
             .ReturnsAsync(new MarkdownDocument("projects/context-depot/docs/readme.md", "# README\n\nCanonical content", "hash"));
         var documentRepository = new Mock<IDocumentRepository>();
         documentRepository.Setup(x => x.GetByIdAsync(DepotId, document.DocumentId, It.IsAny<CancellationToken>()))

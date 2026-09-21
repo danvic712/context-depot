@@ -1,5 +1,6 @@
 using System.Data;
 using ContextDepot.Application.Shared.Runtime.Contracts;
+using ContextDepot.Application.Workspaces;
 using ContextDepot.Application.Workspaces.Contracts;
 using ContextDepot.Application.Workspaces.Dtos;
 using ContextDepot.Application.Workspaces.Enums;
@@ -29,7 +30,13 @@ public sealed class WorkspaceRepository(
 
         var workspaces = await db.Workspaces.AsNoTracking().Where(x => x.DepotId == depotId).ToListAsync(cancellationToken);
         var workspace = workspaces.SingleOrDefault(x => x.Id == workspaceId);
-        return workspace is null ? null : new WorkspacePathLookup(workspace, BuildPath(workspaces, workspace));
+        if (workspace is null)
+        {
+            return null;
+        }
+
+        var paths = WorkspacePath.BuildPaths(workspaces);
+        return new WorkspacePathLookup(workspace, paths[workspace.Id]);
     }
 
     public async Task<Workspace?> GetByPathAsync(Guid depotId, string normalizedPath, CancellationToken cancellationToken)
@@ -42,10 +49,12 @@ public sealed class WorkspaceRepository(
     public async Task<IReadOnlyList<WorkspacePathLookup>> ListWithPathsAsync(Guid depotId, string? parentPath, CancellationToken cancellationToken)
     {
         var workspaces = await db.Workspaces.AsNoTracking().Where(x => x.DepotId == depotId).ToListAsync(cancellationToken);
+        var paths = WorkspacePath.BuildPaths(workspaces);
+        var byPath = paths.ToDictionary(x => x.Value, x => x.Key, StringComparer.Ordinal);
         Guid? parentId = null;
         if (!string.IsNullOrWhiteSpace(parentPath))
         {
-            parentId = FindByPath(workspaces, parentPath)?.Id;
+            parentId = byPath.GetValueOrDefault(parentPath);
             if (parentId is null)
             {
                 return [];
@@ -55,7 +64,7 @@ public sealed class WorkspaceRepository(
         return workspaces
             .Where(x => x.ParentWorkspaceId == parentId && workspaceAccess.CanAccess(x.Id))
             .OrderBy(x => x.Slug)
-            .Select(x => new WorkspacePathLookup(x, BuildPath(workspaces, x)))
+            .Select(x => new WorkspacePathLookup(x, paths[x.Id]))
             .ToArray();
     }
 
@@ -73,7 +82,9 @@ public sealed class WorkspaceRepository(
         try
         {
             var workspaces = await db.Workspaces.Where(x => x.DepotId == depotId).ToListAsync(cancellationToken);
-            var byPath = workspaces.ToDictionary(x => BuildPath(workspaces, x), StringComparer.Ordinal);
+            var paths = WorkspacePath.BuildPaths(workspaces);
+            var byId = workspaces.ToDictionary(x => x.Id);
+            var byPath = paths.ToDictionary(x => x.Value, x => byId[x.Key], StringComparer.Ordinal);
             if (byPath.TryGetValue(normalizedPath, out var existing))
             {
                 if (!workspaceAccess.CanAccess(existing.Id))
@@ -158,25 +169,16 @@ public sealed class WorkspaceRepository(
 
     private static Workspace? FindByPath(IReadOnlyList<Workspace> workspaces, string path)
     {
-        var byPath = workspaces.ToDictionary(x => BuildPath(workspaces, x), StringComparer.Ordinal);
-        return byPath.GetValueOrDefault(path);
-    }
-
-    private static string BuildPath(IReadOnlyList<Workspace> workspaces, Workspace workspace)
-    {
-        var byId = workspaces.ToDictionary(x => x.Id);
-        var segments = new Stack<string>();
-        var current = workspace;
-        var visited = new HashSet<Guid>();
-        while (visited.Add(current.Id))
+        var paths = WorkspacePath.BuildPaths(workspaces);
+        var workspaceById = workspaces.ToDictionary(x => x.Id);
+        foreach (var (workspaceId, workspacePath) in paths)
         {
-            segments.Push(current.Slug);
-            if (current.ParentWorkspaceId is not Guid parentId || !byId.TryGetValue(parentId, out current!))
+            if (string.Equals(workspacePath, path, StringComparison.Ordinal))
             {
-                break;
+                return workspaceById[workspaceId];
             }
         }
 
-        return string.Join('/', segments);
+        return null;
     }
 }

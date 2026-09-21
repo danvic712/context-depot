@@ -152,7 +152,7 @@ public sealed class IndexRepairAppService(
         CancellationToken cancellationToken)
     {
         await using var writeLease = await documentWriteCoordinator.AcquireAsync(
-            candidate.WorkspaceId + ":" + candidate.Path,
+            depotId + ":" + candidate.WorkspaceId + ":" + candidate.Path,
             cancellationToken);
 
         var document = await documentRepository.GetByIdAsync(
@@ -170,6 +170,7 @@ public sealed class IndexRepairAppService(
         try
         {
             markdown = await markdownStore.GetAsync(
+                depotId,
                 candidate.WorkspacePath + "/" + candidate.Path,
                 cancellationToken);
         }

@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using ContextDepot.Application;
 using ContextDepot.BackgroundServices;
 using ContextDepot.Infrastructure;
+using ContextDepot.Infrastructure.Embeddings;
 using ContextDepot.HealthChecks;
 using ContextDepot.MCP.Contexts;
 using ContextDepot.MCP.Documents;
@@ -44,6 +45,7 @@ try
         options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
     });
     builder.Services.AddContextDepotApplication(builder.Configuration);
+    builder.Services.AddContextDepotEmbeddingProvider(builder.Configuration);
     builder.Services.AddContextDepotInfrastructure(builder.Configuration);
     builder.Services.AddHostedService<IndexRepairHostedService>();
     builder.Services
