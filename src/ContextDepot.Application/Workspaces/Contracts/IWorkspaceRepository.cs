@@ -5,16 +5,16 @@ namespace ContextDepot.Application.Workspaces.Contracts;
 
 public interface IWorkspaceRepository
 {
-    Task<Workspace?> GetByIdAsync(Guid ownerId, Guid workspaceId, CancellationToken cancellationToken);
+    Task<Workspace?> GetByIdAsync(Guid depotId, Guid workspaceId, CancellationToken cancellationToken);
 
-    Task<WorkspacePathLookup?> GetByIdWithPathAsync(Guid ownerId, Guid workspaceId, CancellationToken cancellationToken);
+    Task<WorkspacePathLookup?> GetByIdWithPathAsync(Guid depotId, Guid workspaceId, CancellationToken cancellationToken);
 
-    Task<Workspace?> GetByPathAsync(Guid ownerId, string normalizedPath, CancellationToken cancellationToken);
+    Task<Workspace?> GetByPathAsync(Guid depotId, string normalizedPath, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<WorkspacePathLookup>> ListWithPathsAsync(Guid ownerId, string? parentPath, CancellationToken cancellationToken);
+    Task<IReadOnlyList<WorkspacePathLookup>> ListWithPathsAsync(Guid depotId, string? parentPath, CancellationToken cancellationToken);
 
     Task<WorkspaceUpsertPersistenceResult> UpsertPathAsync(
-        Guid ownerId,
+        Guid depotId,
         string normalizedPath,
         string name,
         string? description,

@@ -21,7 +21,7 @@ namespace ContextDepot.Application.Tests.IndexRepair;
 
 public sealed class IndexRepairAppServiceTests
 {
-    private static readonly Guid OwnerId = Guid.CreateVersion7();
+    private static readonly Guid DepotId = Guid.CreateVersion7();
     private static readonly Guid WorkspaceId = Guid.CreateVersion7();
 
     [Fact]
@@ -45,7 +45,7 @@ public sealed class IndexRepairAppServiceTests
             vectors,
             generator);
 
-        var result = await repair.RepairAsync(new(32, 1), CancellationToken.None);
+        var result = await repair.RepairAsync(DepotId, new(32, 1), CancellationToken.None);
 
         Assert.Equal(0, result.ContextVectorsCreatedOrUpdated);
         Assert.False(result.RetrievalDegraded);
@@ -66,7 +66,7 @@ public sealed class IndexRepairAppServiceTests
             vectors,
             generator);
 
-        var result = await repair.RepairAsync(new(32, 1), CancellationToken.None);
+        var result = await repair.RepairAsync(DepotId, new(32, 1), CancellationToken.None);
 
         Assert.Equal(1, result.ContextVectorsCreatedOrUpdated);
         vectors.Verify(x => x.UpsertContextVectorsAsync(
@@ -86,7 +86,7 @@ public sealed class IndexRepairAppServiceTests
         var repository = CreateRepository(contextPage: [context]);
         var repair = CreateService(repository, vectors, generator);
 
-        var result = await repair.RepairAsync(new(32, 1), CancellationToken.None);
+        var result = await repair.RepairAsync(DepotId, new(32, 1), CancellationToken.None);
 
         Assert.True(result.RetrievalDegraded);
         Assert.Equal(0, result.ContextVectorsCreatedOrUpdated);
@@ -112,7 +112,7 @@ public sealed class IndexRepairAppServiceTests
             vectors,
             generator);
 
-        var result = await repair.RepairAsync(new(2, 1), CancellationToken.None);
+        var result = await repair.RepairAsync(DepotId, new(2, 1), CancellationToken.None);
 
         Assert.Equal(second.ContextItemId, result.NextContextAfterId);
         Assert.False(result.ContextScanWrapped);
@@ -123,7 +123,7 @@ public sealed class IndexRepairAppServiceTests
     {
         var document = new DocumentIndexRepairCandidate(
             Guid.CreateVersion7(),
-            OwnerId,
+            DepotId,
             WorkspaceId,
             "projects/context-depot",
             "docs/readme.md",
@@ -134,11 +134,11 @@ public sealed class IndexRepairAppServiceTests
             .ReturnsAsync((MarkdownDocument?)null);
         var repair = CreateService(repository, new Mock<IVectorIndexRepository>(), CreateGenerator(), markdown);
 
-        var result = await repair.RepairAsync(new(32, 1), CancellationToken.None);
+        var result = await repair.RepairAsync(DepotId, new(32, 1), CancellationToken.None);
 
         Assert.True(result.RetrievalDegraded);
         repository.Verify(x => x.MarkDocumentIndexFailedAsync(
-            OwnerId,
+            DepotId,
             document.DocumentId,
             ContextDepot.Application.Shared.Exceptions.ApplicationErrorCodes.MarkdownFileMissing,
             It.IsAny<CancellationToken>()), Times.Once);
@@ -149,7 +149,7 @@ public sealed class IndexRepairAppServiceTests
     {
         var document = new DocumentIndexRepairCandidate(
             Guid.CreateVersion7(),
-            OwnerId,
+            DepotId,
             WorkspaceId,
             "projects/context-depot",
             "docs/readme.md",
@@ -159,11 +159,11 @@ public sealed class IndexRepairAppServiceTests
         markdown.Setup(x => x.GetAsync("projects/context-depot/docs/readme.md", It.IsAny<CancellationToken>()))
             .ReturnsAsync(new MarkdownDocument("projects/context-depot/docs/readme.md", "# README\n\nCanonical content", "hash"));
         var documentRepository = new Mock<IDocumentRepository>();
-        documentRepository.Setup(x => x.GetByIdAsync(OwnerId, document.DocumentId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Document(document.DocumentId, OwnerId, WorkspaceId, document.Path, document.Title, DateTimeOffset.UtcNow));
+        documentRepository.Setup(x => x.GetByIdAsync(DepotId, document.DocumentId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Document(document.DocumentId, DepotId, WorkspaceId, document.Path, document.Title, DateTimeOffset.UtcNow));
         var repair = CreateService(repository, new Mock<IVectorIndexRepository>(), CreateGenerator(), markdown, documentRepository);
 
-        var result = await repair.RepairAsync(new(32, 1), CancellationToken.None);
+        var result = await repair.RepairAsync(DepotId, new(32, 1), CancellationToken.None);
 
         Assert.Equal(1, result.DocumentsReconciled);
         documentRepository.Verify(x => x.ReconcileIndexAsync(
@@ -177,7 +177,7 @@ public sealed class IndexRepairAppServiceTests
         var chunk = new DocumentEmbeddingRepairCandidate(
             Guid.CreateVersion7(),
             Guid.CreateVersion7(),
-            OwnerId,
+            DepotId,
             WorkspaceId,
             "projects/context-depot",
             "docs/readme.md",
@@ -192,7 +192,7 @@ public sealed class IndexRepairAppServiceTests
             vectors,
             CreateGenerator());
 
-        var result = await repair.RepairAsync(new(32, 1), CancellationToken.None);
+        var result = await repair.RepairAsync(DepotId, new(32, 1), CancellationToken.None);
 
         Assert.Equal(1, result.DocumentVectorsCreatedOrUpdated);
         vectors.Verify(x => x.UpsertDocumentVectorsAsync(
@@ -202,7 +202,7 @@ public sealed class IndexRepairAppServiceTests
 
     private static ContextEmbeddingRepairCandidate ContextCandidate(Guid? id = null) => new(
         id ?? Guid.CreateVersion7(),
-        OwnerId,
+        DepotId,
         WorkspaceId,
         "projects/context-depot",
         ContextKind.Decision,
@@ -217,11 +217,11 @@ public sealed class IndexRepairAppServiceTests
         IReadOnlyList<DocumentEmbeddingRepairCandidate>? documentPage = null)
     {
         var repository = new Mock<IIndexRepairRepository>();
-        repository.Setup(x => x.FindDocumentIndexRepairCandidatesAsync(OwnerId, It.IsAny<int>(), It.IsAny<CancellationToken>()))
+        repository.Setup(x => x.FindDocumentIndexRepairCandidatesAsync(DepotId, It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(documentCandidates ?? []);
-        repository.Setup(x => x.FindContextSourcePageAsync(OwnerId, It.IsAny<Guid?>(), It.IsAny<int>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
+        repository.Setup(x => x.FindContextSourcePageAsync(DepotId, It.IsAny<Guid?>(), It.IsAny<int>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(contextPage ?? []);
-        repository.Setup(x => x.FindDocumentChunkSourcePageAsync(OwnerId, It.IsAny<Guid?>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+        repository.Setup(x => x.FindDocumentChunkSourcePageAsync(DepotId, It.IsAny<Guid?>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(documentPage ?? []);
         return repository;
     }
@@ -250,13 +250,11 @@ public sealed class IndexRepairAppServiceTests
         Mock<IMarkdownStore>? markdown = null,
         Mock<IDocumentRepository>? documentRepository = null)
     {
-        var owner = new Mock<ICurrentOwnerContext>();
-        owner.SetupGet(x => x.OwnerId).Returns(OwnerId);
         documentRepository ??= new Mock<IDocumentRepository>();
-        documentRepository.Setup(x => x.GetByIdAsync(OwnerId, It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+        documentRepository.Setup(x => x.GetByIdAsync(DepotId, It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Guid _, Guid documentId, CancellationToken _) =>
             {
-                var document = new Document(documentId, OwnerId, WorkspaceId, "docs/readme.md", "README", DateTimeOffset.UtcNow);
+                var document = new Document(documentId, DepotId, WorkspaceId, "docs/readme.md", "README", DateTimeOffset.UtcNow);
                 return document;
             });
         documentRepository.Setup(x => x.ReconcileIndexAsync(It.IsAny<DocumentIndexWrite>(), It.IsAny<CancellationToken>()))
@@ -271,7 +269,6 @@ public sealed class IndexRepairAppServiceTests
             new EmbeddingResultValidator(),
             NullLogger<EmbeddingGeneratorService>.Instance);
         return new IndexRepairAppService(
-            owner.Object,
             repository.Object,
             documentRepository.Object,
             markdown?.Object ?? new Mock<IMarkdownStore>().Object,

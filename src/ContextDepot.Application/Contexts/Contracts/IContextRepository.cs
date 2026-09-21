@@ -6,7 +6,7 @@ namespace ContextDepot.Application.Contexts.Contracts;
 
 public interface IContextRepository
 {
-    Task<ContextItem?> GetByIdAsync(Guid ownerId, Guid contextId, CancellationToken cancellationToken);
+    Task<ContextItem?> GetByIdAsync(Guid depotId, Guid contextId, CancellationToken cancellationToken);
 
     Task<ContextPersistenceResult> SaveKeyedAsync(ContextItem candidate, DateTimeOffset now, CancellationToken cancellationToken);
 
@@ -14,5 +14,5 @@ public interface IContextRepository
 
     Task<ContextPersistenceResult> SupersedeByIdAsync(ContextItem candidate, Guid targetId, DateTimeOffset now, CancellationToken cancellationToken);
 
-    Task<ContextPersistenceResult> ArchiveAsync(Guid ownerId, Guid contextId, DateTimeOffset now, CancellationToken cancellationToken);
+    Task<ContextPersistenceResult> ArchiveAsync(Guid depotId, Guid contextId, DateTimeOffset now, CancellationToken cancellationToken);
 }

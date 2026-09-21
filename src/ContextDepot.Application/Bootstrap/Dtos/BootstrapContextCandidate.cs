@@ -5,7 +5,7 @@ namespace ContextDepot.Application.Bootstrap.Dtos;
 
 public sealed record BootstrapContextCandidate(
     Guid Id,
-    Guid OwnerId,
+    Guid DepotId,
     Guid WorkspaceId,
     ContextKind Kind,
     string? Key,

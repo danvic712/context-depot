@@ -4,7 +4,7 @@ namespace ContextDepot.Application.Contexts.Dtos;
 
 public sealed record ContextDetailModel(
     Guid Id,
-    Guid OwnerId,
+    Guid DepotId,
     Guid WorkspaceId,
     string Workspace,
     ContextKind Kind,

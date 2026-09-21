@@ -1,8 +1,8 @@
 namespace ContextDepot.Application.Shared.Runtime.Contracts;
 
-public interface ICurrentOwnerContext
+public interface ICurrentDepotContext
 {
-    Guid OwnerId { get; }
+    Guid DepotId { get; }
 
     string DisplayName { get; }
 }

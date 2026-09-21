@@ -12,23 +12,23 @@ namespace ContextDepot.Infrastructure.Repositories;
 public sealed class ContextQueryRepository(ContextDepotDbContext db) : IContextQueryRepository
 {
     public Task<ContextItem?> FindContextByIdAsync(
-        Guid ownerId,
+        Guid depotId,
         Guid contextId,
         CancellationToken cancellationToken) =>
         db.ContextItems.AsNoTracking()
             .SingleOrDefaultAsync(
-                context => context.OwnerId == ownerId && context.Id == contextId,
+                context => context.DepotId == depotId && context.Id == contextId,
                 cancellationToken);
 
     public async Task<IReadOnlyList<ContextSearchCandidateRecord>> FindLexicalContextCandidatesAsync(
         ContextSearchQuery query,
         CancellationToken cancellationToken)
     {
-        var workspacePaths = await FindWorkspacePathsAsync(query.OwnerId, cancellationToken);
+        var workspacePaths = await FindWorkspacePathsAsync(query.DepotId, cancellationToken);
         var workspaceIds = query.WorkspaceIds?.ToArray();
         var kinds = query.Kinds?.ToArray();
         var contexts = db.ContextItems.AsNoTracking()
-            .Where(context => context.OwnerId == query.OwnerId &&
+            .Where(context => context.DepotId == query.DepotId &&
                               context.Status == ContextStatus.Active &&
                               (context.ExpiresAt == null || context.ExpiresAt > query.Now));
         if (workspaceIds is not null)
@@ -47,7 +47,7 @@ public sealed class ContextQueryRepository(ContextDepotDbContext db) : IContextQ
             .Take(query.CandidateLimit)
             .Select(context => new BootstrapContextCandidate(
                 context.Id,
-                context.OwnerId,
+                context.DepotId,
                 context.WorkspaceId,
                 context.Kind,
                 context.Key,
@@ -79,10 +79,10 @@ public sealed class ContextQueryRepository(ContextDepotDbContext db) : IContextQ
         ContextSearchQuery query,
         CancellationToken cancellationToken)
     {
-        var workspacePaths = await FindWorkspacePathsAsync(query.OwnerId, cancellationToken);
+        var workspacePaths = await FindWorkspacePathsAsync(query.DepotId, cancellationToken);
         var workspaceIds = query.WorkspaceIds?.ToArray();
         var documents = db.DocumentChunks.AsNoTracking()
-            .Where(chunk => chunk.OwnerId == query.OwnerId &&
+            .Where(chunk => chunk.DepotId == query.DepotId &&
                            chunk.Document != null &&
                            chunk.Document.Status == DocumentStatus.Active &&
                            chunk.Document.IndexStatus == DocumentIndexStatus.Indexed);
@@ -98,7 +98,7 @@ public sealed class ContextQueryRepository(ContextDepotDbContext db) : IContextQ
             .Take(query.CandidateLimit)
             .Select(chunk => new BootstrapDocumentChunkCandidate(
                 chunk.Id,
-                chunk.OwnerId,
+                chunk.DepotId,
                 chunk.DocumentId,
                 chunk.WorkspaceId,
                 chunk.Ordinal,
@@ -117,11 +117,11 @@ public sealed class ContextQueryRepository(ContextDepotDbContext db) : IContextQ
     }
 
     private async Task<IReadOnlyDictionary<Guid, string>> FindWorkspacePathsAsync(
-        Guid ownerId,
+        Guid depotId,
         CancellationToken cancellationToken)
     {
         var workspaces = await db.Workspaces.AsNoTracking()
-            .Where(workspace => workspace.OwnerId == ownerId)
+            .Where(workspace => workspace.DepotId == depotId)
             .ToListAsync(cancellationToken);
         return WorkspacePath.BuildPaths(workspaces);
     }

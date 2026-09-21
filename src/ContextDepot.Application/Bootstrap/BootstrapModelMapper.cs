@@ -13,7 +13,7 @@ internal static class BootstrapModelMapper
         var tags = JsonSerializer.Deserialize<string[]>(context.TagsJson) ?? [];
         return new ContextModel(
             context.Id,
-            context.OwnerId,
+            context.DepotId,
             context.WorkspaceId,
             context.Kind,
             context.Key,

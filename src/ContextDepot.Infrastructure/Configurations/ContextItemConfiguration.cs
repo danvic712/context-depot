@@ -15,7 +15,7 @@ public sealed class ContextItemConfiguration : IEntityTypeConfiguration<ContextI
         });
         entity.HasKey(x => x.Id).HasName("pk_context_items");
         entity.Property(x => x.Id).HasColumnName("id");
-        entity.Property(x => x.OwnerId).HasColumnName("owner_id");
+        entity.Property(x => x.DepotId).HasColumnName("depot_id");
         entity.Property(x => x.WorkspaceId).HasColumnName("workspace_id");
         entity.Property(x => x.Kind).HasColumnName("kind").HasConversion<string>().HasMaxLength(30);
         entity.Property(x => x.Key).HasColumnName("key").HasMaxLength(200);
@@ -38,22 +38,22 @@ public sealed class ContextItemConfiguration : IEntityTypeConfiguration<ContextI
         entity.Property(x => x.MetadataJson).HasColumnName("metadata").HasColumnType("jsonb").IsRequired();
         entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("timestamp with time zone");
         entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasColumnType("timestamp with time zone");
-        entity.HasAlternateKey(x => new { x.Id, x.OwnerId, x.WorkspaceId }).HasName("ak_context_items_id_owner_id_workspace_id");
-        entity.HasIndex(x => new { x.OwnerId, x.WorkspaceId, x.Key }).HasDatabaseName("ix_context_items_owner_workspace_key");
-        entity.HasIndex(x => new { x.OwnerId, x.WorkspaceId, x.Key })
+        entity.HasAlternateKey(x => new { x.Id, x.DepotId, x.WorkspaceId }).HasName("ak_context_items_id_depot_id_workspace_id");
+        entity.HasIndex(x => new { x.DepotId, x.WorkspaceId, x.Key }).HasDatabaseName("ix_context_items_depot_workspace_key");
+        entity.HasIndex(x => new { x.DepotId, x.WorkspaceId, x.Key })
             .IsUnique()
             .HasDatabaseName("ux_context_items_active_key")
             .HasFilter("status = 'Active' AND key IS NOT NULL");
         entity.HasOne(x => x.Workspace)
             .WithMany(x => x.ContextItems)
-            .HasForeignKey(x => new { x.WorkspaceId, x.OwnerId })
-            .HasPrincipalKey(x => new { x.Id, x.OwnerId })
+            .HasForeignKey(x => new { x.WorkspaceId, x.DepotId })
+            .HasPrincipalKey(x => new { x.Id, x.DepotId })
             .OnDelete(DeleteBehavior.Restrict)
-            .HasConstraintName("fk_context_items_workspaces_workspace_id_owner_id");
+            .HasConstraintName("fk_context_items_workspaces_workspace_id_depot_id");
         entity.HasOne(x => x.Supersedes)
             .WithMany()
-            .HasForeignKey(x => new { x.SupersedesId, x.OwnerId, x.WorkspaceId })
-            .HasPrincipalKey(x => new { x.Id, x.OwnerId, x.WorkspaceId })
+            .HasForeignKey(x => new { x.SupersedesId, x.DepotId, x.WorkspaceId })
+            .HasPrincipalKey(x => new { x.Id, x.DepotId, x.WorkspaceId })
             .OnDelete(DeleteBehavior.Restrict)
             .HasConstraintName("fk_context_items_supersedes");
     }

@@ -8,27 +8,40 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ContextDepot.Infrastructure.Repositories;
 
-public sealed class WorkspaceRepository(ContextDepotDbContext db, IIdGenerator idGenerator) : IWorkspaceRepository
+public sealed class WorkspaceRepository(
+    ContextDepotDbContext db,
+    IIdGenerator idGenerator,
+    IWorkspaceAccessContext workspaceAccess) : IWorkspaceRepository
 {
-    public Task<Workspace?> GetByIdAsync(Guid ownerId, Guid workspaceId, CancellationToken cancellationToken) =>
-        db.Workspaces.AsNoTracking().SingleOrDefaultAsync(x => x.OwnerId == ownerId && x.Id == workspaceId, cancellationToken);
+    public Task<Workspace?> GetByIdAsync(Guid depotId, Guid workspaceId, CancellationToken cancellationToken) =>
+        workspaceAccess.CanAccess(workspaceId)
+            ? db.Workspaces.AsNoTracking().SingleOrDefaultAsync(
+                x => x.DepotId == depotId && x.Id == workspaceId,
+                cancellationToken)
+            : Task.FromResult<Workspace?>(null);
 
-    public async Task<WorkspacePathLookup?> GetByIdWithPathAsync(Guid ownerId, Guid workspaceId, CancellationToken cancellationToken)
+    public async Task<WorkspacePathLookup?> GetByIdWithPathAsync(Guid depotId, Guid workspaceId, CancellationToken cancellationToken)
     {
-        var workspaces = await db.Workspaces.AsNoTracking().Where(x => x.OwnerId == ownerId).ToListAsync(cancellationToken);
+        if (!workspaceAccess.CanAccess(workspaceId))
+        {
+            return null;
+        }
+
+        var workspaces = await db.Workspaces.AsNoTracking().Where(x => x.DepotId == depotId).ToListAsync(cancellationToken);
         var workspace = workspaces.SingleOrDefault(x => x.Id == workspaceId);
         return workspace is null ? null : new WorkspacePathLookup(workspace, BuildPath(workspaces, workspace));
     }
 
-    public async Task<Workspace?> GetByPathAsync(Guid ownerId, string normalizedPath, CancellationToken cancellationToken)
+    public async Task<Workspace?> GetByPathAsync(Guid depotId, string normalizedPath, CancellationToken cancellationToken)
     {
-        var workspaces = await db.Workspaces.AsNoTracking().Where(x => x.OwnerId == ownerId).ToListAsync(cancellationToken);
-        return FindByPath(workspaces, normalizedPath);
+        var workspaces = await db.Workspaces.AsNoTracking().Where(x => x.DepotId == depotId).ToListAsync(cancellationToken);
+        var workspace = FindByPath(workspaces, normalizedPath);
+        return workspace is not null && workspaceAccess.CanAccess(workspace.Id) ? workspace : null;
     }
 
-    public async Task<IReadOnlyList<WorkspacePathLookup>> ListWithPathsAsync(Guid ownerId, string? parentPath, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<WorkspacePathLookup>> ListWithPathsAsync(Guid depotId, string? parentPath, CancellationToken cancellationToken)
     {
-        var workspaces = await db.Workspaces.AsNoTracking().Where(x => x.OwnerId == ownerId).ToListAsync(cancellationToken);
+        var workspaces = await db.Workspaces.AsNoTracking().Where(x => x.DepotId == depotId).ToListAsync(cancellationToken);
         Guid? parentId = null;
         if (!string.IsNullOrWhiteSpace(parentPath))
         {
@@ -40,14 +53,14 @@ public sealed class WorkspaceRepository(ContextDepotDbContext db, IIdGenerator i
         }
 
         return workspaces
-            .Where(x => x.ParentWorkspaceId == parentId)
+            .Where(x => x.ParentWorkspaceId == parentId && workspaceAccess.CanAccess(x.Id))
             .OrderBy(x => x.Slug)
             .Select(x => new WorkspacePathLookup(x, BuildPath(workspaces, x)))
             .ToArray();
     }
 
     public async Task<WorkspaceUpsertPersistenceResult> UpsertPathAsync(
-        Guid ownerId,
+        Guid depotId,
         string normalizedPath,
         string name,
         string? description,
@@ -59,10 +72,15 @@ public sealed class WorkspaceRepository(ContextDepotDbContext db, IIdGenerator i
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
         try
         {
-            var workspaces = await db.Workspaces.Where(x => x.OwnerId == ownerId).ToListAsync(cancellationToken);
+            var workspaces = await db.Workspaces.Where(x => x.DepotId == depotId).ToListAsync(cancellationToken);
             var byPath = workspaces.ToDictionary(x => BuildPath(workspaces, x), StringComparer.Ordinal);
             if (byPath.TryGetValue(normalizedPath, out var existing))
             {
+                if (!workspaceAccess.CanAccess(existing.Id))
+                {
+                    return new WorkspaceUpsertPersistenceResult(null, WorkspaceUpsertPersistenceOutcome.ParentNotFound);
+                }
+
                 if (string.Equals(existing.Name, name, StringComparison.Ordinal) &&
                     string.Equals(existing.Description, description, StringComparison.Ordinal) &&
                     string.Equals(existing.MetadataJson, metadataJson, StringComparison.Ordinal))
@@ -96,9 +114,15 @@ public sealed class WorkspaceRepository(ContextDepotDbContext db, IIdGenerator i
                     return new WorkspaceUpsertPersistenceResult(null, WorkspaceUpsertPersistenceOutcome.ParentNotFound);
                 }
 
+                if (!workspaceAccess.HasUnrestrictedAccess &&
+                    (parentId is null || !workspaceAccess.CanAccess(parentId.Value)))
+                {
+                    return new WorkspaceUpsertPersistenceResult(null, WorkspaceUpsertPersistenceOutcome.ParentNotFound);
+                }
+
                 var workspace = new Workspace(
                     idGenerator.NewId(),
-                    ownerId,
+                    depotId,
                     parentId,
                     isLeaf ? name : segment,
                     segment,
@@ -106,6 +130,15 @@ public sealed class WorkspaceRepository(ContextDepotDbContext db, IIdGenerator i
                     now);
                 workspace.Update(isLeaf ? name : segment, isLeaf ? description : null, isLeaf ? metadataJson : "{}", now);
                 db.Workspaces.Add(workspace);
+                if (workspaceAccess.DepotAccessKeyId is Guid depotAccessKeyId)
+                {
+                    db.WorkspaceAccessGrants.Add(new WorkspaceAccessGrant(
+                        depotAccessKeyId,
+                        depotId,
+                        workspace.Id,
+                        now));
+                }
+
                 workspaces.Add(workspace);
                 byPath[currentPath] = workspace;
                 parentId = workspace.Id;

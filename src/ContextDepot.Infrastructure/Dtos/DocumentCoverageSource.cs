@@ -1,4 +1,4 @@
-namespace ContextDepot.Infrastructure.HealthChecks.Dtos;
+namespace ContextDepot.Infrastructure.Dtos;
 
 public sealed record DocumentCoverageSource(
     Guid Id,

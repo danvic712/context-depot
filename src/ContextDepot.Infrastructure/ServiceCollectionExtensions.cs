@@ -1,5 +1,6 @@
 using ContextDepot.Application.Bootstrap.Contracts;
 using ContextDepot.Application.Contexts.Contracts;
+using ContextDepot.Application.Depots.Contracts;
 using ContextDepot.Application.Documents.Contracts;
 using ContextDepot.Application.IndexRepair.Contracts;
 using ContextDepot.Application.SemanticRetrieval.Contracts;
@@ -7,18 +8,17 @@ using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Application.Shared.Runtime.Contracts;
 using ContextDepot.Application.Workspaces.Contracts;
 using ContextDepot.Application.VectorIndex.Contracts;
-using ContextDepot.Infrastructure.CurrentOwner;
+using ContextDepot.Infrastructure.Contracts;
+using ContextDepot.Infrastructure.CurrentDepot;
 using ContextDepot.Infrastructure.HealthChecks;
 using ContextDepot.Infrastructure.Markdown;
 using ContextDepot.Infrastructure.Options;
-using ContextDepot.Infrastructure.Persistence;
 using ContextDepot.Infrastructure.Repositories;
 using ContextDepot.Infrastructure.Shared;
 using ContextDepot.Infrastructure.VectorStore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using Npgsql;
 using Pgvector;
 
@@ -51,6 +51,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<PostgreSqlVectorStore>();
         services.AddSingleton<VectorCollectionInitializer>();
         services.AddScoped<VectorCoverageSnapshotProvider>();
+        services.AddScoped<IDepotRepository, DepotRepository>();
         services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
         services.AddScoped<IContextRepository, ContextRepository>();
         services.AddScoped<IContextQueryRepository, ContextQueryRepository>();
@@ -59,21 +60,16 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISemanticRetrievalRepository, VectorDataSemanticRetrievalRepository>();
         services.AddScoped<IBootstrapRepository, BootstrapRepository>();
         services.AddScoped<IVectorIndexRepository, VectorDataVectorIndexRepository>();
-        services.AddScoped<CurrentOwnerBootstrapper>();
         services.AddHostedService<ContextDepotInfrastructureInitializer>();
         services.AddHealthChecks()
             .AddCheck<PostgreSqlHealthCheck>("postgresql")
-            .AddCheck<CurrentOwnerHealthCheck>("current_owner")
             .AddCheck<VectorCoverageHealthCheck>("vector_coverage");
 
-        services.AddOptions<CurrentOwnerOptions>()
-            .Bind(configuration.GetSection("ContextDepot:Owner"))
-            .Validate(options => options.Id != Guid.Empty, ApplicationErrorMessages.Get(ApplicationErrorCodes.OwnerNotConfigured))
-            .Validate(options => options.Id.Version == 7, ApplicationErrorMessages.Get(ApplicationErrorCodes.OwnerNotConfigured))
-            .Validate(options => !string.IsNullOrWhiteSpace(options.DisplayName) && options.DisplayName.Length <= 200, ApplicationErrorMessages.Get(ApplicationErrorCodes.OwnerNotConfigured))
-            .ValidateOnStart();
-        services.AddSingleton(sp => sp.GetRequiredService<IOptions<CurrentOwnerOptions>>().Value);
-        services.AddSingleton<ICurrentOwnerContext, ConfiguredCurrentOwnerContext>();
+        services.AddScoped<CurrentDepotAccessContext>();
+        services.AddScoped<ICurrentDepotContext>(sp => sp.GetRequiredService<CurrentDepotAccessContext>());
+        services.AddScoped<IWorkspaceAccessContext>(sp => sp.GetRequiredService<CurrentDepotAccessContext>());
+        services.AddSingleton<DepotAccessKeySecretHasher>();
+        services.AddScoped<IDepotAccessKeyAuthenticator, DepotAccessKeyAuthenticator>();
         services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
 
         services.AddOptions<MarkdownStoreOptions>()

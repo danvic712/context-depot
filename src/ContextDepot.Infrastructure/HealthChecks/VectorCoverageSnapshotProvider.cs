@@ -5,7 +5,7 @@ using ContextDepot.Application.VectorIndex.Contracts;
 using ContextDepot.Application.Workspaces;
 using ContextDepot.Domain.Contexts.Enums;
 using ContextDepot.Domain.Documents.Enums;
-using ContextDepot.Infrastructure.HealthChecks.Dtos;
+using ContextDepot.Infrastructure.Dtos;
 using Microsoft.EntityFrameworkCore;
 
 namespace ContextDepot.Infrastructure.HealthChecks;
@@ -19,13 +19,13 @@ public sealed class VectorCoverageSnapshotProvider(
     private const int HashLookupBatchSize = 256;
 
     public async Task<VectorCoverageSnapshot> GetAsync(
-        Guid ownerId,
+        Guid depotId,
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
-        var workspacePaths = await GetWorkspacePathsAsync(ownerId, cancellationToken);
+        var workspacePaths = await GetWorkspacePathsAsync(depotId, cancellationToken);
         var contexts = await db.ContextItems.AsNoTracking()
-            .Where(context => context.OwnerId == ownerId &&
+            .Where(context => context.DepotId == depotId &&
                               context.Status == ContextStatus.Active &&
                               (context.ExpiresAt == null || context.ExpiresAt > now))
             .Select(context => new ContextCoverageSource(
@@ -38,7 +38,7 @@ public sealed class VectorCoverageSnapshotProvider(
                 context.Content))
             .ToListAsync(cancellationToken);
         var documents = await db.DocumentChunks.AsNoTracking()
-            .Where(chunk => chunk.OwnerId == ownerId &&
+            .Where(chunk => chunk.DepotId == depotId &&
                            chunk.Document != null &&
                            chunk.Document.Status == DocumentStatus.Active &&
                            chunk.Document.IndexStatus == DocumentIndexStatus.Indexed)
@@ -85,11 +85,11 @@ public sealed class VectorCoverageSnapshotProvider(
     }
 
     private async Task<IReadOnlyDictionary<Guid, string>> GetWorkspacePathsAsync(
-        Guid ownerId,
+        Guid depotId,
         CancellationToken cancellationToken)
     {
         var workspaces = await db.Workspaces.AsNoTracking()
-            .Where(workspace => workspace.OwnerId == ownerId)
+            .Where(workspace => workspace.DepotId == depotId)
             .ToListAsync(cancellationToken);
         return WorkspacePath.BuildPaths(workspaces);
     }

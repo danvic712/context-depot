@@ -13,14 +13,14 @@ namespace ContextDepot.Application.Tests.Workspaces;
 
 public sealed class WorkspaceAppServiceTests
 {
-    private static readonly Guid OwnerId = Guid.CreateVersion7();
+    private static readonly Guid DepotId = Guid.CreateVersion7();
 
     [Fact]
     public async Task Missing_parent_is_reported_without_fallback_writes()
     {
         var repository = new Mock<IWorkspaceRepository>();
         repository
-            .Setup(x => x.UpsertPathAsync(OwnerId, "projects/context-depot", "ContextDepot", null, "{}", false, It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
+            .Setup(x => x.UpsertPathAsync(DepotId, "projects/context-depot", "ContextDepot", null, "{}", false, It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new WorkspaceUpsertPersistenceResult(null, WorkspaceUpsertPersistenceOutcome.ParentNotFound));
         var service = CreateService(repository);
 
@@ -32,9 +32,9 @@ public sealed class WorkspaceAppServiceTests
     [Fact]
     public async Task Get_returns_the_repository_computed_full_path()
     {
-        var workspace = new Workspace(Guid.CreateVersion7(), OwnerId, Guid.CreateVersion7(), "Context Depot", "context-depot", null, DateTimeOffset.UtcNow);
+        var workspace = new Workspace(Guid.CreateVersion7(), DepotId, Guid.CreateVersion7(), "Context Depot", "context-depot", null, DateTimeOffset.UtcNow);
         var repository = new Mock<IWorkspaceRepository>();
-        repository.Setup(x => x.GetByIdWithPathAsync(OwnerId, workspace.Id, It.IsAny<CancellationToken>())).ReturnsAsync(new WorkspacePathLookup(workspace, "projects/context-depot"));
+        repository.Setup(x => x.GetByIdWithPathAsync(DepotId, workspace.Id, It.IsAny<CancellationToken>())).ReturnsAsync(new WorkspacePathLookup(workspace, "projects/context-depot"));
         var service = CreateService(repository);
 
         var result = await service.GetAsync(workspace.Id, CancellationToken.None);
@@ -44,9 +44,9 @@ public sealed class WorkspaceAppServiceTests
 
     private static WorkspaceAppService CreateService(Mock<IWorkspaceRepository> repository)
     {
-        var owner = new Mock<ICurrentOwnerContext>();
-        owner.SetupGet(x => x.OwnerId).Returns(OwnerId);
+        var depot = new Mock<ICurrentDepotContext>();
+        depot.SetupGet(x => x.DepotId).Returns(DepotId);
         var safety = new Mock<ISourceSafetyService>();
-        return new WorkspaceAppService(owner.Object, repository.Object, TimeProvider.System, safety.Object);
+        return new WorkspaceAppService(depot.Object, repository.Object, TimeProvider.System, safety.Object);
     }
 }

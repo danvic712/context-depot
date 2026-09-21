@@ -17,7 +17,8 @@ namespace ContextDepot.Application.Bootstrap;
 
 public sealed class ContextBootstrapAppService : IContextBootstrapAppService
 {
-    private readonly ICurrentOwnerContext currentOwner;
+    private readonly ICurrentDepotContext currentDepot;
+    private readonly IWorkspaceAccessContext workspaceAccess;
     private readonly IWorkspaceAppService workspaceAppService;
     private readonly IBootstrapRepository repository;
     private readonly ISemanticRetrievalRepository semanticRepository;
@@ -33,7 +34,8 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
     private readonly ILogger<ContextBootstrapAppService> logger;
 
     public ContextBootstrapAppService(
-        ICurrentOwnerContext currentOwner,
+        ICurrentDepotContext currentDepot,
+        IWorkspaceAccessContext workspaceAccess,
         IWorkspaceAppService workspaceAppService,
         IBootstrapRepository repository,
         ISemanticRetrievalRepository semanticRepository,
@@ -46,7 +48,8 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
         TimeProvider timeProvider,
         ILogger<ContextBootstrapAppService> logger)
     {
-        this.currentOwner = currentOwner;
+        this.currentDepot = currentDepot;
+        this.workspaceAccess = workspaceAccess;
         this.workspaceAppService = workspaceAppService;
         this.repository = repository;
         this.semanticRepository = semanticRepository;
@@ -71,7 +74,13 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
 
         var query = request.Query?.Trim() ?? string.Empty;
         var queryTokens = BootstrapQueryTokenizer.Tokenize(query);
-        var bootstrapQuery = new BootstrapQuery(currentOwner.OwnerId, timeProvider.GetUtcNow());
+        var permittedWorkspaceIds = workspaceAccess.HasUnrestrictedAccess
+            ? null
+            : new HashSet<Guid>(workspaceAccess.WorkspaceIds);
+        var bootstrapQuery = new BootstrapQuery(
+            currentDepot.DepotId,
+            permittedWorkspaceIds,
+            timeProvider.GetUtcNow());
         var workspaces = await repository.FindScopeCandidatesAsync(bootstrapQuery, cancellationToken);
         var workspacePaths = scopeResolver.BuildPaths(workspaces);
         var contexts = await repository.FindContextCandidatesAsync(bootstrapQuery, cancellationToken);
@@ -98,9 +107,15 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
             (scopeResolution, scopeIds) = scopeResolver.Resolve(queryTokens, workspaces, workspacePaths, contexts, chunks);
         }
 
-        if (scopeResolution.Status == ScopeResolutionStatus.Broad && scopeIds is { Count: 0 })
+        if (workspaceAccess.HasUnrestrictedAccess &&
+            scopeResolution.Status == ScopeResolutionStatus.Broad &&
+            scopeIds is { Count: 0 })
         {
             scopeIds = null;
+        }
+        else if (!workspaceAccess.HasUnrestrictedAccess && scopeIds is null)
+        {
+            scopeIds = permittedWorkspaceIds;
         }
 
         var queryEmbeddingCache = new QueryEmbeddingCache(embeddingGenerator);
@@ -113,7 +128,7 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
         {
             var semantic = await TrySearchSemanticAsync(
                 queryEmbeddingCache,
-                null,
+                permittedWorkspaceIds,
                 semanticFallbackDecider.ScopeTopK,
                 query,
                 bootstrapQuery.Now,
@@ -130,7 +145,7 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
                     workspacePaths);
                 scopeResolution = semanticScope.Resolution;
                 scopeIds = semanticScope.WorkspaceIds is null
-                    ? null
+                    ? permittedWorkspaceIds
                     : new HashSet<Guid>(semanticScope.WorkspaceIds);
             }
         }
@@ -268,7 +283,7 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
         {
             var queryVector = await embeddingCache.GetOrCreateAsync(query, cancellationToken);
             var semanticQuery = new SemanticCandidateQuery(
-                currentOwner.OwnerId,
+                currentDepot.DepotId,
                 workspaceIds?.ToArray(),
                 null,
                 topK,

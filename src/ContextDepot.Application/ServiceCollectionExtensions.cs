@@ -39,6 +39,8 @@ public static class ServiceCollectionExtensions
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<RetrievalOptions>, RetrievalOptionsValidator>();
         services.AddSingleton<EmbeddingResultValidator>();
+        services.AddSingleton<ContextEmbeddingTextBuilder>();
+        services.AddSingleton<DocumentEmbeddingTextBuilder>();
         services.AddScoped<EmbeddingGeneratorService>();
         services.AddScoped<SemanticFallbackDecider>();
         services.AddSingleton<SemanticWorkspaceAggregator>();

@@ -1,29 +1,37 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ContextDepot.Application;
-using ContextDepot.Background;
+using ContextDepot.BackgroundServices;
 using ContextDepot.Infrastructure;
 using ContextDepot.HealthChecks;
 using ContextDepot.MCP.Contexts;
 using ContextDepot.MCP.Documents;
-using ContextDepot.MCP.Owners;
+using ContextDepot.MCP.Depots;
+using ContextDepot.MCP.Authentication;
 using ContextDepot.MCP.Shared;
 using ContextDepot.MCP.Workspaces;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.Extensions.Hosting;
 using ModelContextProtocol.AspNetCore;
 using Serilog;
 
-// The first phase of two-stage initialization uses a console-only bootstrap logger
-// to capture fatal errors before the host is built (configuration and DI setup).
-// UseSerilog replaces it with the complete appsettings-based configuration.
+// The first phase of two-stage initialization also writes to the application log
+// so fatal errors during configuration and DI setup are not lost before the host
+// is built. UseSerilog replaces it with the complete appsettings-based configuration.
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
+    .WriteTo.File(
+        path: "logs/context-depot-.log",
+        rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: 14,
+        fileSizeLimitBytes: 10_485_760,
+        rollOnFileSizeLimit: true,
+        shared: true,
+        outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} {Level:u3}] {SourceContext} {Message:lj}{NewLine}{Exception}")
     .CreateBootstrapLogger();
 
 try
 {
-    Log.Information("Starting ContextDepot host");
+    Log.Information("Starting ContextDepot");
 
     var builder = WebApplication.CreateBuilder(args);
 
@@ -44,10 +52,11 @@ try
         .WithTools<ContextTools>()
         .WithTools<DocumentTools>()
         .WithTools<WorkspaceTools>()
-        .WithTools<OwnerTools>();
+        .WithTools<DepotTools>();
 
     var app = builder.Build();
 
+    app.UseMiddleware<DepotAccessKeyAuthenticationMiddleware>();
     app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
     app.MapHealthChecks("/readyz", new HealthCheckOptions
     {

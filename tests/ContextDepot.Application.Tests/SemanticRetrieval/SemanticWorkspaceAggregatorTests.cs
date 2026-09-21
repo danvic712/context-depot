@@ -9,7 +9,7 @@ namespace ContextDepot.Application.Tests.SemanticRetrieval;
 
 public sealed class SemanticWorkspaceAggregatorTests
 {
-    private static readonly Guid OwnerId = Guid.CreateVersion7();
+    private static readonly Guid DepotId = Guid.CreateVersion7();
 
     [Fact]
     public void Strong_single_workspace_signal_is_resolved()
@@ -48,7 +48,7 @@ public sealed class SemanticWorkspaceAggregatorTests
     }
 
     [Fact]
-    public void Weak_signal_falls_back_to_owner_wide_scope()
+    public void Weak_signal_falls_back_to_depot_wide_scope()
     {
         var workspaceId = Guid.CreateVersion7();
         var result = new SemanticWorkspaceAggregator().Aggregate(
@@ -62,7 +62,7 @@ public sealed class SemanticWorkspaceAggregatorTests
 
     private static BootstrapContextCandidate Context(Guid workspaceId) => new(
         Guid.CreateVersion7(),
-        OwnerId,
+        DepotId,
         workspaceId,
         ContextKind.Decision,
         "project.database",

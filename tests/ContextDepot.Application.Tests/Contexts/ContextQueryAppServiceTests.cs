@@ -23,10 +23,10 @@ namespace ContextDepot.Application.Tests.Contexts;
 
 public sealed class ContextQueryAppServiceTests
 {
-    private static readonly Guid OwnerId = Guid.Parse("0199c000-0000-7000-8000-000000000001");
+    private static readonly Guid DepotId = Guid.Parse("0199c000-0000-7000-8000-000000000001");
 
     [Fact]
-    public async Task Search_is_owner_wide_by_default_without_auto_scope_resolution()
+    public async Task Search_is_depot_wide_by_default_without_auto_scope_resolution()
     {
         var workspaceId = Guid.CreateVersion7();
         var candidate = ContextCandidate(workspaceId, "PostgreSQL is the database.");
@@ -51,8 +51,8 @@ public sealed class ContextQueryAppServiceTests
     {
         var parentId = Guid.CreateVersion7();
         var childId = Guid.CreateVersion7();
-        var parent = new WorkspaceModel(parentId, OwnerId, "projects", "Projects", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
-        var child = new WorkspaceModel(childId, OwnerId, "projects/context-depot", "Context Depot", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
+        var parent = new WorkspaceModel(parentId, DepotId, "projects", "Projects", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
+        var child = new WorkspaceModel(childId, DepotId, "projects/context-depot", "Context Depot", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
         var repository = new Mock<IContextQueryRepository>();
         repository.Setup(x => x.FindLexicalContextCandidatesAsync(It.IsAny<ContextSearchQuery>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
@@ -76,12 +76,38 @@ public sealed class ContextQueryAppServiceTests
     }
 
     [Fact]
-    public async Task Get_reads_archived_context_in_current_owner_scope()
+    public async Task Search_without_explicit_scope_uses_granted_workspaces()
+    {
+        var grantedWorkspaceId = Guid.CreateVersion7();
+        var repository = new Mock<IContextQueryRepository>();
+        repository.Setup(x => x.FindLexicalContextCandidatesAsync(It.IsAny<ContextSearchQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        repository.Setup(x => x.FindLexicalDocumentCandidatesAsync(It.IsAny<ContextSearchQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        var workspaceAccess = new Mock<IWorkspaceAccessContext>();
+        workspaceAccess.SetupGet(x => x.HasUnrestrictedAccess).Returns(false);
+        workspaceAccess.SetupGet(x => x.WorkspaceIds).Returns([grantedWorkspaceId]);
+        var service = CreateService(
+            repository,
+            new Mock<IWorkspaceAppService>(),
+            workspaceAccess: workspaceAccess);
+
+        await service.SearchAsync(new ContextSearchRequest("database"), CancellationToken.None);
+
+        var expectedWorkspaceIds = new HashSet<Guid> { grantedWorkspaceId };
+        repository.Verify(x => x.FindLexicalContextCandidatesAsync(
+            It.Is<ContextSearchQuery>(query => query.WorkspaceIds != null &&
+                                               query.WorkspaceIds.SetEquals(expectedWorkspaceIds)),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Get_reads_archived_context_in_current_depot_scope()
     {
         var workspaceId = Guid.CreateVersion7();
         var context = new ContextItem(
             Guid.CreateVersion7(),
-            OwnerId,
+            DepotId,
             workspaceId,
             ContextKind.Fact,
             "project.database",
@@ -90,11 +116,11 @@ public sealed class ContextQueryAppServiceTests
             DateTimeOffset.UtcNow);
         context.MarkArchived(DateTimeOffset.UtcNow);
         var repository = new Mock<IContextQueryRepository>();
-        repository.Setup(x => x.FindContextByIdAsync(OwnerId, context.Id, It.IsAny<CancellationToken>()))
+        repository.Setup(x => x.FindContextByIdAsync(DepotId, context.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(context);
         var workspaces = new Mock<IWorkspaceAppService>();
         workspaces.Setup(x => x.GetAsync(workspaceId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new WorkspaceModel(workspaceId, OwnerId, "projects/context-depot", "Context Depot", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
+            .ReturnsAsync(new WorkspaceModel(workspaceId, DepotId, "projects/context-depot", "Context Depot", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
         var service = CreateService(repository, workspaces);
 
         var result = await service.GetAsync(context.Id, CancellationToken.None);
@@ -105,10 +131,10 @@ public sealed class ContextQueryAppServiceTests
     }
 
     [Fact]
-    public async Task Get_does_not_return_another_owner_context()
+    public async Task Get_does_not_return_another_depot_context()
     {
         var repository = new Mock<IContextQueryRepository>();
-        repository.Setup(x => x.FindContextByIdAsync(OwnerId, It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+        repository.Setup(x => x.FindContextByIdAsync(DepotId, It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((ContextItem?)null);
         var service = CreateService(repository, new Mock<IWorkspaceAppService>());
 
@@ -151,10 +177,16 @@ public sealed class ContextQueryAppServiceTests
         Mock<IContextQueryRepository> repository,
         Mock<IWorkspaceAppService> workspaces,
         Mock<ISemanticRetrievalRepository>? semanticRepository = null,
-        Mock<IEmbeddingGenerator<string, Embedding<float>>>? generator = null)
+        Mock<IEmbeddingGenerator<string, Embedding<float>>>? generator = null,
+        Mock<IWorkspaceAccessContext>? workspaceAccess = null)
     {
-        var owner = new Mock<ICurrentOwnerContext>();
-        owner.SetupGet(x => x.OwnerId).Returns(OwnerId);
+        var depot = new Mock<ICurrentDepotContext>();
+        depot.SetupGet(x => x.DepotId).Returns(DepotId);
+        if (workspaceAccess is null)
+        {
+            workspaceAccess = new Mock<IWorkspaceAccessContext>();
+            workspaceAccess.SetupGet(x => x.HasUnrestrictedAccess).Returns(true);
+        }
         var services = new Mock<IServiceProvider>();
         if (generator is not null)
         {
@@ -170,7 +202,8 @@ public sealed class ContextQueryAppServiceTests
             NullLogger<EmbeddingGeneratorService>.Instance);
         var options = Options.Create(new RetrievalOptions());
         return new ContextQueryAppService(
-            owner.Object,
+            depot.Object,
+            workspaceAccess.Object,
             repository.Object,
             workspaces.Object,
             (semanticRepository ?? new Mock<ISemanticRetrievalRepository>()).Object,
@@ -185,7 +218,7 @@ public sealed class ContextQueryAppServiceTests
 
     private static BootstrapContextCandidate ContextCandidate(Guid workspaceId, string content) => new(
         Guid.CreateVersion7(),
-        OwnerId,
+        DepotId,
         workspaceId,
         ContextKind.Fact,
         null,

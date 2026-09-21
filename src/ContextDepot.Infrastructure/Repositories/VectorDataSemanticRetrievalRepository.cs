@@ -65,7 +65,7 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
         var ids = vectorCandidates.Select(candidate => candidate.Id).Distinct().ToArray();
         var sourceQuery = db.ContextItems
             .AsNoTracking()
-            .Where(x => x.OwnerId == query.OwnerId &&
+            .Where(x => x.DepotId == query.DepotId &&
                         x.Status == ContextStatus.Active &&
                         (x.ExpiresAt == null || x.ExpiresAt > query.Now) &&
                         ids.Contains(x.Id));
@@ -84,7 +84,7 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
         var source = await sourceQuery
             .Select(x => new BootstrapContextCandidate(
                 x.Id,
-                x.OwnerId,
+                x.DepotId,
                 x.WorkspaceId,
                 x.Kind,
                 x.Key,
@@ -133,7 +133,7 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
         var ids = vectorCandidates.Select(candidate => candidate.Id).Distinct().ToArray();
         var sourceQuery = db.DocumentChunks
             .AsNoTracking()
-            .Where(x => x.OwnerId == query.OwnerId &&
+            .Where(x => x.DepotId == query.DepotId &&
                         x.Document != null &&
                         x.Document.Status == DocumentStatus.Active &&
                         x.Document.IndexStatus == DocumentIndexStatus.Indexed &&
@@ -147,7 +147,7 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
         var source = await sourceQuery
             .Select(x => new BootstrapDocumentChunkCandidate(
                 x.Id,
-                x.OwnerId,
+                x.DepotId,
                 x.DocumentId,
                 x.WorkspaceId,
                 x.Ordinal,
@@ -236,39 +236,39 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
 
     private static Expression<Func<ContextVectorRecord, bool>> BuildContextFilter(SemanticCandidateQuery query)
     {
-        var ownerId = query.OwnerId;
+        var depotId = query.DepotId;
         var workspaceIds = query.WorkspaceIds?.ToArray();
         var kinds = query.Kinds?.Select(kind => kind.ToString().ToLowerInvariant()).ToArray();
         if (workspaceIds is not null && kinds is not null)
         {
-            return record => record.OwnerId == ownerId &&
+            return record => record.DepotId == depotId &&
                              workspaceIds.Contains(record.WorkspaceId) &&
                              kinds.Contains(record.Kind);
         }
 
         if (workspaceIds is not null)
         {
-            return record => record.OwnerId == ownerId && workspaceIds.Contains(record.WorkspaceId);
+            return record => record.DepotId == depotId && workspaceIds.Contains(record.WorkspaceId);
         }
 
         if (kinds is not null)
         {
-            return record => record.OwnerId == ownerId && kinds.Contains(record.Kind);
+            return record => record.DepotId == depotId && kinds.Contains(record.Kind);
         }
 
-        return record => record.OwnerId == ownerId;
+        return record => record.DepotId == depotId;
     }
 
     private static Expression<Func<DocumentVectorRecord, bool>> BuildDocumentFilter(SemanticCandidateQuery query)
     {
-        var ownerId = query.OwnerId;
+        var depotId = query.DepotId;
         var workspaceIds = query.WorkspaceIds?.ToArray();
         if (workspaceIds is not null)
         {
-            return record => record.OwnerId == ownerId && workspaceIds.Contains(record.WorkspaceId);
+            return record => record.DepotId == depotId && workspaceIds.Contains(record.WorkspaceId);
         }
 
-        return record => record.OwnerId == ownerId;
+        return record => record.DepotId == depotId;
     }
 
     private static bool HasEmptyScope(SemanticCandidateQuery query) =>
@@ -279,7 +279,7 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
     private static void ValidateQuery(SemanticCandidateQuery query)
     {
         ArgumentNullException.ThrowIfNull(query);
-        if (query.TopK <= 0 || query.OwnerId == Guid.Empty)
+        if (query.TopK <= 0 || query.DepotId == Guid.Empty)
         {
             throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidSearchQuery);
         }

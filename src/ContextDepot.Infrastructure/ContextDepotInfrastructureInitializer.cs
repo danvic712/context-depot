@@ -1,5 +1,4 @@
 using ContextDepot.Application.Shared.Exceptions;
-using ContextDepot.Infrastructure.CurrentOwner;
 using ContextDepot.Infrastructure.VectorStore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,18 +20,10 @@ internal sealed class ContextDepotInfrastructureInitializer(
             var db = scope.ServiceProvider.GetRequiredService<ContextDepotDbContext>();
             await db.Database.MigrateAsync(cancellationToken);
             await vectorCollectionInitializer.InitializeAsync(cancellationToken);
-            await scope.ServiceProvider
-                .GetRequiredService<CurrentOwnerBootstrapper>()
-                .InitializeAsync(cancellationToken);
-        }
-        catch (ContextDepotApplicationException exception) when (exception.ErrorCode == ApplicationErrorCodes.OwnerConfigurationMismatch)
-        {
-            logger.LogCritical(exception, "{ErrorCode} detected while initializing the current owner.", ApplicationErrorCodes.OwnerConfigurationMismatch);
-            throw;
         }
         catch (Exception exception)
         {
-            logger.LogCritical(exception, "{ErrorCode} failed while applying migrations or initializing the current owner.", ApplicationErrorCodes.DatabaseMigrationFailed);
+            logger.LogCritical(exception, "{ErrorCode} failed while applying database migrations or initializing vector collections.", ApplicationErrorCodes.DatabaseMigrationFailed);
             throw;
         }
     }

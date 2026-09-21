@@ -11,6 +11,6 @@ public static class P1EvaluationDataset
         new("fuzzy document knowledge query", true, false, true, 1),
         new("low confidence semantic candidate", false, false, false, 1),
         new("superseded current truth", false, false, false, 0),
-        new("unrelated owner-wide item", false, false, false, 0)
+        new("unrelated depot-wide item", false, false, false, 0)
     ];
 }

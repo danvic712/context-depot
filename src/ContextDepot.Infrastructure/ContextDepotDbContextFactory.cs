@@ -1,4 +1,5 @@
 using ContextDepot.Application.Shared.Exceptions;
+using ContextDepot.Application.Shared.Runtime.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
@@ -19,6 +20,21 @@ public sealed class ContextDepotDbContextFactory : IDesignTimeDbContextFactory<C
             .UseNpgsql(connectionString, npgsql => npgsql.MigrationsHistoryTable("ef_migrations", "public"))
             .Options;
 
-        return new ContextDepotDbContext(options);
+        return new ContextDepotDbContext(options, UnrestrictedWorkspaceAccessContext.Instance);
+    }
+
+    private sealed class UnrestrictedWorkspaceAccessContext : IWorkspaceAccessContext
+    {
+        public static readonly UnrestrictedWorkspaceAccessContext Instance = new();
+
+        public Guid? DepotAccessKeyId => null;
+
+        public bool HasUnrestrictedAccess => true;
+
+        public IReadOnlyList<Guid> WorkspaceIds => [];
+
+        public IReadOnlyList<Guid> NavigableWorkspaceIds => [];
+
+        public bool CanAccess(Guid workspaceId) => true;
     }
 }

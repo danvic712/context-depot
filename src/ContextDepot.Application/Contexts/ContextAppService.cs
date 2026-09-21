@@ -15,7 +15,7 @@ using ContextDepot.Domain.Contexts.Enums;
 namespace ContextDepot.Application.Contexts;
 
 public sealed partial class ContextAppService(
-    ICurrentOwnerContext currentOwner,
+    ICurrentDepotContext currentDepot,
     IWorkspaceAppService workspaceAppService,
     IContextRepository repository,
     ISourceSafetyService sourceSafety,
@@ -63,7 +63,7 @@ public sealed partial class ContextAppService(
         var now = timeProvider.GetUtcNow();
         var context = new ContextItem(
             idGenerator.NewId(),
-            currentOwner.OwnerId,
+            currentDepot.DepotId,
             workspace.Id,
             command.Kind,
             normalizedKey,
@@ -115,7 +115,7 @@ public sealed partial class ContextAppService(
 
     public async Task ArchiveAsync(Guid contextId, CancellationToken cancellationToken)
     {
-        var result = await repository.ArchiveAsync(currentOwner.OwnerId, contextId, timeProvider.GetUtcNow(), cancellationToken);
+        var result = await repository.ArchiveAsync(currentDepot.DepotId, contextId, timeProvider.GetUtcNow(), cancellationToken);
         if (result.Outcome == ContextPersistenceOutcome.NotFound)
         {
             throw new ContextDepotApplicationException(ApplicationErrorCodes.ContextNotFound);
@@ -183,7 +183,7 @@ public sealed partial class ContextAppService(
     private static ContextModel ToModel(ContextItem context)
     {
         var tags = JsonSerializer.Deserialize<string[]>(context.TagsJson) ?? [];
-        return new ContextModel(context.Id, context.OwnerId, context.WorkspaceId, context.Kind, context.Key, context.Title, context.Content, tags, context.Importance, context.Confidence, context.Status, context.VerificationStatus, context.ProvenanceTrust, context.SourceType, context.SourceAgent, context.SourceRef, context.SupersedesId, context.ExpiresAt, context.CreatedAt, context.UpdatedAt);
+        return new ContextModel(context.Id, context.DepotId, context.WorkspaceId, context.Kind, context.Key, context.Title, context.Content, tags, context.Importance, context.Confidence, context.Status, context.VerificationStatus, context.ProvenanceTrust, context.SourceType, context.SourceAgent, context.SourceRef, context.SupersedesId, context.ExpiresAt, context.CreatedAt, context.UpdatedAt);
     }
 
     [GeneratedRegex("^[a-z0-9]+(?:[._-][a-z0-9]+)*$", RegexOptions.CultureInvariant)]

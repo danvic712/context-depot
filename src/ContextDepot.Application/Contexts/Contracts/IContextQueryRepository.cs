@@ -6,7 +6,7 @@ namespace ContextDepot.Application.Contexts.Contracts;
 public interface IContextQueryRepository
 {
     Task<ContextItem?> FindContextByIdAsync(
-        Guid ownerId,
+        Guid depotId,
         Guid contextId,
         CancellationToken cancellationToken);
 

@@ -2,7 +2,7 @@ namespace ContextDepot.Application.Bootstrap.Dtos;
 
 public sealed record BootstrapDocumentChunkCandidate(
     Guid Id,
-    Guid OwnerId,
+    Guid DepotId,
     Guid DocumentId,
     Guid WorkspaceId,
     int Ordinal,

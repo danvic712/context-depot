@@ -13,7 +13,7 @@ using ContextDepot.Domain.Documents.Enums;
 namespace ContextDepot.Application.Documents;
 
 public sealed class DocumentAppService(
-    ICurrentOwnerContext currentOwner,
+    ICurrentDepotContext currentDepot,
     IWorkspaceAppService workspaceAppService,
     IDocumentRepository repository,
     IMarkdownStore markdownStore,
@@ -52,7 +52,7 @@ public sealed class DocumentAppService(
         {
             throw new ContextDepotApplicationException(ApplicationErrorCodes.MarkdownRootUnavailable);
         }
-        var document = await repository.GetByPathAsync(currentOwner.OwnerId, workspace.Id, normalizedPath, cancellationToken);
+        var document = await repository.GetByPathAsync(currentDepot.DepotId, workspace.Id, normalizedPath, cancellationToken);
         var currentHash = currentFile?.ContentHash ?? document?.ContentHash;
         if (document is not null && currentHash is not null &&
             !string.Equals(currentHash, incomingHash, StringComparison.OrdinalIgnoreCase) &&
@@ -64,7 +64,7 @@ public sealed class DocumentAppService(
         var now = timeProvider.GetUtcNow();
         if (document is not null)
         {
-            await repository.MarkIndexPendingAsync(currentOwner.OwnerId, workspace.Id, normalizedPath, now, cancellationToken);
+            await repository.MarkIndexPendingAsync(currentDepot.DepotId, workspace.Id, normalizedPath, now, cancellationToken);
         }
 
         if (currentFile is null || !string.Equals(currentHash, incomingHash, StringComparison.OrdinalIgnoreCase))
@@ -96,7 +96,7 @@ public sealed class DocumentAppService(
         var chunks = chunker.Chunk(canonical.Content);
         var write = new DocumentIndexWrite(
             document?.Id ?? idGenerator.NewId(),
-            currentOwner.OwnerId,
+            currentDepot.DepotId,
             workspace.Id,
             normalizedPath,
             command.Title.Trim(),
@@ -110,7 +110,7 @@ public sealed class DocumentAppService(
 
     public async Task<DocumentContentModel?> GetAsync(Guid documentId, CancellationToken cancellationToken)
     {
-        var document = await repository.GetByIdAsync(currentOwner.OwnerId, documentId, cancellationToken);
+        var document = await repository.GetByIdAsync(currentDepot.DepotId, documentId, cancellationToken);
         if (document is null)
         {
             return null;
@@ -134,12 +134,12 @@ public sealed class DocumentAppService(
 
     public async Task ArchiveAsync(Guid documentId, CancellationToken cancellationToken)
     {
-        var document = await repository.GetByIdAsync(currentOwner.OwnerId, documentId, cancellationToken)
+        var document = await repository.GetByIdAsync(currentDepot.DepotId, documentId, cancellationToken)
             ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.DocumentNotFound);
         var workspace = await workspaceAppService.GetAsync(document.WorkspaceId, cancellationToken)
             ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspaceNotFound);
         await using var writeLock = await coordinator.AcquireAsync(workspace.Id + ":" + document.Path, cancellationToken);
-        var result = await repository.ArchiveAsync(currentOwner.OwnerId, documentId, timeProvider.GetUtcNow(), cancellationToken);
+        var result = await repository.ArchiveAsync(currentDepot.DepotId, documentId, timeProvider.GetUtcNow(), cancellationToken);
         if (result.Outcome == DocumentArchivePersistenceOutcome.NotFound)
         {
             throw new ContextDepotApplicationException(ApplicationErrorCodes.DocumentNotFound);
@@ -148,7 +148,7 @@ public sealed class DocumentAppService(
 
     private static DocumentModel ToModel(Document document, string workspacePath) => new(
         document.Id,
-        document.OwnerId,
+        document.DepotId,
         document.WorkspaceId,
         workspacePath,
         document.Path,

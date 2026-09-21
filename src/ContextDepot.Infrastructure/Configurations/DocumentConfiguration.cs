@@ -11,7 +11,7 @@ public sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
         entity.ToTable("documents");
         entity.HasKey(x => x.Id).HasName("pk_documents");
         entity.Property(x => x.Id).HasColumnName("id");
-        entity.Property(x => x.OwnerId).HasColumnName("owner_id");
+        entity.Property(x => x.DepotId).HasColumnName("depot_id");
         entity.Property(x => x.WorkspaceId).HasColumnName("workspace_id");
         entity.Property(x => x.Path).HasColumnName("path").HasMaxLength(500).IsRequired();
         entity.Property(x => x.Title).HasColumnName("title").HasMaxLength(300).IsRequired();
@@ -22,15 +22,15 @@ public sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
         entity.Property(x => x.LastIndexError).HasColumnName("last_index_error");
         entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("timestamp with time zone");
         entity.Property(x => x.UpdatedAt).HasColumnName("updated_at").HasColumnType("timestamp with time zone");
-        entity.HasIndex(x => new { x.OwnerId, x.WorkspaceId, x.Path })
+        entity.HasIndex(x => new { x.DepotId, x.WorkspaceId, x.Path })
             .IsUnique()
-            .HasDatabaseName("ux_documents_owner_workspace_path");
-        entity.HasAlternateKey(x => new { x.Id, x.OwnerId, x.WorkspaceId }).HasName("ak_documents_id_owner_id_workspace_id");
+            .HasDatabaseName("ux_documents_depot_workspace_path");
+        entity.HasAlternateKey(x => new { x.Id, x.DepotId, x.WorkspaceId }).HasName("ak_documents_id_depot_id_workspace_id");
         entity.HasOne(x => x.Workspace)
             .WithMany(x => x.Documents)
-            .HasForeignKey(x => new { x.WorkspaceId, x.OwnerId })
-            .HasPrincipalKey(x => new { x.Id, x.OwnerId })
+            .HasForeignKey(x => new { x.WorkspaceId, x.DepotId })
+            .HasPrincipalKey(x => new { x.Id, x.DepotId })
             .OnDelete(DeleteBehavior.Restrict)
-            .HasConstraintName("fk_documents_workspaces_workspace_id_owner_id");
+            .HasConstraintName("fk_documents_workspaces_workspace_id_depot_id");
     }
 }

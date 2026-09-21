@@ -1,6 +1,6 @@
 using ContextDepot.Domain.Contexts.Enums;
 
-namespace ContextDepot.Infrastructure.HealthChecks.Dtos;
+namespace ContextDepot.Infrastructure.Dtos;
 
 public sealed record ContextCoverageSource(
     Guid Id,

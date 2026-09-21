@@ -1,6 +1,6 @@
 using ContextDepot.Domain.Contexts;
 using ContextDepot.Domain.Documents;
-using ContextDepot.Domain.Owners;
+using ContextDepot.Domain.Depots;
 
 namespace ContextDepot.Domain.Workspaces;
 
@@ -10,10 +10,10 @@ public sealed class Workspace
     {
     }
 
-    public Workspace(Guid id, Guid ownerId, Guid? parentWorkspaceId, string name, string slug, string? description, DateTimeOffset now)
+    public Workspace(Guid id, Guid depotId, Guid? parentWorkspaceId, string name, string slug, string? description, DateTimeOffset now)
     {
         Id = id;
-        OwnerId = ownerId;
+        DepotId = depotId;
         ParentWorkspaceId = parentWorkspaceId;
         Name = name;
         Slug = slug;
@@ -25,7 +25,7 @@ public sealed class Workspace
 
     public Guid Id { get; private set; }
 
-    public Guid OwnerId { get; private set; }
+    public Guid DepotId { get; private set; }
 
     public Guid? ParentWorkspaceId { get; private set; }
 
@@ -41,7 +41,7 @@ public sealed class Workspace
 
     public DateTimeOffset UpdatedAt { get; private set; }
 
-    public Owner? Owner { get; private set; }
+    public Depot? Depot { get; private set; }
 
     public Workspace? ParentWorkspace { get; private set; }
 
@@ -50,6 +50,8 @@ public sealed class Workspace
     public ICollection<ContextItem> ContextItems { get; } = new List<ContextItem>();
 
     public ICollection<Document> Documents { get; } = new List<Document>();
+
+    public ICollection<WorkspaceAccessGrant> AccessKeyGrants { get; } = new List<WorkspaceAccessGrant>();
 
     public void Update(string name, string? description, string metadataJson, DateTimeOffset now)
     {

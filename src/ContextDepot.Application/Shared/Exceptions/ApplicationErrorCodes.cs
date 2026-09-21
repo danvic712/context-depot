@@ -3,8 +3,6 @@ namespace ContextDepot.Application.Shared.Exceptions;
 public static class ApplicationErrorCodes
 {
     public const string InternalError = "InternalError";
-    public const string OwnerNotConfigured = "OwnerNotConfigured";
-    public const string OwnerConfigurationMismatch = "OwnerConfigurationMismatch";
     public const string ContextNotFound = "ContextNotFound";
     public const string ContextConcurrencyConflict = "ContextConcurrencyConflict";
     public const string ContextWriteFailed = "ContextWriteFailed";

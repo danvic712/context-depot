@@ -25,7 +25,8 @@ namespace ContextDepot.Application.Contexts;
 
 public sealed class ContextQueryAppService : IContextQueryAppService
 {
-    private readonly ICurrentOwnerContext currentOwner;
+    private readonly ICurrentDepotContext currentDepot;
+    private readonly IWorkspaceAccessContext workspaceAccess;
     private readonly IContextQueryRepository repository;
     private readonly IWorkspaceAppService workspaceAppService;
     private readonly ISemanticRetrievalRepository semanticRepository;
@@ -38,7 +39,8 @@ public sealed class ContextQueryAppService : IContextQueryAppService
     private readonly ILogger<ContextQueryAppService> logger;
 
     public ContextQueryAppService(
-        ICurrentOwnerContext currentOwner,
+        ICurrentDepotContext currentDepot,
+        IWorkspaceAccessContext workspaceAccess,
         IContextQueryRepository repository,
         IWorkspaceAppService workspaceAppService,
         ISemanticRetrievalRepository semanticRepository,
@@ -50,7 +52,8 @@ public sealed class ContextQueryAppService : IContextQueryAppService
         TimeProvider timeProvider,
         ILogger<ContextQueryAppService> logger)
     {
-        this.currentOwner = currentOwner;
+        this.currentDepot = currentDepot;
+        this.workspaceAccess = workspaceAccess;
         this.repository = repository;
         this.workspaceAppService = workspaceAppService;
         this.semanticRepository = semanticRepository;
@@ -70,7 +73,7 @@ public sealed class ContextQueryAppService : IContextQueryAppService
         var query = ValidateAndNormalize(request, out var limit);
         var workspaceScope = await ResolveWorkspaceScopeAsync(request, cancellationToken);
         var searchQuery = new ContextSearchQuery(
-            currentOwner.OwnerId,
+            currentDepot.DepotId,
             workspaceScope.Ids,
             request.Kinds,
             query,
@@ -220,7 +223,7 @@ public sealed class ContextQueryAppService : IContextQueryAppService
         Guid contextId,
         CancellationToken cancellationToken)
     {
-        var context = await repository.FindContextByIdAsync(currentOwner.OwnerId, contextId, cancellationToken);
+        var context = await repository.FindContextByIdAsync(currentDepot.DepotId, contextId, cancellationToken);
         if (context is null)
         {
             return null;
@@ -236,7 +239,9 @@ public sealed class ContextQueryAppService : IContextQueryAppService
     {
         if (request.Workspaces is not { Count: > 0 })
         {
-            return (null, new Dictionary<Guid, string>());
+            return workspaceAccess.HasUnrestrictedAccess
+                ? (null, new Dictionary<Guid, string>())
+                : (new HashSet<Guid>(workspaceAccess.WorkspaceIds), new Dictionary<Guid, string>());
         }
 
         var ids = new HashSet<Guid>();
@@ -312,7 +317,7 @@ public sealed class ContextQueryAppService : IContextQueryAppService
             var queryVector = await new QueryEmbeddingCache(embeddingGenerator)
                 .GetOrCreateAsync(query, cancellationToken);
             var semanticQuery = new SemanticCandidateQuery(
-                currentOwner.OwnerId,
+                currentDepot.DepotId,
                 workspaceIds?.ToArray(),
                 kinds,
                 semanticFallbackDecider.CandidateTopKPerSource,
@@ -413,7 +418,7 @@ public sealed class ContextQueryAppService : IContextQueryAppService
         var tags = JsonSerializer.Deserialize<string[]>(context.TagsJson) ?? [];
         return new ContextDetailModel(
             context.Id,
-            context.OwnerId,
+            context.DepotId,
             context.WorkspaceId,
             workspacePath,
             context.Kind,

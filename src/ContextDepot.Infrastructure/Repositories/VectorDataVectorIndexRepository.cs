@@ -54,7 +54,7 @@ public sealed class VectorDataVectorIndexRepository : IVectorIndexRepository
             writes.Select(write => new ContextVectorRecord
             {
                 ContextItemId = write.ContextItemId,
-                OwnerId = write.OwnerId,
+                DepotId = write.DepotId,
                 WorkspaceId = write.WorkspaceId,
                 Kind = write.Kind.ToString().ToLowerInvariant(),
                 EmbeddingInputHash = write.EmbeddingInputHash,
@@ -73,7 +73,7 @@ public sealed class VectorDataVectorIndexRepository : IVectorIndexRepository
             {
                 DocumentChunkId = write.DocumentChunkId,
                 DocumentId = write.DocumentId,
-                OwnerId = write.OwnerId,
+                DepotId = write.DepotId,
                 WorkspaceId = write.WorkspaceId,
                 EmbeddingInputHash = write.EmbeddingInputHash,
                 Embedding = write.Embedding

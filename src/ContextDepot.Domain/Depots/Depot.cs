@@ -1,14 +1,14 @@
 using ContextDepot.Domain.Workspaces;
 
-namespace ContextDepot.Domain.Owners;
+namespace ContextDepot.Domain.Depots;
 
-public sealed class Owner
+public sealed class Depot
 {
-    private Owner()
+    private Depot()
     {
     }
 
-    public Owner(Guid id, string displayName, DateTimeOffset now)
+    public Depot(Guid id, string displayName, DateTimeOffset now)
     {
         Id = id;
         DisplayName = displayName;
@@ -28,6 +28,8 @@ public sealed class Owner
     public DateTimeOffset UpdatedAt { get; private set; }
 
     public ICollection<Workspace> Workspaces { get; } = new List<Workspace>();
+
+    public ICollection<DepotAccessKey> AccessKeys { get; } = new List<DepotAccessKey>();
 
     public void UpdateDisplayName(string displayName, DateTimeOffset now)
     {

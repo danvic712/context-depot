@@ -19,7 +19,7 @@ namespace ContextDepot.Application.Tests.Contexts;
 
 public sealed class ContextAppServiceTests
 {
-    private static readonly Guid OwnerId = Guid.Parse("0199c000-0000-7000-8000-000000000001");
+    private static readonly Guid DepotId = Guid.Parse("0199c000-0000-7000-8000-000000000001");
     private static readonly Guid WorkspaceId = Guid.Parse("0199c000-0000-7000-8000-000000000002");
 
     [Fact]
@@ -43,7 +43,7 @@ public sealed class ContextAppServiceTests
     [Fact]
     public async Task Key_kind_conflict_is_exposed_without_writing()
     {
-        var existing = new ContextItem(Guid.CreateVersion7(), OwnerId, WorkspaceId, ContextKind.Decision, "project.database", null, "SQLite", DateTimeOffset.UtcNow);
+        var existing = new ContextItem(Guid.CreateVersion7(), DepotId, WorkspaceId, ContextKind.Decision, "project.database", null, "SQLite", DateTimeOffset.UtcNow);
         var repository = new Mock<IContextRepository>();
         repository
             .Setup(x => x.SaveKeyedAsync(It.IsAny<ContextItem>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
@@ -89,17 +89,17 @@ public sealed class ContextAppServiceTests
 
     private static ContextAppService CreateService(Mock<IContextRepository> repository, ISourceSafetyService? configuredSafety = null)
     {
-        var workspace = new WorkspaceModel(WorkspaceId, OwnerId, "projects/context-depot", "ContextDepot", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
+        var workspace = new WorkspaceModel(WorkspaceId, DepotId, "projects/context-depot", "ContextDepot", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
         var workspaces = new Mock<IWorkspaceAppService>();
         workspaces.Setup(x => x.ResolveAsync("projects/context-depot", It.IsAny<CancellationToken>())).ReturnsAsync(workspace);
         var safety = configuredSafety ?? CreateDefaultSafety();
-        var owner = new Mock<ICurrentOwnerContext>();
-        owner.SetupGet(x => x.OwnerId).Returns(OwnerId);
+        var depot = new Mock<ICurrentDepotContext>();
+        depot.SetupGet(x => x.DepotId).Returns(DepotId);
         var timeProvider = new Mock<TimeProvider>();
         timeProvider.Setup(x => x.GetUtcNow()).Returns(DateTimeOffset.Parse("2026-09-19T00:00:00Z"));
         var ids = new Mock<IIdGenerator>();
         ids.Setup(x => x.NewId()).Returns(Guid.Parse("0199c000-0000-7000-8000-000000000003"));
-        return new ContextAppService(owner.Object, workspaces.Object, repository.Object, safety, ids.Object, timeProvider.Object);
+        return new ContextAppService(depot.Object, workspaces.Object, repository.Object, safety, ids.Object, timeProvider.Object);
     }
 
     private static ISourceSafetyService CreateDefaultSafety()

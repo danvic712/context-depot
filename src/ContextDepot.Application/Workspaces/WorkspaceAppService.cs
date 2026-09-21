@@ -10,28 +10,28 @@ using ContextDepot.Application.Workspaces.Enums;
 namespace ContextDepot.Application.Workspaces;
 
 public sealed class WorkspaceAppService(
-    ICurrentOwnerContext currentOwner,
+    ICurrentDepotContext currentDepot,
     IWorkspaceRepository repository,
     TimeProvider timeProvider,
     ISourceSafetyService sourceSafety) : IWorkspaceAppService
 {
     public async Task<WorkspaceModel?> GetAsync(Guid workspaceId, CancellationToken cancellationToken)
     {
-        var lookup = await repository.GetByIdWithPathAsync(currentOwner.OwnerId, workspaceId, cancellationToken);
+        var lookup = await repository.GetByIdWithPathAsync(currentDepot.DepotId, workspaceId, cancellationToken);
         return lookup is null ? null : WorkspaceModelMapper.ToModel(lookup.Workspace, lookup.Path);
     }
 
     public async Task<WorkspaceModel?> ResolveAsync(string path, CancellationToken cancellationToken)
     {
         var normalizedPath = WorkspacePath.Normalize(path);
-        var workspace = await repository.GetByPathAsync(currentOwner.OwnerId, normalizedPath, cancellationToken);
+        var workspace = await repository.GetByPathAsync(currentDepot.DepotId, normalizedPath, cancellationToken);
         return workspace is null ? null : WorkspaceModelMapper.ToModel(workspace, normalizedPath);
     }
 
     public async Task<IReadOnlyList<WorkspaceModel>> ListAsync(string? parentPath, CancellationToken cancellationToken)
     {
         var normalizedParent = string.IsNullOrWhiteSpace(parentPath) ? null : WorkspacePath.Normalize(parentPath);
-        var entities = await repository.ListWithPathsAsync(currentOwner.OwnerId, normalizedParent, cancellationToken);
+        var entities = await repository.ListWithPathsAsync(currentDepot.DepotId, normalizedParent, cancellationToken);
         return entities
             .Select(lookup => WorkspaceModelMapper.ToModel(lookup.Workspace, lookup.Path))
             .ToArray();
@@ -50,7 +50,7 @@ public sealed class WorkspaceAppService(
         sourceSafety.EnsureSafe(command.MetadataJson);
         JsonObjectValidator.EnsureObject(command.MetadataJson, ApplicationErrorCodes.InvalidWorkspaceMetadata);
         var result = await repository.UpsertPathAsync(
-            currentOwner.OwnerId,
+            currentDepot.DepotId,
             normalizedPath,
             command.Name.Trim(),
             command.Description?.Trim(),

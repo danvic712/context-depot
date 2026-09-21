@@ -1,5 +1,4 @@
 using ContextDepot.Application.Shared.Exceptions;
-using ContextDepot.Infrastructure.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 

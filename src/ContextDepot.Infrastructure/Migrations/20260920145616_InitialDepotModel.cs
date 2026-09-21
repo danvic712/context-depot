@@ -3,10 +3,10 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace ContextDepot.Infrastructure.Persistence.Migrations
+namespace ContextDepot.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialSourceModel : Migration
+    public partial class InitialDepotModel : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -14,8 +14,10 @@ namespace ContextDepot.Infrastructure.Persistence.Migrations
             migrationBuilder.EnsureSchema(
                 name: "public");
 
+            // migrationBuilder.Sql("CREATE EXTENSION IF NOT EXISTS vector;");
+
             migrationBuilder.CreateTable(
-                name: "owners",
+                name: "depots",
                 schema: "public",
                 columns: table => new
                 {
@@ -27,7 +29,34 @@ namespace ContextDepot.Infrastructure.Persistence.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_owners", x => x.id);
+                    table.PrimaryKey("pk_depots", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "depot_access_keys",
+                schema: "public",
+                columns: table => new
+                {
+                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    depot_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    key_prefix = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
+                    secret_hash = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    last_used_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    revoked_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_depot_access_keys", x => x.id);
+                    table.UniqueConstraint("ak_depot_access_keys_id_depot_id", x => new { x.id, x.depot_id });
+                    table.ForeignKey(
+                        name: "fk_depot_access_keys_depot_id",
+                        column: x => x.depot_id,
+                        principalSchema: "public",
+                        principalTable: "depots",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -36,7 +65,7 @@ namespace ContextDepot.Infrastructure.Persistence.Migrations
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
-                    owner_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    depot_id = table.Column<Guid>(type: "uuid", nullable: false),
                     parent_workspace_id = table.Column<Guid>(type: "uuid", nullable: true),
                     name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     slug = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
@@ -47,21 +76,21 @@ namespace ContextDepot.Infrastructure.Persistence.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_workspaces", x => x.id);
-                    table.UniqueConstraint("AK_workspaces_id_owner_id", x => new { x.id, x.owner_id });
+                    table.PrimaryKey("pk_workspaces", x => x.id);
+                    table.UniqueConstraint("ak_workspaces_id_depot_id", x => new { x.id, x.depot_id });
                     table.ForeignKey(
-                        name: "FK_workspaces_owners_owner_id",
-                        column: x => x.owner_id,
+                        name: "fk_workspaces_depots_depot_id",
+                        column: x => x.depot_id,
                         principalSchema: "public",
-                        principalTable: "owners",
+                        principalTable: "depots",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_workspaces_workspaces_parent_workspace_id_owner_id",
-                        columns: x => new { x.parent_workspace_id, x.owner_id },
+                        name: "fk_workspaces_workspaces_parent_workspace_id_depot_id",
+                        columns: x => new { x.parent_workspace_id, x.depot_id },
                         principalSchema: "public",
                         principalTable: "workspaces",
-                        principalColumns: new[] { "id", "owner_id" },
+                        principalColumns: new[] { "id", "depot_id" },
                         onDelete: ReferentialAction.Restrict);
                 });
 
@@ -71,7 +100,7 @@ namespace ContextDepot.Infrastructure.Persistence.Migrations
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
-                    owner_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    depot_id = table.Column<Guid>(type: "uuid", nullable: false),
                     workspace_id = table.Column<Guid>(type: "uuid", nullable: false),
                     kind = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     key = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
@@ -97,23 +126,23 @@ namespace ContextDepot.Infrastructure.Persistence.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_context_items", x => x.id);
-                    table.UniqueConstraint("AK_context_items_id_owner_id_workspace_id", x => new { x.id, x.owner_id, x.workspace_id });
+                    table.PrimaryKey("pk_context_items", x => x.id);
+                    table.UniqueConstraint("ak_context_items_id_depot_id_workspace_id", x => new { x.id, x.depot_id, x.workspace_id });
                     table.CheckConstraint("ck_context_items_confidence", "confidence IS NULL OR (confidence >= 0 AND confidence <= 1)");
                     table.CheckConstraint("ck_context_items_importance", "importance BETWEEN 0 AND 100");
                     table.ForeignKey(
-                        name: "FK_context_items_context_items_supersedes_id_owner_id_workspac~",
-                        columns: x => new { x.supersedes_id, x.owner_id, x.workspace_id },
+                        name: "fk_context_items_supersedes",
+                        columns: x => new { x.supersedes_id, x.depot_id, x.workspace_id },
                         principalSchema: "public",
                         principalTable: "context_items",
-                        principalColumns: new[] { "id", "owner_id", "workspace_id" },
+                        principalColumns: new[] { "id", "depot_id", "workspace_id" },
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_context_items_workspaces_workspace_id_owner_id",
-                        columns: x => new { x.workspace_id, x.owner_id },
+                        name: "fk_context_items_workspaces_workspace_id_depot_id",
+                        columns: x => new { x.workspace_id, x.depot_id },
                         principalSchema: "public",
                         principalTable: "workspaces",
-                        principalColumns: new[] { "id", "owner_id" },
+                        principalColumns: new[] { "id", "depot_id" },
                         onDelete: ReferentialAction.Restrict);
                 });
 
@@ -123,7 +152,7 @@ namespace ContextDepot.Infrastructure.Persistence.Migrations
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
-                    owner_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    depot_id = table.Column<Guid>(type: "uuid", nullable: false),
                     workspace_id = table.Column<Guid>(type: "uuid", nullable: false),
                     path = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
                     title = table.Column<string>(type: "character varying(300)", maxLength: 300, nullable: false),
@@ -137,14 +166,43 @@ namespace ContextDepot.Infrastructure.Persistence.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_documents", x => x.id);
-                    table.UniqueConstraint("AK_documents_id_owner_id_workspace_id", x => new { x.id, x.owner_id, x.workspace_id });
+                    table.PrimaryKey("pk_documents", x => x.id);
+                    table.UniqueConstraint("ak_documents_id_depot_id_workspace_id", x => new { x.id, x.depot_id, x.workspace_id });
                     table.ForeignKey(
-                        name: "FK_documents_workspaces_workspace_id_owner_id",
-                        columns: x => new { x.workspace_id, x.owner_id },
+                        name: "fk_documents_workspaces_workspace_id_depot_id",
+                        columns: x => new { x.workspace_id, x.depot_id },
                         principalSchema: "public",
                         principalTable: "workspaces",
-                        principalColumns: new[] { "id", "owner_id" },
+                        principalColumns: new[] { "id", "depot_id" },
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "workspace_access_grants",
+                schema: "public",
+                columns: table => new
+                {
+                    depot_access_key_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    workspace_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    depot_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_workspace_access_grants", x => new { x.depot_access_key_id, x.workspace_id });
+                    table.ForeignKey(
+                        name: "fk_workspace_access_grants_access_key",
+                        columns: x => new { x.depot_access_key_id, x.depot_id },
+                        principalSchema: "public",
+                        principalTable: "depot_access_keys",
+                        principalColumns: new[] { "id", "depot_id" },
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "fk_workspace_access_grants_workspace",
+                        columns: x => new { x.workspace_id, x.depot_id },
+                        principalSchema: "public",
+                        principalTable: "workspaces",
+                        principalColumns: new[] { "id", "depot_id" },
                         onDelete: ReferentialAction.Restrict);
                 });
 
@@ -154,7 +212,7 @@ namespace ContextDepot.Infrastructure.Persistence.Migrations
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
-                    owner_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    depot_id = table.Column<Guid>(type: "uuid", nullable: false),
                     document_id = table.Column<Guid>(type: "uuid", nullable: false),
                     workspace_id = table.Column<Guid>(type: "uuid", nullable: false),
                     ordinal = table.Column<int>(type: "integer", nullable: false),
@@ -166,46 +224,54 @@ namespace ContextDepot.Infrastructure.Persistence.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_document_chunks", x => x.id);
+                    table.PrimaryKey("pk_document_chunks", x => x.id);
                     table.ForeignKey(
-                        name: "FK_document_chunks_documents_document_id_owner_id_workspace_id",
-                        columns: x => new { x.document_id, x.owner_id, x.workspace_id },
+                        name: "fk_document_chunks_documents_document_id_depot_id_workspace_id",
+                        columns: x => new { x.document_id, x.depot_id, x.workspace_id },
                         principalSchema: "public",
                         principalTable: "documents",
-                        principalColumns: new[] { "id", "owner_id", "workspace_id" },
+                        principalColumns: new[] { "id", "depot_id", "workspace_id" },
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateIndex(
-                name: "ix_context_items_owner_workspace_key",
+                name: "IX_context_items_supersedes_id_depot_id_workspace_id",
                 schema: "public",
                 table: "context_items",
-                columns: new[] { "owner_id", "workspace_id", "key" });
+                columns: new[] { "supersedes_id", "depot_id", "workspace_id" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_context_items_supersedes_id_owner_id_workspace_id",
+                name: "IX_context_items_workspace_id_depot_id",
                 schema: "public",
                 table: "context_items",
-                columns: new[] { "supersedes_id", "owner_id", "workspace_id" });
+                columns: new[] { "workspace_id", "depot_id" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_context_items_workspace_id_owner_id",
+                name: "ux_context_items_active_key",
                 schema: "public",
                 table: "context_items",
-                columns: new[] { "workspace_id", "owner_id" });
+                columns: new[] { "depot_id", "workspace_id", "key" },
+                unique: true,
+                filter: "status = 'Active' AND key IS NOT NULL");
 
             migrationBuilder.CreateIndex(
-                name: "ux_context_items_id_owner_workspace",
+                name: "ix_depot_access_keys_depot_name",
                 schema: "public",
-                table: "context_items",
-                columns: new[] { "id", "owner_id", "workspace_id" },
+                table: "depot_access_keys",
+                columns: new[] { "depot_id", "name" });
+
+            migrationBuilder.CreateIndex(
+                name: "ux_depot_access_keys_key_prefix",
+                schema: "public",
+                table: "depot_access_keys",
+                column: "key_prefix",
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_document_chunks_document_id_owner_id_workspace_id",
+                name: "IX_document_chunks_document_id_depot_id_workspace_id",
                 schema: "public",
                 table: "document_chunks",
-                columns: new[] { "document_id", "owner_id", "workspace_id" });
+                columns: new[] { "document_id", "depot_id", "workspace_id" });
 
             migrationBuilder.CreateIndex(
                 name: "ux_document_chunks_document_ordinal",
@@ -215,58 +281,56 @@ namespace ContextDepot.Infrastructure.Persistence.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "ux_document_chunks_id_owner_workspace",
+                name: "ux_document_chunks_id_depot_workspace",
                 schema: "public",
                 table: "document_chunks",
-                columns: new[] { "id", "owner_id", "workspace_id" },
+                columns: new[] { "id", "depot_id", "workspace_id" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_documents_workspace_id_owner_id",
+                name: "IX_documents_workspace_id_depot_id",
                 schema: "public",
                 table: "documents",
-                columns: new[] { "workspace_id", "owner_id" });
+                columns: new[] { "workspace_id", "depot_id" });
 
             migrationBuilder.CreateIndex(
-                name: "ux_documents_id_owner_workspace",
+                name: "ux_documents_depot_workspace_path",
                 schema: "public",
                 table: "documents",
-                columns: new[] { "id", "owner_id", "workspace_id" },
+                columns: new[] { "depot_id", "workspace_id", "path" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "ux_documents_owner_workspace_path",
+                name: "ix_workspace_access_grants_access_key_depot",
                 schema: "public",
-                table: "documents",
-                columns: new[] { "owner_id", "workspace_id", "path" },
-                unique: true);
+                table: "workspace_access_grants",
+                columns: new[] { "depot_access_key_id", "depot_id" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_workspaces_parent_workspace_id_owner_id",
+                name: "ix_workspace_access_grants_workspace_depot",
+                schema: "public",
+                table: "workspace_access_grants",
+                columns: new[] { "workspace_id", "depot_id" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_workspaces_parent_workspace_id_depot_id",
                 schema: "public",
                 table: "workspaces",
-                columns: new[] { "parent_workspace_id", "owner_id" });
+                columns: new[] { "parent_workspace_id", "depot_id" });
 
             migrationBuilder.CreateIndex(
                 name: "ux_workspaces_child_slug",
                 schema: "public",
                 table: "workspaces",
-                columns: new[] { "owner_id", "parent_workspace_id", "slug" },
+                columns: new[] { "depot_id", "parent_workspace_id", "slug" },
                 unique: true,
                 filter: "parent_workspace_id IS NOT NULL");
-
-            migrationBuilder.CreateIndex(
-                name: "ux_workspaces_id_owner",
-                schema: "public",
-                table: "workspaces",
-                columns: new[] { "id", "owner_id" },
-                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "ux_workspaces_root_slug",
                 schema: "public",
                 table: "workspaces",
-                columns: new[] { "owner_id", "slug" },
+                columns: new[] { "depot_id", "slug" },
                 unique: true,
                 filter: "parent_workspace_id IS NULL");
         }
@@ -283,7 +347,15 @@ namespace ContextDepot.Infrastructure.Persistence.Migrations
                 schema: "public");
 
             migrationBuilder.DropTable(
+                name: "workspace_access_grants",
+                schema: "public");
+
+            migrationBuilder.DropTable(
                 name: "documents",
+                schema: "public");
+
+            migrationBuilder.DropTable(
+                name: "depot_access_keys",
                 schema: "public");
 
             migrationBuilder.DropTable(
@@ -291,7 +363,7 @@ namespace ContextDepot.Infrastructure.Persistence.Migrations
                 schema: "public");
 
             migrationBuilder.DropTable(
-                name: "owners",
+                name: "depots",
                 schema: "public");
         }
     }

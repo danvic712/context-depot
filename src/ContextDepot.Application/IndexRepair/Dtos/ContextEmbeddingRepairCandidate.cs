@@ -4,7 +4,7 @@ namespace ContextDepot.Application.IndexRepair.Dtos;
 
 public sealed record ContextEmbeddingRepairCandidate(
     Guid ContextItemId,
-    Guid OwnerId,
+    Guid DepotId,
     Guid WorkspaceId,
     string WorkspacePath,
     ContextKind Kind,

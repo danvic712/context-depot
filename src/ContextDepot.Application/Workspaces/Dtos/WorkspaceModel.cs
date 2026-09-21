@@ -2,7 +2,7 @@ namespace ContextDepot.Application.Workspaces.Dtos;
 
 public sealed record WorkspaceModel(
     Guid Id,
-    Guid OwnerId,
+    Guid DepotId,
     string Path,
     string Name,
     string? Description,

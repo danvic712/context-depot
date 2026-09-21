@@ -17,7 +17,6 @@ using Microsoft.Extensions.Logging;
 namespace ContextDepot.Application.IndexRepair;
 
 public sealed class IndexRepairAppService(
-    ICurrentOwnerContext currentOwner,
     IIndexRepairRepository repairRepository,
     IDocumentRepository documentRepository,
     IMarkdownStore markdownStore,
@@ -33,20 +32,21 @@ public sealed class IndexRepairAppService(
     ILogger<IndexRepairAppService> logger) : IIndexRepairAppService
 {
     public async Task<IndexRepairCycleResult> RepairAsync(
+        Guid depotId,
         IndexRepairRequest request,
         CancellationToken cancellationToken)
     {
-        ValidateRequest(request);
+        ValidateRequest(depotId, request);
 
         var documentsReconciled = 0;
         var retrievalDegraded = false;
         var documentCandidates = await repairRepository.FindDocumentIndexRepairCandidatesAsync(
-            currentOwner.OwnerId,
+            depotId,
             request.BatchSize,
             cancellationToken);
         foreach (var candidate in documentCandidates)
         {
-            var result = await RepairDocumentAsync(candidate, cancellationToken);
+            var result = await RepairDocumentAsync(depotId, candidate, cancellationToken);
             if (result.Reconciled)
             {
                 documentsReconciled++;
@@ -69,7 +69,7 @@ public sealed class IndexRepairAppService(
             if (!contextFinished)
             {
                 var contextPage = await repairRepository.FindContextSourcePageAsync(
-                    currentOwner.OwnerId,
+                    depotId,
                     contextAfterId,
                     request.BatchSize,
                     timeProvider.GetUtcNow(),
@@ -101,7 +101,7 @@ public sealed class IndexRepairAppService(
             if (!documentFinished)
             {
                 var documentPage = await repairRepository.FindDocumentChunkSourcePageAsync(
-                    currentOwner.OwnerId,
+                    depotId,
                     documentChunkAfterId,
                     request.BatchSize,
                     cancellationToken);
@@ -147,6 +147,7 @@ public sealed class IndexRepairAppService(
     }
 
     private async Task<(bool Reconciled, bool Degraded)> RepairDocumentAsync(
+        Guid depotId,
         DocumentIndexRepairCandidate candidate,
         CancellationToken cancellationToken)
     {
@@ -155,7 +156,7 @@ public sealed class IndexRepairAppService(
             cancellationToken);
 
         var document = await documentRepository.GetByIdAsync(
-            currentOwner.OwnerId,
+            depotId,
             candidate.DocumentId,
             cancellationToken);
         if (document is null ||
@@ -184,7 +185,7 @@ public sealed class IndexRepairAppService(
                 ApplicationErrorCodes.MarkdownRootUnavailable,
                 candidate.DocumentId);
             await repairRepository.MarkDocumentIndexFailedAsync(
-                currentOwner.OwnerId,
+                depotId,
                 candidate.DocumentId,
                 ApplicationErrorCodes.MarkdownRootUnavailable,
                 cancellationToken);
@@ -198,7 +199,7 @@ public sealed class IndexRepairAppService(
                 ApplicationErrorCodes.MarkdownRootUnavailable,
                 candidate.DocumentId);
             await repairRepository.MarkDocumentIndexFailedAsync(
-                currentOwner.OwnerId,
+                depotId,
                 candidate.DocumentId,
                 ApplicationErrorCodes.MarkdownRootUnavailable,
                 cancellationToken);
@@ -208,7 +209,7 @@ public sealed class IndexRepairAppService(
         if (markdown is null)
         {
             await repairRepository.MarkDocumentIndexFailedAsync(
-                currentOwner.OwnerId,
+                depotId,
                 candidate.DocumentId,
                 ApplicationErrorCodes.MarkdownFileMissing,
                 cancellationToken);
@@ -225,7 +226,7 @@ public sealed class IndexRepairAppService(
         catch (ContextDepotApplicationException exception)
         {
             await repairRepository.MarkDocumentIndexFailedAsync(
-                currentOwner.OwnerId,
+                depotId,
                 candidate.DocumentId,
                 exception.ErrorCode,
                 cancellationToken);
@@ -242,7 +243,7 @@ public sealed class IndexRepairAppService(
             .ToArray();
         var write = new DocumentIndexWrite(
             candidate.DocumentId,
-            currentOwner.OwnerId,
+            depotId,
             candidate.WorkspaceId,
             candidate.Path,
             candidate.Title,
@@ -323,7 +324,7 @@ public sealed class IndexRepairAppService(
                 cancellationToken);
             var writes = stale.Select((input, index) => new ContextVectorIndexWrite(
                     input.Candidate.ContextItemId,
-                    input.Candidate.OwnerId,
+                    input.Candidate.DepotId,
                     input.Candidate.WorkspaceId,
                     input.Candidate.Kind,
                     input.Hash,
@@ -396,7 +397,7 @@ public sealed class IndexRepairAppService(
             var writes = stale.Select((input, index) => new DocumentVectorIndexWrite(
                     input.Candidate.DocumentChunkId,
                     input.Candidate.DocumentId,
-                    input.Candidate.OwnerId,
+                    input.Candidate.DepotId,
                     input.Candidate.WorkspaceId,
                     input.Hash,
                     vectors[index]))
@@ -427,10 +428,10 @@ public sealed class IndexRepairAppService(
         }
     }
 
-    private static void ValidateRequest(IndexRepairRequest request)
+    private static void ValidateRequest(Guid depotId, IndexRepairRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        if (request.BatchSize is < 1 or > 256 || request.MaxBatches is < 1 or > 100)
+        if (depotId == Guid.Empty || request.BatchSize is < 1 or > 256 || request.MaxBatches is < 1 or > 100)
         {
             throw new ContextDepotApplicationException(ApplicationErrorCodes.IndexRepairRequestInvalid);
         }

@@ -16,9 +16,9 @@ public static class VectorCollectionDefinitions
                 {
                     StorageName = "context_item_id"
                 },
-                new VectorStoreDataProperty(nameof(ContextVectorRecord.OwnerId), typeof(Guid))
+                new VectorStoreDataProperty(nameof(ContextVectorRecord.DepotId), typeof(Guid))
                 {
-                    StorageName = "owner_id",
+                    StorageName = "depot_id",
                     IsIndexed = true
                 },
                 new VectorStoreDataProperty(nameof(ContextVectorRecord.WorkspaceId), typeof(Guid))
@@ -62,9 +62,9 @@ public static class VectorCollectionDefinitions
                     StorageName = "document_id",
                     IsIndexed = true
                 },
-                new VectorStoreDataProperty(nameof(DocumentVectorRecord.OwnerId), typeof(Guid))
+                new VectorStoreDataProperty(nameof(DocumentVectorRecord.DepotId), typeof(Guid))
                 {
-                    StorageName = "owner_id",
+                    StorageName = "depot_id",
                     IsIndexed = true
                 },
                 new VectorStoreDataProperty(nameof(DocumentVectorRecord.WorkspaceId), typeof(Guid))
