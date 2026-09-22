@@ -12,16 +12,24 @@ using ContextDepot.MCP.Authentication;
 using ContextDepot.MCP.Shared;
 using ContextDepot.MCP.Workspaces;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Configuration;
 using ModelContextProtocol.AspNetCore;
 using Serilog;
 
 // The first phase of two-stage initialization also writes to the application log
 // so fatal errors during configuration and DI setup are not lost before the host
 // is built. UseSerilog replaces it with the complete appsettings-based configuration.
+var bootstrapLogPath = ResolveBootstrapLogPath();
+var bootstrapLogDirectory = Path.GetDirectoryName(Path.GetFullPath(bootstrapLogPath));
+if (!string.IsNullOrWhiteSpace(bootstrapLogDirectory))
+{
+    Directory.CreateDirectory(bootstrapLogDirectory);
+}
+
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
     .WriteTo.File(
-        path: "logs/context-depot-.log",
+        path: bootstrapLogPath,
         rollingInterval: RollingInterval.Day,
         retainedFileCountLimit: 14,
         fileSizeLimitBytes: 10_485_760,
@@ -81,3 +89,23 @@ finally
 }
 
 return 0;
+
+static string ResolveBootstrapLogPath()
+{
+    var environmentName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
+        ?? Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT");
+    var configuration = new ConfigurationBuilder()
+        .SetBasePath(Directory.GetCurrentDirectory())
+        .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false);
+
+    if (!string.IsNullOrWhiteSpace(environmentName))
+    {
+        configuration.AddJsonFile($"appsettings.{environmentName}.json", optional: true, reloadOnChange: false);
+    }
+
+    var path = configuration
+        .AddEnvironmentVariables()
+        .Build()["Serilog:WriteTo:1:Args:path"];
+
+    return string.IsNullOrWhiteSpace(path) ? "logs/context-depot-.log" : path;
+}

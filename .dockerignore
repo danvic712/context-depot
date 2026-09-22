@@ -1,0 +1,26 @@
+.git
+.git/**
+.dockerignore
+Dockerfile
+Dockerfile.*
+
+**/bin/
+**/obj/
+**/publish/
+
+tests/
+docs/
+README.md
+AGENTS.md
+CONTEXT.md
+docker-compose*.yml
+
+# Application configuration is intentionally kept in the build context so the
+# published application retains its default settings. Secrets should be supplied
+# through deployment configuration or environment variables.
+data/
+logs/
+*.env
+.env*
+
+**/Properties/launchSettings.json
