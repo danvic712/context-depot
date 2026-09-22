@@ -3,6 +3,7 @@ using ContextDepot.Domain.Contexts;
 using ContextDepot.Domain.Documents;
 using ContextDepot.Domain.Depots;
 using ContextDepot.Domain.Workspaces;
+using ContextDepot.Infrastructure.Configuration;
 using Microsoft.EntityFrameworkCore;
 
 namespace ContextDepot.Infrastructure;
@@ -31,6 +32,12 @@ public sealed class ContextDepotDbContext(
     public DbSet<Document> Documents => Set<Document>();
 
     public DbSet<DocumentChunk> DocumentChunks => Set<DocumentChunk>();
+
+    public DbSet<ApplicationSettingRecord> ApplicationSettings => Set<ApplicationSettingRecord>();
+
+    public DbSet<InferenceProviderRecord> InferenceProviders => Set<InferenceProviderRecord>();
+
+    public DbSet<InferenceRouteRecord> InferenceRoutes => Set<InferenceRouteRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
