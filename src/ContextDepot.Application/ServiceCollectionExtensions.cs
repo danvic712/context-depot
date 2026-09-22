@@ -7,6 +7,7 @@ using ContextDepot.Application.Documents.Contracts;
 using ContextDepot.Application.Embeddings;
 using ContextDepot.Application.IndexRepair;
 using ContextDepot.Application.IndexRepair.Contracts;
+using ContextDepot.Application.Settings;
 using ContextDepot.Application.Retrieval;
 using ContextDepot.Application.SemanticRetrieval;
 using ContextDepot.Application.Shared.Safety;
@@ -35,9 +36,17 @@ public static class ServiceCollectionExtensions
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<EmbeddingOptions>, EmbeddingOptionsValidator>();
         services.AddOptions<RetrievalOptions>()
-            .Bind(configuration.GetSection("ContextDepot:Retrieval"))
+            .Bind(configuration.GetSection("ContextDepot:Retrieval"), binder => binder.ErrorOnUnknownConfiguration = true)
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<RetrievalOptions>, RetrievalOptionsValidator>();
+        services.AddOptions<IndexRepairOptions>()
+            .Bind(configuration.GetSection("ContextDepot:IndexRepair"), binder => binder.ErrorOnUnknownConfiguration = true)
+            .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<IndexRepairOptions>, IndexRepairOptionsValidator>();
+        services.AddOptions<AppearanceOptions>()
+            .Bind(configuration.GetSection("ContextDepot:Appearance"), binder => binder.ErrorOnUnknownConfiguration = true)
+            .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<AppearanceOptions>, AppearanceOptionsValidator>();
         services.AddSingleton<EmbeddingResultValidator>();
         services.AddSingleton<ContextEmbeddingTextBuilder>();
         services.AddSingleton<DocumentEmbeddingTextBuilder>();

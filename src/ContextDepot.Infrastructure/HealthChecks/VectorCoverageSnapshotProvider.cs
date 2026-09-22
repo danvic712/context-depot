@@ -19,7 +19,7 @@ public sealed class VectorCoverageSnapshotProvider(
     ContextEmbeddingTextBuilder contextTextBuilder,
     DocumentEmbeddingTextBuilder documentTextBuilder,
     IMemoryCache cache,
-    IOptions<VectorCoverageOptions> options)
+    IOptionsMonitor<VectorCoverageOptions> options)
 {
     private const int HashLookupBatchSize = 256;
 
@@ -38,6 +38,7 @@ public sealed class VectorCoverageSnapshotProvider(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(depotIds);
+        var cacheDuration = TimeSpan.FromSeconds(options.CurrentValue.CacheDurationSeconds);
         var ids = depotIds.Distinct().ToArray();
         if (ids.Length == 0)
         {
@@ -64,7 +65,6 @@ public sealed class VectorCoverageSnapshotProvider(
         }
 
         var computed = await ComputeAsync(missingIds, now, cancellationToken);
-        var cacheDuration = TimeSpan.FromSeconds(options.Value.CacheDurationSeconds);
         foreach (var (depotId, snapshot) in computed)
         {
             cache.Set(GetCacheKey(depotId), snapshot, cacheDuration);

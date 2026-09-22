@@ -200,7 +200,8 @@ public sealed class ContextQueryAppServiceTests
             new HighConfidenceSecretDetector(),
             new EmbeddingResultValidator(),
             NullLogger<EmbeddingGeneratorService>.Instance);
-        var options = Options.Create(new RetrievalOptions());
+        var options = new Mock<IOptionsMonitor<RetrievalOptions>>();
+        options.SetupGet(x => x.CurrentValue).Returns(new RetrievalOptions());
         return new ContextQueryAppService(
             depot.Object,
             workspaceAccess.Object,
@@ -208,10 +209,10 @@ public sealed class ContextQueryAppServiceTests
             workspaces.Object,
             (semanticRepository ?? new Mock<ISemanticRetrievalRepository>()).Object,
             embeddingGenerator,
-            new SemanticFallbackDecider(options),
+            new SemanticFallbackDecider(),
             new HybridCandidateRanker(),
-            new RetrievalDeduplicator(options),
-            options,
+            new RetrievalDeduplicator(),
+            options.Object,
             TimeProvider.System,
             NullLogger<ContextQueryAppService>.Instance);
     }

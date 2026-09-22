@@ -3,7 +3,7 @@ using ContextDepot.Application.Embeddings;
 
 namespace ContextDepot.Infrastructure.VectorStore;
 
-internal sealed class VectorCollectionInitializer(
+public sealed class VectorCollectionInitializer(
     PostgreSqlVectorStore vectorStore,
     IOptions<EmbeddingOptions> embeddingOptions)
 {

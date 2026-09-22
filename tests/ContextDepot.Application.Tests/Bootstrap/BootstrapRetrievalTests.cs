@@ -256,6 +256,8 @@ public sealed class BootstrapRetrievalTests
             workspaceAccess = new Mock<IWorkspaceAccessContext>();
             workspaceAccess.SetupGet(x => x.HasUnrestrictedAccess).Returns(true);
         }
+        var retrievalOptions = new Mock<IOptionsMonitor<RetrievalOptions>>();
+        retrievalOptions.SetupGet(x => x.CurrentValue).Returns(new RetrievalOptions());
         return new(
             depot.Object,
             workspaceAccess.Object,
@@ -263,10 +265,11 @@ public sealed class BootstrapRetrievalTests
             repository.Object,
             semanticRepository.Object,
             embeddingGenerator,
-            new SemanticFallbackDecider(Options.Create(new RetrievalOptions())),
+            new SemanticFallbackDecider(),
             new SemanticWorkspaceAggregator(),
             new HybridCandidateRanker(),
-            new RetrievalDeduplicator(Options.Create(new RetrievalOptions())),
+            new RetrievalDeduplicator(),
+            retrievalOptions.Object,
             new ContextBudgetAllocator(),
             TimeProvider.System,
             NullLogger<ContextBootstrapAppService>.Instance);

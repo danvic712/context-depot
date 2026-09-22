@@ -12,6 +12,7 @@ using ContextDepot.Application.Shared.Runtime.Contracts;
 using ContextDepot.Application.Workspaces.Contracts;
 using ContextDepot.Application.Workspaces.Dtos;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace ContextDepot.Application.Bootstrap;
 
@@ -27,6 +28,7 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
     private readonly SemanticWorkspaceAggregator semanticWorkspaceAggregator;
     private readonly HybridCandidateRanker hybridCandidateRanker;
     private readonly RetrievalDeduplicator retrievalDeduplicator;
+    private readonly IOptionsMonitor<RetrievalOptions> retrievalOptions;
     private readonly TimeProvider timeProvider;
     private readonly WorkspaceScopeResolver scopeResolver;
     private readonly ScopeCandidateRanker candidateRanker;
@@ -44,6 +46,7 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
         SemanticWorkspaceAggregator semanticWorkspaceAggregator,
         HybridCandidateRanker hybridCandidateRanker,
         RetrievalDeduplicator retrievalDeduplicator,
+        IOptionsMonitor<RetrievalOptions> retrievalOptions,
         ContextBudgetAllocator contextBudgetAllocator,
         TimeProvider timeProvider,
         ILogger<ContextBootstrapAppService> logger)
@@ -58,6 +61,7 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
         this.semanticWorkspaceAggregator = semanticWorkspaceAggregator;
         this.hybridCandidateRanker = hybridCandidateRanker;
         this.retrievalDeduplicator = retrievalDeduplicator;
+        this.retrievalOptions = retrievalOptions;
         this.timeProvider = timeProvider;
         this.logger = logger;
         candidateRanker = new ScopeCandidateRanker();
@@ -67,6 +71,7 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
 
     public async Task<BootstrapResult> BootstrapAsync(BootstrapRequest request, CancellationToken cancellationToken)
     {
+        var retrievalSettings = retrievalOptions.CurrentValue;
         if (request.MaxTokens is <= 0 or > 8_000)
         {
             throw new ContextDepotApplicationException(ApplicationErrorCodes.ContextBudgetInvalid);
@@ -129,7 +134,8 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
             var semantic = await TrySearchSemanticAsync(
                 queryEmbeddingCache,
                 permittedWorkspaceIds,
-                semanticFallbackDecider.ScopeTopK,
+                retrievalSettings.Semantic.ScopeTopK,
+                retrievalSettings.Semantic.OversampleFactor,
                 query,
                 bootstrapQuery.Now,
                 cancellationToken);
@@ -178,13 +184,15 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
             (semanticUsed || semanticFallbackDecider.ShouldUseForRetrieval(
                 queryTokens.Count > 0,
                 hasLexicalCandidates,
-                topLexicalScore));
+                topLexicalScore,
+                retrievalSettings.Semantic));
         if (shouldUseSemanticRetrieval)
         {
             var semantic = await TrySearchSemanticAsync(
                 queryEmbeddingCache,
                 scopeIds,
-                semanticFallbackDecider.CandidateTopKPerSource,
+                retrievalSettings.Semantic.CandidateTopKPerSource,
+                retrievalSettings.Semantic.OversampleFactor,
                 query,
                 bootstrapQuery.Now,
                 cancellationToken);
@@ -229,7 +237,7 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
                 : lexicalContextScores.GetValueOrDefault(x.Context.Id) - x.Context.Importance / 100d >= 2))
             .ToArray();
         var deduplicatedContexts = retrievalDeduplicator
-            .DeduplicateContexts(rankedContextCandidates);
+            .DeduplicateContexts(rankedContextCandidates, retrievalSettings.Semantic);
         var rankedContexts = deduplicatedContexts
             .Select(x => BootstrapModelMapper.ToContextModel(x.Context))
             .ToArray();
@@ -246,7 +254,7 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
                 : lexicalDocumentScores.GetValueOrDefault(x.Document.Id) >= 2))
             .ToArray();
         var deduplicatedDocuments = retrievalDeduplicator
-            .DeduplicateDocuments(rankedDocumentCandidates);
+            .DeduplicateDocuments(rankedDocumentCandidates, retrievalSettings.Semantic);
         var rankedDocuments = deduplicatedDocuments
             .Select(x => BootstrapModelMapper.ToDocumentExcerpt(x.Document, workspacePaths))
             .ToArray();
@@ -275,6 +283,7 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
         QueryEmbeddingCache embeddingCache,
         IReadOnlySet<Guid>? workspaceIds,
         int topK,
+        int oversampleFactor,
         string query,
         DateTimeOffset now,
         CancellationToken cancellationToken)
@@ -287,7 +296,8 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
                 workspaceIds?.ToArray(),
                 null,
                 topK,
-                now);
+                now,
+                oversampleFactor);
             var contexts = await semanticRepository.FindContextCandidatesAsync(
                 semanticQuery,
                 queryVector,

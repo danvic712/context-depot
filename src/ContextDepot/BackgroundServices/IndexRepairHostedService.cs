@@ -1,4 +1,4 @@
-using ContextDepot.Application.Embeddings;
+using ContextDepot.Application.IndexRepair;
 using ContextDepot.Application.Depots.Contracts;
 using ContextDepot.Application.IndexRepair.Contracts;
 using ContextDepot.Application.IndexRepair.Dtos;
@@ -9,16 +9,15 @@ namespace ContextDepot.BackgroundServices;
 
 public sealed class IndexRepairHostedService(
     IServiceScopeFactory scopeFactory,
-    IOptions<EmbeddingOptions> options,
+    IOptionsMonitor<IndexRepairOptions> options,
     ILogger<IndexRepairHostedService> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var cursors = new Dictionary<Guid, DepotRepairCursor>();
-        var repairOptions = options.Value.Repair;
-
         while (!stoppingToken.IsCancellationRequested)
         {
+            var repairOptions = options.CurrentValue;
             try
             {
                 await Task.Delay(

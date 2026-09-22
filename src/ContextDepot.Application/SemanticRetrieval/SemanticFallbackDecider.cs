@@ -1,18 +1,11 @@
 using ContextDepot.Application.Bootstrap.Dtos;
 using ContextDepot.Application.Bootstrap.Enums;
 using ContextDepot.Application.Embeddings;
-using Microsoft.Extensions.Options;
 
 namespace ContextDepot.Application.SemanticRetrieval;
 
-public sealed class SemanticFallbackDecider(IOptions<RetrievalOptions> options)
+public sealed class SemanticFallbackDecider
 {
-    private readonly SemanticRetrievalOptions semantic = options.Value.Semantic;
-
-    public int ScopeTopK => semantic.ScopeTopK;
-
-    public int CandidateTopKPerSource => semantic.CandidateTopKPerSource;
-
     public bool ShouldUseForScope(
         string normalizedQuery,
         bool hasExplicitScope,
@@ -24,8 +17,10 @@ public sealed class SemanticFallbackDecider(IOptions<RetrievalOptions> options)
     public bool ShouldUseForRetrieval(
         bool hasQuerySignal,
         bool hasLexicalCandidates,
-        double topLexicalScore)
+        double topLexicalScore,
+        SemanticRetrievalOptions options)
     {
+        ArgumentNullException.ThrowIfNull(options);
         if (!hasQuerySignal)
         {
             return false;
@@ -37,6 +32,6 @@ public sealed class SemanticFallbackDecider(IOptions<RetrievalOptions> options)
         }
 
         var normalizedScore = Math.Clamp(topLexicalScore, 0, 1);
-        return normalizedScore < semantic.RetrievalLexicalFallbackThreshold;
+        return normalizedScore < options.RetrievalLexicalFallbackThreshold;
     }
 }

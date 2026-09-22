@@ -20,23 +20,19 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
     private readonly ILogger<VectorDataSemanticRetrievalRepository> logger;
     private readonly VectorStoreCollection<Guid, ContextVectorRecord> contextCollection;
     private readonly VectorStoreCollection<Guid, DocumentVectorRecord> documentCollection;
-    private readonly int oversampleFactor;
 
     public VectorDataSemanticRetrievalRepository(
         PostgreSqlVectorStore vectorStore,
         ContextDepotDbContext db,
         IOptions<EmbeddingOptions> embeddingOptions,
-        IOptions<RetrievalOptions> retrievalOptions,
         ILogger<VectorDataSemanticRetrievalRepository> logger)
     {
         ArgumentNullException.ThrowIfNull(vectorStore);
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(embeddingOptions);
-        ArgumentNullException.ThrowIfNull(retrievalOptions);
         this.db = db;
         this.logger = logger;
         var profile = EmbeddingProfile.From(embeddingOptions.Value);
-        oversampleFactor = retrievalOptions.Value.Semantic.OversampleFactor;
         contextCollection = vectorStore.GetCollection<Guid, ContextVectorRecord>(
             VectorCollectionNamePolicy.CreateContextCollectionName(profile.Provider, profile.Model, profile.Dimensions),
             VectorCollectionDefinitions.CreateContext(profile.Dimensions));
@@ -176,7 +172,7 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
             var candidates = new List<(Guid Id, double Similarity)>();
             await foreach (var result in contextCollection.SearchAsync(
                                queryVector,
-                               CandidateLimit(query.TopK),
+                               CandidateLimit(query),
                                new VectorSearchOptions<ContextVectorRecord>
                                {
                                    Filter = BuildContextFilter(query)
@@ -209,7 +205,7 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
             var candidates = new List<(Guid Id, double Similarity)>();
             await foreach (var result in documentCollection.SearchAsync(
                                queryVector,
-                               CandidateLimit(query.TopK),
+                               CandidateLimit(query),
                                new VectorSearchOptions<DocumentVectorRecord>
                                {
                                    Filter = BuildDocumentFilter(query)
@@ -232,7 +228,8 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
         }
     }
 
-    private int CandidateLimit(int topK) => checked(topK * oversampleFactor);
+    private static int CandidateLimit(SemanticCandidateQuery query) =>
+        checked(query.TopK * query.OversampleFactor);
 
     private static Expression<Func<ContextVectorRecord, bool>> BuildContextFilter(SemanticCandidateQuery query)
     {
@@ -279,7 +276,7 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
     private static void ValidateQuery(SemanticCandidateQuery query)
     {
         ArgumentNullException.ThrowIfNull(query);
-        if (query.TopK <= 0 || query.DepotId == Guid.Empty)
+        if (query.TopK <= 0 || query.OversampleFactor is < 1 or > 10 || query.DepotId == Guid.Empty)
         {
             throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidSearchQuery);
         }

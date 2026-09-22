@@ -3,24 +3,22 @@ using ContextDepot.Application.Bootstrap.Dtos;
 using ContextDepot.Application.Embeddings;
 using ContextDepot.Application.Retrieval.Dtos;
 using ContextDepot.Domain.Contexts.Enums;
-using Microsoft.Extensions.Options;
 
 namespace ContextDepot.Application.Retrieval;
 
-public sealed partial class RetrievalDeduplicator(IOptions<RetrievalOptions> options)
+public sealed partial class RetrievalDeduplicator
 {
-    private readonly double similarityThreshold = options.Value.Semantic.DedupSimilarityThreshold;
-    private readonly double tokenOverlapThreshold = options.Value.Semantic.DedupTokenOverlapThreshold;
-
     public IReadOnlyList<RankedContextCandidate> DeduplicateContexts(
-        IReadOnlyList<RankedContextCandidate> rankedCandidates)
+        IReadOnlyList<RankedContextCandidate> rankedCandidates,
+        SemanticRetrievalOptions options)
     {
         ArgumentNullException.ThrowIfNull(rankedCandidates);
+        ArgumentNullException.ThrowIfNull(options);
 
         var retained = new List<RankedContextCandidate>();
         foreach (var candidate in OrderContexts(rankedCandidates))
         {
-            if (retained.Any(existing => ShouldSuppressContext(existing, candidate)))
+            if (retained.Any(existing => ShouldSuppressContext(existing, candidate, options)))
             {
                 continue;
             }
@@ -32,14 +30,16 @@ public sealed partial class RetrievalDeduplicator(IOptions<RetrievalOptions> opt
     }
 
     public IReadOnlyList<RankedDocumentCandidate> DeduplicateDocuments(
-        IReadOnlyList<RankedDocumentCandidate> rankedCandidates)
+        IReadOnlyList<RankedDocumentCandidate> rankedCandidates,
+        SemanticRetrievalOptions options)
     {
         ArgumentNullException.ThrowIfNull(rankedCandidates);
+        ArgumentNullException.ThrowIfNull(options);
 
         var retained = new List<RankedDocumentCandidate>();
         foreach (var candidate in OrderDocuments(rankedCandidates))
         {
-            if (retained.Any(existing => ShouldSuppressDocument(existing, candidate)))
+            if (retained.Any(existing => ShouldSuppressDocument(existing, candidate, options)))
             {
                 continue;
             }
@@ -52,7 +52,8 @@ public sealed partial class RetrievalDeduplicator(IOptions<RetrievalOptions> opt
 
     private bool ShouldSuppressContext(
         RankedContextCandidate retained,
-        RankedContextCandidate candidate)
+        RankedContextCandidate candidate,
+        SemanticRetrievalOptions options)
     {
         var retainedContext = retained.Context;
         var context = candidate.Context;
@@ -67,12 +68,14 @@ public sealed partial class RetrievalDeduplicator(IOptions<RetrievalOptions> opt
 
         return MeetsDuplicateThresholds(
             BuildContextText(retainedContext),
-            BuildContextText(context));
+            BuildContextText(context),
+            options);
     }
 
     private bool ShouldSuppressDocument(
         RankedDocumentCandidate retained,
-        RankedDocumentCandidate candidate)
+        RankedDocumentCandidate candidate,
+        SemanticRetrievalOptions options)
     {
         var retainedDocument = retained.Document;
         var document = candidate.Document;
@@ -83,10 +86,14 @@ public sealed partial class RetrievalDeduplicator(IOptions<RetrievalOptions> opt
 
         return MeetsDuplicateThresholds(
             BuildDocumentText(retainedDocument),
-            BuildDocumentText(document));
+            BuildDocumentText(document),
+            options);
     }
 
-    private bool MeetsDuplicateThresholds(string first, string second)
+    private static bool MeetsDuplicateThresholds(
+        string first,
+        string second,
+        SemanticRetrievalOptions options)
     {
         var firstTokens = Tokenize(first);
         var secondTokens = Tokenize(second);
@@ -105,7 +112,8 @@ public sealed partial class RetrievalDeduplicator(IOptions<RetrievalOptions> opt
 
         var semanticSimilarity = intersection / (double)union;
         var tokenOverlap = intersection / (double)shorter;
-        return semanticSimilarity >= similarityThreshold && tokenOverlap >= tokenOverlapThreshold;
+        return semanticSimilarity >= options.DedupSimilarityThreshold &&
+               tokenOverlap >= options.DedupTokenOverlapThreshold;
     }
 
     private static string BuildContextText(BootstrapContextCandidate context) =>

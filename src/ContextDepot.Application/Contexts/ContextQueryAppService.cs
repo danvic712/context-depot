@@ -34,7 +34,7 @@ public sealed class ContextQueryAppService : IContextQueryAppService
     private readonly SemanticFallbackDecider semanticFallbackDecider;
     private readonly HybridCandidateRanker hybridCandidateRanker;
     private readonly RetrievalDeduplicator retrievalDeduplicator;
-    private readonly RetrievalOptions retrievalOptions;
+    private readonly IOptionsMonitor<RetrievalOptions> retrievalOptions;
     private readonly TimeProvider timeProvider;
     private readonly ILogger<ContextQueryAppService> logger;
 
@@ -48,7 +48,7 @@ public sealed class ContextQueryAppService : IContextQueryAppService
         SemanticFallbackDecider semanticFallbackDecider,
         HybridCandidateRanker hybridCandidateRanker,
         RetrievalDeduplicator retrievalDeduplicator,
-        IOptions<RetrievalOptions> retrievalOptions,
+        IOptionsMonitor<RetrievalOptions> retrievalOptions,
         TimeProvider timeProvider,
         ILogger<ContextQueryAppService> logger)
     {
@@ -61,7 +61,7 @@ public sealed class ContextQueryAppService : IContextQueryAppService
         this.semanticFallbackDecider = semanticFallbackDecider;
         this.hybridCandidateRanker = hybridCandidateRanker;
         this.retrievalDeduplicator = retrievalDeduplicator;
-        this.retrievalOptions = retrievalOptions.Value;
+        this.retrievalOptions = retrievalOptions;
         this.timeProvider = timeProvider;
         this.logger = logger;
     }
@@ -70,7 +70,8 @@ public sealed class ContextQueryAppService : IContextQueryAppService
         ContextSearchRequest request,
         CancellationToken cancellationToken)
     {
-        var query = ValidateAndNormalize(request, out var limit);
+        var options = retrievalOptions.CurrentValue;
+        var query = ValidateAndNormalize(request, options, out var limit);
         var workspaceScope = await ResolveWorkspaceScopeAsync(request, cancellationToken);
         var searchQuery = new ContextSearchQuery(
             currentDepot.DepotId,
@@ -139,12 +140,14 @@ public sealed class ContextQueryAppService : IContextQueryAppService
         if (semanticFallbackDecider.ShouldUseForRetrieval(
                 hasQuerySignal: query.Length > 0,
                 hasLexicalCandidates,
-                topLexicalScore))
+                topLexicalScore,
+                options.Semantic))
         {
             var semantic = await TrySearchSemanticAsync(
                 workspaceScope.Ids,
                 request.Kinds,
                 query,
+                options,
                 searchQuery.Now,
                 cancellationToken);
             semanticContexts = semantic.Contexts.ToArray();
@@ -194,8 +197,8 @@ public sealed class ContextQueryAppService : IContextQueryAppService
             .Where(candidate => lexicalDocumentSignals.GetValueOrDefault(candidate.Document.Id) > 0 ||
                                 candidate.SemanticScore >= 0.65)
             .ToArray();
-        var deduplicatedContexts = retrievalDeduplicator.DeduplicateContexts(rankedContexts);
-        var deduplicatedDocuments = retrievalDeduplicator.DeduplicateDocuments(rankedDocuments);
+        var deduplicatedContexts = retrievalDeduplicator.DeduplicateContexts(rankedContexts, options.Semantic);
+        var deduplicatedDocuments = retrievalDeduplicator.DeduplicateDocuments(rankedDocuments, options.Semantic);
         var matches = new List<(double Score, ContextSearchMatch? Context, DocumentSearchMatch? Document)>();
         matches.AddRange(deduplicatedContexts.Select(candidate =>
             (candidate.Score,
@@ -309,6 +312,7 @@ public sealed class ContextQueryAppService : IContextQueryAppService
         IReadOnlySet<Guid>? workspaceIds,
         IReadOnlyList<ContextKind>? kinds,
         string query,
+        RetrievalOptions retrievalSettings,
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
@@ -320,8 +324,9 @@ public sealed class ContextQueryAppService : IContextQueryAppService
                 currentDepot.DepotId,
                 workspaceIds?.ToArray(),
                 kinds,
-                semanticFallbackDecider.CandidateTopKPerSource,
-                now);
+                retrievalSettings.Semantic.CandidateTopKPerSource,
+                now,
+                retrievalSettings.Semantic.OversampleFactor);
             var contexts = await semanticRepository.FindContextCandidatesAsync(
                 semanticQuery,
                 queryVector,
@@ -346,7 +351,10 @@ public sealed class ContextQueryAppService : IContextQueryAppService
         }
     }
 
-    private string ValidateAndNormalize(ContextSearchRequest request, out int limit)
+    private static string ValidateAndNormalize(
+        ContextSearchRequest request,
+        RetrievalOptions options,
+        out int limit)
     {
         ArgumentNullException.ThrowIfNull(request);
         var query = request.Query?.Trim() ?? string.Empty;
@@ -355,8 +363,8 @@ public sealed class ContextQueryAppService : IContextQueryAppService
             throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidSearchQuery);
         }
 
-        limit = request.Limit ?? retrievalOptions.Search.DefaultLimit;
-        if (limit <= 0 || limit > retrievalOptions.Search.MaxLimit)
+        limit = request.Limit ?? options.Search.DefaultLimit;
+        if (limit <= 0 || limit > options.Search.MaxLimit)
         {
             throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidSearchQuery);
         }

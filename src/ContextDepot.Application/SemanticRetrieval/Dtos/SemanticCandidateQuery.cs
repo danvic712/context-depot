@@ -7,4 +7,5 @@ public sealed record SemanticCandidateQuery(
     IReadOnlyList<Guid>? WorkspaceIds,
     IReadOnlyList<ContextKind>? Kinds,
     int TopK,
-    DateTimeOffset Now);
+    DateTimeOffset Now,
+    int OversampleFactor = 3);

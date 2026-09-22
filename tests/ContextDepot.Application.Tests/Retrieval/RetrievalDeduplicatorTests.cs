@@ -4,7 +4,6 @@ using ContextDepot.Application.Retrieval;
 using ContextDepot.Application.Retrieval.Dtos;
 using ContextDepot.Domain.Contexts;
 using ContextDepot.Domain.Contexts.Enums;
-using Microsoft.Extensions.Options;
 
 namespace ContextDepot.Application.Tests.Retrieval;
 
@@ -21,9 +20,9 @@ public sealed class RetrievalDeduplicatorTests
             Ranked(first, 2),
             Ranked(duplicate, 1)
         };
-        var deduplicator = new RetrievalDeduplicator(Options.Create(new RetrievalOptions()));
+        var deduplicator = new RetrievalDeduplicator();
 
-        var result = deduplicator.DeduplicateContexts(ranked);
+        var result = deduplicator.DeduplicateContexts(ranked, new RetrievalOptions().Semantic);
 
         var retained = Assert.Single(result);
         Assert.Equal(first.Id, retained.Context.Id);
@@ -36,9 +35,11 @@ public sealed class RetrievalDeduplicatorTests
         var workspaceId = Guid.CreateVersion7();
         var first = Context(workspaceId, ContextKind.Event, null, "Conference starts tomorrow.");
         var duplicate = Context(workspaceId, ContextKind.Event, null, "Conference starts tomorrow.");
-        var deduplicator = new RetrievalDeduplicator(Options.Create(new RetrievalOptions()));
+        var deduplicator = new RetrievalDeduplicator();
 
-        var result = deduplicator.DeduplicateContexts([Ranked(first, 2), Ranked(duplicate, 1)]);
+        var result = deduplicator.DeduplicateContexts(
+            [Ranked(first, 2), Ranked(duplicate, 1)],
+            new RetrievalOptions().Semantic);
 
         Assert.Equal(2, result.Count);
     }
@@ -49,9 +50,11 @@ public sealed class RetrievalDeduplicatorTests
         var workspaceId = Guid.CreateVersion7();
         var first = Context(workspaceId, ContextKind.Preference, "travel.hotel", "Prefers hotels.");
         var second = Context(workspaceId, ContextKind.Preference, "travel.lodging", "Prefers hotels.");
-        var deduplicator = new RetrievalDeduplicator(Options.Create(new RetrievalOptions()));
+        var deduplicator = new RetrievalDeduplicator();
 
-        var result = deduplicator.DeduplicateContexts([Ranked(first, 2), Ranked(second, 1)]);
+        var result = deduplicator.DeduplicateContexts(
+            [Ranked(first, 2), Ranked(second, 1)],
+            new RetrievalOptions().Semantic);
 
         Assert.Equal(2, result.Count);
     }
@@ -64,13 +67,13 @@ public sealed class RetrievalDeduplicatorTests
         var first = Document(workspaceId, documentId, 0);
         var duplicate = Document(workspaceId, documentId, 1);
         var otherDocument = Document(workspaceId, Guid.CreateVersion7(), 0);
-        var deduplicator = new RetrievalDeduplicator(Options.Create(new RetrievalOptions()));
+        var deduplicator = new RetrievalDeduplicator();
 
         var result = deduplicator.DeduplicateDocuments([
             Ranked(first, 3),
             Ranked(duplicate, 2),
             Ranked(otherDocument, 1)
-        ]);
+        ], new RetrievalOptions().Semantic);
 
         Assert.Equal(2, result.Count);
         Assert.Contains(result, candidate => candidate.Document.DocumentId == otherDocument.DocumentId);

@@ -9,6 +9,7 @@ using ContextDepot.Application.Shared.Runtime.Contracts;
 using ContextDepot.Application.Workspaces.Contracts;
 using ContextDepot.Application.VectorIndex.Contracts;
 using ContextDepot.Infrastructure.Contracts;
+using ContextDepot.Infrastructure.Configuration;
 using ContextDepot.Infrastructure.CurrentDepot;
 using ContextDepot.Infrastructure.HealthChecks;
 using ContextDepot.Infrastructure.Markdown;
@@ -20,6 +21,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Npgsql;
 using Pgvector;
 
@@ -37,13 +39,29 @@ public static class ServiceCollectionExtensions
             throw new ContextDepotApplicationException(ApplicationErrorCodes.DatabaseUnavailable);
         }
 
+        if (configuration is not IConfigurationBuilder configurationBuilder)
+        {
+            throw new InvalidOperationException("Database application settings require a mutable configuration builder.");
+        }
+
+        var settingsConfigurationSource = new DatabaseApplicationSettingsConfigurationSource();
+        configurationBuilder.Add(settingsConfigurationSource);
+        var settingsConfigurationProvider = settingsConfigurationSource.Provider
+            ?? throw new InvalidOperationException("The database application settings provider was not initialized.");
+        services.AddSingleton(settingsConfigurationProvider);
+        services.AddSingleton<DatabaseApplicationSettingsSnapshotBuilder>();
+        services.AddSingleton<DatabaseApplicationSettingsReloadService>();
+        services.AddScoped<LegacyApplicationSettingsImporter>();
+        services.AddHostedService(provider => provider.GetRequiredService<DatabaseApplicationSettingsReloadService>());
+        services.AddSingleton<ContextDepotStartupInitializer>();
+
         services.AddDbContext<ContextDepotDbContext>(options =>
             options.UseNpgsql(connectionString, npgsql => npgsql.MigrationsHistoryTable("ef_migrations", "public")));
         services.AddMemoryCache();
         services.AddOptions<VectorCoverageOptions>()
             .Bind(configuration.GetSection("ContextDepot:VectorCoverage"))
-            .Validate(options => options.CacheDurationSeconds is >= 1 and <= 300, "Vector coverage cache duration must be between 1 and 300 seconds.")
             .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<VectorCoverageOptions>, VectorCoverageOptionsValidator>();
         services.AddOptions<PostgreSqlVectorStoreOptions>()
             .Bind(configuration.GetSection("ContextDepot:VectorStore"))
             .Validate(options => !string.IsNullOrWhiteSpace(options.Schema), "The vector store schema is required.")
@@ -66,7 +84,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISemanticRetrievalRepository, VectorDataSemanticRetrievalRepository>();
         services.AddScoped<IBootstrapRepository, BootstrapRepository>();
         services.AddScoped<IVectorIndexRepository, VectorDataVectorIndexRepository>();
-        services.AddHostedService<ContextDepotInfrastructureInitializer>();
         services.AddHealthChecks()
             .AddCheck<PostgreSqlHealthCheck>("postgresql")
             .AddCheck<VectorCoverageHealthCheck>("vector_coverage");

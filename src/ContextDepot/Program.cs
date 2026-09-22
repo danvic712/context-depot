@@ -66,6 +66,23 @@ try
 
     var app = builder.Build();
 
+    if (args.Contains("--import-legacy-configuration", StringComparer.Ordinal))
+    {
+        await app.Services
+            .GetRequiredService<ContextDepotStartupInitializer>()
+            .EnsureDatabaseSchemaAsync(CancellationToken.None);
+        await using var importScope = app.Services.CreateAsyncScope();
+        var importedCount = await importScope.ServiceProvider
+            .GetRequiredService<LegacyApplicationSettingsImporter>()
+            .ImportAsync(builder.Configuration, CancellationToken.None);
+        Log.Information("Imported {ImportedCount} legacy non-secret application settings.", importedCount);
+        return 0;
+    }
+
+    await app.Services
+        .GetRequiredService<ContextDepotStartupInitializer>()
+        .InitializeAsync(CancellationToken.None);
+
     app.UseMiddleware<DepotAccessKeyAuthenticationMiddleware>();
     app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
     app.MapHealthChecks("/readyz", new HealthCheckOptions
