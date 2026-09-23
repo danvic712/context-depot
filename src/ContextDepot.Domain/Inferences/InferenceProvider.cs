@@ -1,6 +1,6 @@
-namespace ContextDepot.Infrastructure.Configuration;
+namespace ContextDepot.Domain.Inferences;
 
-public sealed class InferenceProviderRecord
+public sealed class InferenceProvider
 {
     public Guid Id { get; set; }
 
@@ -18,5 +18,5 @@ public sealed class InferenceProviderRecord
 
     public DateTimeOffset UpdatedAt { get; set; }
 
-    public ICollection<InferenceRouteRecord> Routes { get; } = new List<InferenceRouteRecord>();
+    public ICollection<InferenceRoute> Routes { get; } = new List<InferenceRoute>();
 }

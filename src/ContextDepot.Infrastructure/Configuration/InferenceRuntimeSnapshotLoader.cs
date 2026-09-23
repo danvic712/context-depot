@@ -1,17 +1,16 @@
-using System.Security.Cryptography;
-using ContextDepot.Infrastructure.Configuration;
+using ContextDepot.Application.DataProtection;
+using ContextDepot.Application.DataProtection.Enums;
+using ContextDepot.Domain.Inferences;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace ContextDepot.Infrastructure;
+namespace ContextDepot.Infrastructure.Configuration;
 
 public sealed class InferenceRuntimeSnapshotLoader(
     IServiceScopeFactory scopeFactory,
-    IInferenceApiKeyProtector apiKeyProtector,
+    ISecretProtector apiKeyProtector,
     InferenceRuntimeSnapshotAccessor snapshotAccessor,
-    IConfiguration configuration,
     ILogger<InferenceRuntimeSnapshotLoader> logger)
 {
     public async Task<InferenceRuntimeSnapshot> LoadAsync(CancellationToken cancellationToken)
@@ -49,7 +48,7 @@ public sealed class InferenceRuntimeSnapshotLoader(
         return snapshot;
     }
 
-    private InferenceRuntimeSnapshot BuildSnapshot(InferenceRouteRecord route)
+    private InferenceRuntimeSnapshot BuildSnapshot(InferenceRoute route)
     {
         if (route.ProviderId is null && route.ModelName is null)
         {
@@ -57,12 +56,6 @@ public sealed class InferenceRuntimeSnapshotLoader(
                 !string.Equals(route.IndexState, "unconfigured", StringComparison.Ordinal))
             {
                 return Degraded("incomplete-route");
-            }
-
-            if (HasLegacyEmbeddingConfiguration())
-            {
-                throw new InvalidOperationException(
-                    "Legacy embedding settings are present but the database route is empty. Run --import-legacy-configuration before starting the application.");
             }
 
             return new InferenceRuntimeSnapshot(null, InferenceRuntimeState.Unconfigured, null);
@@ -107,15 +100,10 @@ public sealed class InferenceRuntimeSnapshotLoader(
             return Degraded("missing-api-key");
         }
 
-        string apiKey;
-        try
-        {
-            apiKey = apiKeyProtector.Unprotect(provider.ProtectedApiKey);
-        }
-        catch (CryptographicException)
-        {
-            return Degraded("api-key-decryption-failed");
-        }
+        apiKeyProtector.TryUnprotect(
+            provider.ProtectedApiKey,
+            SecretProtectionPurpose.InferenceProviderApiKey,
+            out var apiKey);
 
         if (string.IsNullOrWhiteSpace(apiKey))
         {
@@ -132,13 +120,6 @@ public sealed class InferenceRuntimeSnapshotLoader(
             route.TimeoutSeconds,
             fingerprint);
         return new InferenceRuntimeSnapshot(embedding, InferenceRuntimeState.Ready, null);
-    }
-
-    private bool HasLegacyEmbeddingConfiguration()
-    {
-        var adapter = configuration["ContextDepot:Embedding:Adapter"];
-        return !string.IsNullOrWhiteSpace(adapter) &&
-               !string.Equals(adapter, "None", StringComparison.OrdinalIgnoreCase);
     }
 
     private static InferenceRuntimeSnapshot Degraded(string reason) =>

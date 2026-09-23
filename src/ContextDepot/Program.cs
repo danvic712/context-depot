@@ -1,12 +1,12 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ContextDepot.Application;
+using ContextDepot.Application.DataProtection;
 using ContextDepot.BackgroundServices;
-using ContextDepot.Configuration;
 using ContextDepot.Infrastructure;
-using ContextDepot.Infrastructure.Configuration;
 using ContextDepot.Infrastructure.Embeddings;
 using ContextDepot.HealthChecks;
+using ContextDepot.Infrastructure.DataProtection;
 using ContextDepot.MCP.Contexts;
 using ContextDepot.MCP.Documents;
 using ContextDepot.MCP.Depots;
@@ -18,26 +18,12 @@ using Microsoft.AspNetCore.DataProtection;
 using ModelContextProtocol.AspNetCore;
 using Serilog;
 
-// The first phase of two-stage initialization also writes to the application log
-// so fatal errors during configuration and DI setup are not lost before the host
-// is built. UseSerilog replaces it with the complete appsettings-based configuration.
-var bootstrapLogPath = ResolveBootstrapLogPath();
-var bootstrapLogDirectory = Path.GetDirectoryName(Path.GetFullPath(bootstrapLogPath));
-if (!string.IsNullOrWhiteSpace(bootstrapLogDirectory))
-{
-    Directory.CreateDirectory(bootstrapLogDirectory);
-}
-
+// Load the same configuration before the host is built so bootstrap failures
+// use the configured console and file sinks. UseSerilog replaces it with the
+// complete host-backed configuration once the host is available.
+var bootstrapConfiguration = BuildBootstrapConfiguration(args);
 Log.Logger = new LoggerConfiguration()
-    .WriteTo.Console()
-    .WriteTo.File(
-        path: bootstrapLogPath,
-        rollingInterval: RollingInterval.Day,
-        retainedFileCountLimit: 14,
-        fileSizeLimitBytes: 10_485_760,
-        rollOnFileSizeLimit: true,
-        shared: true,
-        outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} {Level:u3}] {SourceContext} {Message:lj}{NewLine}{Exception}")
+    .ReadFrom.Configuration(bootstrapConfiguration)
     .CreateBootstrapLogger();
 
 try
@@ -79,7 +65,7 @@ try
     builder.Services.AddDataProtection()
         .SetApplicationName("ContextDepot")
         .PersistKeysToFileSystem(new DirectoryInfo(fullKeyRingPath));
-    builder.Services.AddSingleton<IInferenceApiKeyProtector, DataProtectionInferenceApiKeyProtector>();
+    builder.Services.AddSingleton<ISecretProtector, DataProtectionSecretProtector>();
 
     builder.Host.UseSerilog((context, logger) => logger
         .ReadFrom.Configuration(context.Configuration));
@@ -102,23 +88,6 @@ try
         .WithTools<DepotTools>();
 
     var app = builder.Build();
-
-    if (args.Contains("--import-legacy-configuration", StringComparer.Ordinal))
-    {
-        await app.Services
-            .GetRequiredService<ContextDepotStartupInitializer>()
-            .EnsureDatabaseSchemaAsync(CancellationToken.None);
-        await using var importScope = app.Services.CreateAsyncScope();
-        var importResult = await importScope.ServiceProvider
-            .GetRequiredService<LegacyApplicationSettingsImporter>()
-            .ImportAsync(builder.Configuration, CancellationToken.None);
-        Log.Information(
-            "Imported {ImportedCount} legacy non-secret application settings; embedding route imported: {EmbeddingRouteImported}; embedding route configured: {EmbeddingRouteConfigured}.",
-            importResult.ImportedApplicationSettingCount,
-            importResult.EmbeddingRouteImported,
-            importResult.EmbeddingRouteConfigured);
-        return 0;
-    }
 
     await app.Services
         .GetRequiredService<ContextDepotStartupInitializer>()
@@ -148,22 +117,22 @@ finally
 
 return 0;
 
-static string ResolveBootstrapLogPath()
+static IConfiguration BuildBootstrapConfiguration(string[] args)
 {
-    var environmentName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
-        ?? Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT");
-    var configuration = new ConfigurationBuilder()
-        .SetBasePath(Directory.GetCurrentDirectory())
-        .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false);
-
-    if (!string.IsNullOrWhiteSpace(environmentName))
+    var environmentName = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
+                          ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+    if (string.IsNullOrWhiteSpace(environmentName))
     {
-        configuration.AddJsonFile($"appsettings.{environmentName}.json", optional: true, reloadOnChange: false);
+        environmentName = "Production";
     }
 
-    var path = configuration
+    var configuration = new ConfigurationBuilder()
+        .SetBasePath(Directory.GetCurrentDirectory())
+        .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+        .AddJsonFile($"appsettings.{environmentName}.json", optional: true, reloadOnChange: false)
         .AddEnvironmentVariables()
-        .Build()["Serilog:WriteTo:1:Args:path"];
+        .AddCommandLine(args)
+        .Build();
 
-    return string.IsNullOrWhiteSpace(path) ? "logs/context-depot-.log" : path;
+    return configuration;
 }

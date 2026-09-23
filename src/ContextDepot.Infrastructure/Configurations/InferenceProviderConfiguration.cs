@@ -1,12 +1,12 @@
-using ContextDepot.Infrastructure.Configuration;
+using ContextDepot.Domain.Inferences;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace ContextDepot.Infrastructure.Configurations;
 
-public sealed class InferenceProviderRecordConfiguration : IEntityTypeConfiguration<InferenceProviderRecord>
+public sealed class InferenceProviderConfiguration : IEntityTypeConfiguration<InferenceProvider>
 {
-    public void Configure(EntityTypeBuilder<InferenceProviderRecord> entity)
+    public void Configure(EntityTypeBuilder<InferenceProvider> entity)
     {
         entity.ToTable("inference_providers", table => table.HasCheckConstraint(
             "ck_inference_providers_protocol_code",

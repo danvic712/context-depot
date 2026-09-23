@@ -1,10 +1,9 @@
-using ContextDepot.Infrastructure.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace ContextDepot.Infrastructure;
+namespace ContextDepot.Infrastructure.Configuration;
 
 public sealed class DatabaseApplicationSettingsReloadService(
     IServiceScopeFactory scopeFactory,

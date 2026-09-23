@@ -1,12 +1,12 @@
-using ContextDepot.Infrastructure.Configuration;
+using ContextDepot.Domain.Inferences;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace ContextDepot.Infrastructure.Configurations;
 
-public sealed class InferenceRouteRecordConfiguration : IEntityTypeConfiguration<InferenceRouteRecord>
+public sealed class InferenceRouteConfiguration : IEntityTypeConfiguration<InferenceRoute>
 {
-    public void Configure(EntityTypeBuilder<InferenceRouteRecord> entity)
+    public void Configure(EntityTypeBuilder<InferenceRoute> entity)
     {
         entity.ToTable("inference_routes", table =>
         {
@@ -46,35 +46,5 @@ public sealed class InferenceRouteRecordConfiguration : IEntityTypeConfiguration
             .HasForeignKey(route => route.ProviderId)
             .OnDelete(DeleteBehavior.Restrict)
             .HasConstraintName("fk_inference_routes_provider");
-
-        entity.HasData(
-            new
-            {
-                Id = Guid.Parse("01995f60-0000-7000-8000-000000000101"),
-                Capability = "chat",
-                ProviderId = (Guid?)null,
-                ModelName = (string?)null,
-                Dimensions = (int?)null,
-                TimeoutSeconds = 60,
-                EmbeddingProfileFingerprint = (string?)null,
-                IndexState = "unconfigured",
-                IndexGeneration = 0L,
-                CreatedAt = new DateTimeOffset(2026, 9, 23, 0, 0, 0, TimeSpan.Zero),
-                UpdatedAt = new DateTimeOffset(2026, 9, 23, 0, 0, 0, TimeSpan.Zero)
-            },
-            new
-            {
-                Id = Guid.Parse("01995f60-0000-7000-8000-000000000102"),
-                Capability = "embedding",
-                ProviderId = (Guid?)null,
-                ModelName = (string?)null,
-                Dimensions = (int?)null,
-                TimeoutSeconds = 60,
-                EmbeddingProfileFingerprint = (string?)null,
-                IndexState = "unconfigured",
-                IndexGeneration = 0L,
-                CreatedAt = new DateTimeOffset(2026, 9, 23, 0, 0, 0, TimeSpan.Zero),
-                UpdatedAt = new DateTimeOffset(2026, 9, 23, 0, 0, 0, TimeSpan.Zero)
-            });
     }
 }

@@ -55,7 +55,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<InferenceRuntimeSnapshotAccessor>();
         services.AddSingleton<InferenceRuntimeSnapshotLoader>();
         services.AddSingleton<IConfigureOptions<EmbeddingOptions>, ConfigureEmbeddingOptionsFromInferenceSnapshot>();
-        services.AddScoped<LegacyApplicationSettingsImporter>();
         services.AddHostedService(provider => provider.GetRequiredService<DatabaseApplicationSettingsReloadService>());
         services.AddSingleton<ContextDepotStartupInitializer>();
 

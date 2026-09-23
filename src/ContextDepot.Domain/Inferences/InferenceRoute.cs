@@ -1,6 +1,6 @@
-namespace ContextDepot.Infrastructure.Configuration;
+namespace ContextDepot.Domain.Inferences;
 
-public sealed class InferenceRouteRecord
+public sealed class InferenceRoute
 {
     public Guid Id { get; set; }
 
@@ -8,7 +8,7 @@ public sealed class InferenceRouteRecord
 
     public Guid? ProviderId { get; set; }
 
-    public InferenceProviderRecord? Provider { get; set; }
+    public InferenceProvider? Provider { get; set; }
 
     public string? ModelName { get; set; }
 
