@@ -1,3 +1,4 @@
+using ContextDepot.Application.Embeddings;
 using ContextDepot.Application.Bootstrap.Contracts;
 using ContextDepot.Application.Contexts.Contracts;
 using ContextDepot.Application.Depots.Contracts;
@@ -51,6 +52,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(settingsConfigurationProvider);
         services.AddSingleton<DatabaseApplicationSettingsSnapshotBuilder>();
         services.AddSingleton<DatabaseApplicationSettingsReloadService>();
+        services.AddSingleton<InferenceRuntimeSnapshotAccessor>();
+        services.AddSingleton<InferenceRuntimeSnapshotLoader>();
+        services.AddSingleton<IConfigureOptions<EmbeddingOptions>, ConfigureEmbeddingOptionsFromInferenceSnapshot>();
         services.AddScoped<LegacyApplicationSettingsImporter>();
         services.AddHostedService(provider => provider.GetRequiredService<DatabaseApplicationSettingsReloadService>());
         services.AddSingleton<ContextDepotStartupInitializer>();

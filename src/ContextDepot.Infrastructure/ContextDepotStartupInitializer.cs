@@ -11,6 +11,7 @@ public sealed class ContextDepotStartupInitializer(
     IServiceScopeFactory scopeFactory,
     IHostEnvironment environment,
     DatabaseApplicationSettingsReloadService applicationSettingsReloadService,
+    InferenceRuntimeSnapshotLoader inferenceRuntimeSnapshotLoader,
     VectorCollectionInitializer vectorCollectionInitializer,
     ILogger<ContextDepotStartupInitializer> logger)
 {
@@ -48,6 +49,7 @@ public sealed class ContextDepotStartupInitializer(
     {
         await EnsureDatabaseSchemaAsync(cancellationToken);
         await applicationSettingsReloadService.LoadInitialAsync(cancellationToken);
+        await inferenceRuntimeSnapshotLoader.LoadAsync(cancellationToken);
         await vectorCollectionInitializer.InitializeAsync(cancellationToken);
     }
 }

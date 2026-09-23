@@ -7,6 +7,4 @@ public sealed class EmbeddingOptions
     public string Model { get; set; } = "embedding-model";
 
     public int Dimensions { get; set; } = 1536;
-
-    public EmbeddingRepairOptions Repair { get; set; } = new();
 }

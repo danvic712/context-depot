@@ -19,12 +19,6 @@ public sealed class EmbeddingOptionsValidator : IValidateOptions<EmbeddingOption
             failures.Add(ApplicationErrorMessages.Get(ApplicationErrorCodes.EmbeddingConfigurationInvalid));
         }
 
-        var repair = options.Repair;
-        if (repair is null || repair.PollIntervalSeconds <= 0 || repair.BatchSize is < 1 or > 256 || repair.MaxBatchesPerCycle is < 1 or > 100)
-        {
-            failures.Add(ApplicationErrorMessages.Get(ApplicationErrorCodes.EmbeddingConfigurationInvalid));
-        }
-
         return failures.Count == 0
             ? ValidateOptionsResult.Success
             : ValidateOptionsResult.Fail(failures);

@@ -3,6 +3,7 @@ using ContextDepot.Application.VectorIndex.Contracts;
 using ContextDepot.Application.VectorIndex.Dtos;
 using ContextDepot.Domain.Contexts.Enums;
 using ContextDepot.Infrastructure.VectorStore;
+using ContextDepot.Infrastructure.Configuration;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.VectorData;
 
@@ -15,16 +16,18 @@ public sealed class VectorDataVectorIndexRepository : IVectorIndexRepository
 
     public VectorDataVectorIndexRepository(
         PostgreSqlVectorStore vectorStore,
-        IOptions<EmbeddingOptions> embeddingOptions)
+        InferenceRuntimeSnapshotAccessor snapshotAccessor)
     {
         ArgumentNullException.ThrowIfNull(vectorStore);
-        var profile = EmbeddingProfile.From(embeddingOptions?.Value ?? throw new ArgumentNullException(nameof(embeddingOptions)));
+        ArgumentNullException.ThrowIfNull(snapshotAccessor);
+        var embedding = snapshotAccessor.Current.Embedding
+            ?? throw new InvalidOperationException("Vector index operations require a configured embedding inference route.");
         _contextCollection = vectorStore.GetCollection<Guid, ContextVectorRecord>(
-            VectorCollectionNamePolicy.CreateContextCollectionName(profile.Provider, profile.Model, profile.Dimensions),
-            VectorCollectionDefinitions.CreateContext(profile.Dimensions));
+            VectorCollectionNamePolicy.CreateContextCollectionName(embedding.ProviderName, embedding.ModelName, embedding.Dimensions),
+            VectorCollectionDefinitions.CreateContext(embedding.Dimensions));
         _documentCollection = vectorStore.GetCollection<Guid, DocumentVectorRecord>(
-            VectorCollectionNamePolicy.CreateDocumentCollectionName(profile.Provider, profile.Model, profile.Dimensions),
-            VectorCollectionDefinitions.CreateDocument(profile.Dimensions));
+            VectorCollectionNamePolicy.CreateDocumentCollectionName(embedding.ProviderName, embedding.ModelName, embedding.Dimensions),
+            VectorCollectionDefinitions.CreateDocument(embedding.Dimensions));
     }
 
     public async Task<IReadOnlyDictionary<Guid, string>> GetContextInputHashesAsync(

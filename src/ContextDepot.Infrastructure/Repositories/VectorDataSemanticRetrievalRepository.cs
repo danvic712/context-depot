@@ -4,6 +4,7 @@ using ContextDepot.Application.Embeddings;
 using ContextDepot.Application.SemanticRetrieval.Contracts;
 using ContextDepot.Application.SemanticRetrieval.Dtos;
 using ContextDepot.Application.Shared.Exceptions;
+using ContextDepot.Infrastructure.Configuration;
 using ContextDepot.Domain.Contexts.Enums;
 using ContextDepot.Domain.Documents.Enums;
 using ContextDepot.Infrastructure.VectorStore;
@@ -18,27 +19,32 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
 {
     private readonly ContextDepotDbContext db;
     private readonly ILogger<VectorDataSemanticRetrievalRepository> logger;
-    private readonly VectorStoreCollection<Guid, ContextVectorRecord> contextCollection;
-    private readonly VectorStoreCollection<Guid, DocumentVectorRecord> documentCollection;
+    private readonly VectorStoreCollection<Guid, ContextVectorRecord>? contextCollection;
+    private readonly VectorStoreCollection<Guid, DocumentVectorRecord>? documentCollection;
 
     public VectorDataSemanticRetrievalRepository(
         PostgreSqlVectorStore vectorStore,
         ContextDepotDbContext db,
-        IOptions<EmbeddingOptions> embeddingOptions,
+        InferenceRuntimeSnapshotAccessor snapshotAccessor,
         ILogger<VectorDataSemanticRetrievalRepository> logger)
     {
         ArgumentNullException.ThrowIfNull(vectorStore);
         ArgumentNullException.ThrowIfNull(db);
-        ArgumentNullException.ThrowIfNull(embeddingOptions);
+        ArgumentNullException.ThrowIfNull(snapshotAccessor);
         this.db = db;
         this.logger = logger;
-        var profile = EmbeddingProfile.From(embeddingOptions.Value);
+        var embedding = snapshotAccessor.Current.Embedding;
+        if (embedding is null)
+        {
+            return;
+        }
+
         contextCollection = vectorStore.GetCollection<Guid, ContextVectorRecord>(
-            VectorCollectionNamePolicy.CreateContextCollectionName(profile.Provider, profile.Model, profile.Dimensions),
-            VectorCollectionDefinitions.CreateContext(profile.Dimensions));
+            VectorCollectionNamePolicy.CreateContextCollectionName(embedding.ProviderName, embedding.ModelName, embedding.Dimensions),
+            VectorCollectionDefinitions.CreateContext(embedding.Dimensions));
         documentCollection = vectorStore.GetCollection<Guid, DocumentVectorRecord>(
-            VectorCollectionNamePolicy.CreateDocumentCollectionName(profile.Provider, profile.Model, profile.Dimensions),
-            VectorCollectionDefinitions.CreateDocument(profile.Dimensions));
+            VectorCollectionNamePolicy.CreateDocumentCollectionName(embedding.ProviderName, embedding.ModelName, embedding.Dimensions),
+            VectorCollectionDefinitions.CreateDocument(embedding.Dimensions));
     }
 
     public async Task<IReadOnlyList<SemanticContextCandidateRecord>> FindContextCandidatesAsync(
@@ -47,6 +53,7 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
         CancellationToken cancellationToken)
     {
         ValidateQuery(query);
+        EnsureEmbeddingRoute();
         if (HasEmptyScope(query))
         {
             return [];
@@ -115,6 +122,7 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
         CancellationToken cancellationToken)
     {
         ValidateQuery(query);
+        EnsureEmbeddingRoute();
         if (HasEmptyScope(query))
         {
             return [];
@@ -170,7 +178,7 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
         try
         {
             var candidates = new List<(Guid Id, double Similarity)>();
-            await foreach (var result in contextCollection.SearchAsync(
+            await foreach (var result in contextCollection!.SearchAsync(
                                queryVector,
                                CandidateLimit(query),
                                new VectorSearchOptions<ContextVectorRecord>
@@ -203,7 +211,7 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
         try
         {
             var candidates = new List<(Guid Id, double Similarity)>();
-            await foreach (var result in documentCollection.SearchAsync(
+            await foreach (var result in documentCollection!.SearchAsync(
                                queryVector,
                                CandidateLimit(query),
                                new VectorSearchOptions<DocumentVectorRecord>
@@ -230,6 +238,14 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
 
     private static int CandidateLimit(SemanticCandidateQuery query) =>
         checked(query.TopK * query.OversampleFactor);
+
+    private void EnsureEmbeddingRoute()
+    {
+        if (contextCollection is null || documentCollection is null)
+        {
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.EmbeddingGeneratorUnavailable);
+        }
+    }
 
     private static Expression<Func<ContextVectorRecord, bool>> BuildContextFilter(SemanticCandidateQuery query)
     {

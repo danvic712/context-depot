@@ -13,11 +13,7 @@ public sealed class EmbeddingOptionsTests
             new EmbeddingOptions
             {
                 Provider = "",
-                Dimensions = 0,
-                Repair = new EmbeddingRepairOptions
-                {
-                    BatchSize = 0
-                }
+                Dimensions = 0
             });
 
         Assert.False(result.Succeeded);

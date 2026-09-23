@@ -3,6 +3,7 @@ using ContextDepot.Application.Depots.Contracts;
 using ContextDepot.Application.IndexRepair.Contracts;
 using ContextDepot.Application.IndexRepair.Dtos;
 using ContextDepot.Infrastructure.CurrentDepot;
+using ContextDepot.Infrastructure.Configuration;
 using Microsoft.Extensions.Options;
 
 namespace ContextDepot.BackgroundServices;
@@ -10,6 +11,7 @@ namespace ContextDepot.BackgroundServices;
 public sealed class IndexRepairHostedService(
     IServiceScopeFactory scopeFactory,
     IOptionsMonitor<IndexRepairOptions> options,
+    InferenceRuntimeSnapshotAccessor inferenceSnapshotAccessor,
     ILogger<IndexRepairHostedService> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -23,6 +25,11 @@ public sealed class IndexRepairHostedService(
                 await Task.Delay(
                     TimeSpan.FromSeconds(repairOptions.PollIntervalSeconds),
                     stoppingToken);
+
+                if (inferenceSnapshotAccessor.Current.Embedding is null)
+                {
+                    continue;
+                }
 
                 await using var scope = scopeFactory.CreateAsyncScope();
                 scope.ServiceProvider.GetRequiredService<CurrentDepotAccessContext>().AllowInternalAccess();

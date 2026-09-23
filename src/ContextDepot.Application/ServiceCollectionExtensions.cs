@@ -32,7 +32,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<DocumentWriteCoordinator>();
         services.AddSingleton<HeadingAwareMarkdownChunker>();
         services.AddOptions<EmbeddingOptions>()
-            .Bind(configuration.GetSection("ContextDepot:Embedding"))
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<EmbeddingOptions>, EmbeddingOptionsValidator>();
         services.AddOptions<RetrievalOptions>()

@@ -2,7 +2,9 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using ContextDepot.Application;
 using ContextDepot.BackgroundServices;
+using ContextDepot.Configuration;
 using ContextDepot.Infrastructure;
+using ContextDepot.Infrastructure.Configuration;
 using ContextDepot.Infrastructure.Embeddings;
 using ContextDepot.HealthChecks;
 using ContextDepot.MCP.Contexts;
@@ -12,7 +14,7 @@ using ContextDepot.MCP.Authentication;
 using ContextDepot.MCP.Shared;
 using ContextDepot.MCP.Workspaces;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.DataProtection;
 using ModelContextProtocol.AspNetCore;
 using Serilog;
 
@@ -44,6 +46,41 @@ try
 
     var builder = WebApplication.CreateBuilder(args);
 
+    var keyRingPath = builder.Configuration["DataProtection:KeyRingPath"];
+    if (string.IsNullOrWhiteSpace(keyRingPath))
+    {
+        if (builder.Environment.IsProduction())
+        {
+            throw new InvalidOperationException(
+                "DataProtection:KeyRingPath must point to persistent shared storage in production.");
+        }
+
+        var localApplicationData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (string.IsNullOrWhiteSpace(localApplicationData))
+        {
+            throw new InvalidOperationException(
+                "DataProtection:KeyRingPath must be configured when no local application-data directory is available.");
+        }
+
+        keyRingPath = Path.Combine(
+            localApplicationData,
+            "ContextDepot",
+            "DataProtectionKeys");
+    }
+
+    if (builder.Environment.IsProduction() && !Path.IsPathRooted(keyRingPath))
+    {
+        throw new InvalidOperationException(
+            "DataProtection:KeyRingPath must be an absolute path to persistent shared storage in production.");
+    }
+
+    var fullKeyRingPath = Path.GetFullPath(keyRingPath, builder.Environment.ContentRootPath);
+    Directory.CreateDirectory(fullKeyRingPath);
+    builder.Services.AddDataProtection()
+        .SetApplicationName("ContextDepot")
+        .PersistKeysToFileSystem(new DirectoryInfo(fullKeyRingPath));
+    builder.Services.AddSingleton<IInferenceApiKeyProtector, DataProtectionInferenceApiKeyProtector>();
+
     builder.Host.UseSerilog((context, logger) => logger
         .ReadFrom.Configuration(context.Configuration));
     builder.Services.AddHealthChecks();
@@ -53,7 +90,7 @@ try
         options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
     });
     builder.Services.AddContextDepotApplication(builder.Configuration);
-    builder.Services.AddContextDepotEmbeddingProvider(builder.Configuration);
+    builder.Services.AddContextDepotEmbeddingProvider();
     builder.Services.AddContextDepotInfrastructure(builder.Configuration);
     builder.Services.AddHostedService<IndexRepairHostedService>();
     builder.Services
@@ -72,10 +109,14 @@ try
             .GetRequiredService<ContextDepotStartupInitializer>()
             .EnsureDatabaseSchemaAsync(CancellationToken.None);
         await using var importScope = app.Services.CreateAsyncScope();
-        var importedCount = await importScope.ServiceProvider
+        var importResult = await importScope.ServiceProvider
             .GetRequiredService<LegacyApplicationSettingsImporter>()
             .ImportAsync(builder.Configuration, CancellationToken.None);
-        Log.Information("Imported {ImportedCount} legacy non-secret application settings.", importedCount);
+        Log.Information(
+            "Imported {ImportedCount} legacy non-secret application settings; embedding route imported: {EmbeddingRouteImported}; embedding route configured: {EmbeddingRouteConfigured}.",
+            importResult.ImportedApplicationSettingCount,
+            importResult.EmbeddingRouteImported,
+            importResult.EmbeddingRouteConfigured);
         return 0;
     }
 

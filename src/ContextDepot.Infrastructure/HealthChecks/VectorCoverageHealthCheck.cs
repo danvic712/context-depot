@@ -1,5 +1,6 @@
 using ContextDepot.Application.Embeddings.Dtos;
 using ContextDepot.Infrastructure.CurrentDepot;
+using ContextDepot.Infrastructure.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -8,12 +9,28 @@ namespace ContextDepot.Infrastructure.HealthChecks;
 
 public sealed class VectorCoverageHealthCheck(
     IServiceScopeFactory scopeFactory,
+    InferenceRuntimeSnapshotAccessor inferenceSnapshotAccessor,
     TimeProvider timeProvider) : IHealthCheck
 {
     public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
         CancellationToken cancellationToken = default)
     {
+        var inferenceSnapshot = inferenceSnapshotAccessor.Current;
+        if (inferenceSnapshot.Embedding is null)
+        {
+            return HealthCheckResult.Degraded(
+                inferenceSnapshot.State == InferenceRuntimeState.Unconfigured
+                    ? "Embedding is not configured; lexical retrieval remains available."
+                    : "Embedding is unavailable; lexical retrieval remains available.",
+                data: new Dictionary<string, object>
+                {
+                    ["retrieval_degraded"] = true,
+                    ["inference_state"] = inferenceSnapshot.State.ToString(),
+                    ["inference_reason"] = inferenceSnapshot.DegradedReason ?? string.Empty
+                });
+        }
+
         try
         {
             await using var scope = scopeFactory.CreateAsyncScope();
