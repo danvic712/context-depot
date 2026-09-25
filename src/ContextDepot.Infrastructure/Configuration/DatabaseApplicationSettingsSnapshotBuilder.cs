@@ -2,6 +2,7 @@ using System.Text.Json;
 using ContextDepot.Application.Embeddings;
 using ContextDepot.Application.IndexRepair;
 using ContextDepot.Application.Settings;
+using ContextDepot.Domain.Settings;
 using ContextDepot.Infrastructure.Options;
 using Microsoft.Extensions.Configuration;
 
@@ -28,7 +29,7 @@ public sealed class DatabaseApplicationSettingsSnapshotBuilder
             ["ContextDepot:Appearance:Theme"] = "ContextDepot:Appearance:Theme"
         };
 
-    public IReadOnlyDictionary<string, string?> Build(IEnumerable<ApplicationSettingRecord> records)
+    public IReadOnlyDictionary<string, string?> Build(IEnumerable<ApplicationSetting> records)
     {
         ArgumentNullException.ThrowIfNull(records);
         var values = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);

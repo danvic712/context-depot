@@ -509,7 +509,8 @@ namespace ContextDepot.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_inference_routes_capability");
 
-                    b.HasIndex("ProviderId");
+                    b.HasIndex("ProviderId")
+                        .HasDatabaseName("ix_inference_routes_provider_id");
 
                     b.ToTable("inference_routes", "public", t =>
                         {
@@ -620,7 +621,7 @@ namespace ContextDepot.Infrastructure.Migrations
                     b.ToTable("workspace_access_grants", "public");
                 });
 
-            modelBuilder.Entity("ContextDepot.Infrastructure.Configuration.ApplicationSettingRecord", b =>
+            modelBuilder.Entity("ContextDepot.Domain.Settings.ApplicationSetting", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()

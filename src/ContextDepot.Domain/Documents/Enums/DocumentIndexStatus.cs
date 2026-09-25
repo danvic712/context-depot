@@ -1,5 +1,4 @@
 using System.Text.Json.Serialization;
-using ContextDepot.Domain.Shared;
 
 namespace ContextDepot.Domain.Documents.Enums;
 

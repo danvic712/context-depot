@@ -41,6 +41,8 @@ public sealed class InferenceRouteConfiguration : IEntityTypeConfiguration<Infer
         entity.HasIndex(route => route.Capability)
             .IsUnique()
             .HasDatabaseName("ux_inference_routes_capability");
+        entity.HasIndex(route => route.ProviderId)
+            .HasDatabaseName("ix_inference_routes_provider_id");
         entity.HasOne(route => route.Provider)
             .WithMany(provider => provider.Routes)
             .HasForeignKey(route => route.ProviderId)

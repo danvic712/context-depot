@@ -1,6 +1,8 @@
 using ContextDepot.Application.DataProtection;
 using ContextDepot.Application.DataProtection.Enums;
 using ContextDepot.Domain.Inferences;
+using ContextDepot.Domain.Inferences.Enums;
+using ContextDepot.Infrastructure.Embeddings;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

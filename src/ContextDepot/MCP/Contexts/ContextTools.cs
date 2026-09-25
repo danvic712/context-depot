@@ -1,15 +1,12 @@
 using System.ComponentModel;
-using ContextDepot.Application.Contexts;
 using ContextDepot.Application.Contexts.Contracts;
 using ContextDepot.Application.Contexts.Dtos;
 using ContextDepot.Application.Bootstrap.Contracts;
 using ContextDepot.Application.Bootstrap.Dtos;
 using ContextDepot.Application.Shared.Exceptions;
-using ContextDepot.Domain.Contexts;
 using ContextDepot.Domain.Contexts.Enums;
 using ContextDepot.MCP.Shared;
 using ModelContextProtocol.Server;
-using Microsoft.Extensions.Logging;
 
 namespace ContextDepot.MCP.Contexts;
 

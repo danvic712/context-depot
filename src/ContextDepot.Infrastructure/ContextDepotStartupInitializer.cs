@@ -3,39 +3,32 @@ using ContextDepot.Infrastructure.Configuration;
 using ContextDepot.Infrastructure.VectorStore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace ContextDepot.Infrastructure;
 
 public sealed class ContextDepotStartupInitializer(
     IServiceScopeFactory scopeFactory,
-    IHostEnvironment environment,
-    DatabaseApplicationSettingsReloadService applicationSettingsReloadService,
+    DatabaseApplicationSettingsSnapshotLoader applicationSettingsSnapshotLoader,
     InferenceRuntimeSnapshotLoader inferenceRuntimeSnapshotLoader,
     VectorCollectionInitializer vectorCollectionInitializer,
     ILogger<ContextDepotStartupInitializer> logger)
 {
-    public async Task EnsureDatabaseSchemaAsync(CancellationToken cancellationToken)
+    public async Task InitializeAsync(CancellationToken cancellationToken)
+    {
+        await EnsureDatabaseSchemaAsync(cancellationToken);
+        await applicationSettingsSnapshotLoader.RefreshAsync(cancellationToken);
+        await inferenceRuntimeSnapshotLoader.LoadAsync(cancellationToken);
+        await vectorCollectionInitializer.InitializeAsync(cancellationToken);
+    }
+
+    private async Task EnsureDatabaseSchemaAsync(CancellationToken cancellationToken)
     {
         await using var scope = scopeFactory.CreateAsyncScope();
         try
         {
             var db = scope.ServiceProvider.GetRequiredService<ContextDepotDbContext>();
-            if (environment.IsDevelopment() || environment.IsEnvironment("Testing"))
-            {
-                await db.Database.MigrateAsync(cancellationToken);
-            }
-            else
-            {
-                var pendingMigrations = await db.Database.GetPendingMigrationsAsync(cancellationToken);
-                if (pendingMigrations.Any())
-                {
-                    throw new InvalidOperationException(
-                        "Pending database migrations must be applied before starting ContextDepot in production.");
-                }
-            }
-
+            await db.Database.MigrateAsync(cancellationToken);
         }
         catch (Exception exception)
         {
@@ -44,13 +37,5 @@ public sealed class ContextDepotStartupInitializer(
                 ApplicationErrorCodes.DatabaseMigrationFailed);
             throw;
         }
-    }
-
-    public async Task InitializeAsync(CancellationToken cancellationToken)
-    {
-        await EnsureDatabaseSchemaAsync(cancellationToken);
-        await applicationSettingsReloadService.LoadInitialAsync(cancellationToken);
-        await inferenceRuntimeSnapshotLoader.LoadAsync(cancellationToken);
-        await vectorCollectionInitializer.InitializeAsync(cancellationToken);
     }
 }

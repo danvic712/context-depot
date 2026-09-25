@@ -1,7 +1,7 @@
 using System.Reflection;
 using System.Text.Json;
 
-namespace ContextDepot.Domain.Shared.Localization;
+namespace ContextDepot.Domain.Localization;
 
 public sealed class EmbeddedLocaleCatalog
 {

@@ -3,6 +3,7 @@ using ContextDepot.Domain.Contexts;
 using ContextDepot.Domain.Documents;
 using ContextDepot.Domain.Depots;
 using ContextDepot.Domain.Inferences;
+using ContextDepot.Domain.Settings;
 using ContextDepot.Domain.Workspaces;
 using ContextDepot.Infrastructure.Configuration;
 using Microsoft.EntityFrameworkCore;
@@ -34,7 +35,7 @@ public sealed class ContextDepotDbContext(
 
     public DbSet<DocumentChunk> DocumentChunks => Set<DocumentChunk>();
 
-    public DbSet<ApplicationSettingRecord> ApplicationSettings => Set<ApplicationSettingRecord>();
+    public DbSet<ApplicationSetting> ApplicationSettings => Set<ApplicationSetting>();
 
     public DbSet<InferenceProvider> InferenceProviders => Set<InferenceProvider>();
 

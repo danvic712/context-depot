@@ -1,6 +1,6 @@
-namespace ContextDepot.Infrastructure.Configuration;
+namespace ContextDepot.Domain.Settings;
 
-public sealed class ApplicationSettingRecord
+public sealed class ApplicationSetting
 {
     public Guid Id { get; set; }
 

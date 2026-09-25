@@ -1,4 +1,4 @@
-using ContextDepot.Domain.Shared.Localization;
+using ContextDepot.Domain.Localization;
 
 namespace ContextDepot.Application.Shared.Exceptions;
 

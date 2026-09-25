@@ -1,11 +1,6 @@
-namespace ContextDepot.Infrastructure.Configuration;
+using ContextDepot.Domain.Inferences.Enums;
 
-public enum InferenceRuntimeState
-{
-    Unconfigured,
-    Ready,
-    Degraded
-}
+namespace ContextDepot.Infrastructure.Configuration;
 
 public sealed record EmbeddingRouteRuntimeSnapshot(
     string ProviderName,

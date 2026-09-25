@@ -12,26 +12,21 @@ internal static class MCPToolErrorMapper
     public static void Throw(Exception exception, ILogger logger)
     {
         var correlationId = Activity.Current?.Id ?? Guid.CreateVersion7().ToString("N");
-        if (exception is ContextDepotApplicationException applicationException)
+        switch (exception)
         {
-            logger.LogWarning("MCP request failed with application error {ErrorCode}; correlation_id={CorrelationId}", applicationException.ErrorCode, correlationId);
-            throw CreateMCPException(applicationException.ErrorCode, applicationException.Message, correlationId);
+            case ContextDepotApplicationException applicationException:
+                logger.LogWarning("MCP request failed with application error {ErrorCode}; correlation_id={CorrelationId}", applicationException.ErrorCode, correlationId);
+                throw CreateMCPException(applicationException.ErrorCode, applicationException.Message, correlationId);
+            case IOException or UnauthorizedAccessException:
+                logger.LogError(exception, "MCP request failed because the Markdown root is unavailable; correlation_id={CorrelationId}", correlationId);
+                throw CreateMCPException(ApplicationErrorCodes.MarkdownRootUnavailable, correlationId);
+            case DbException or DbUpdateException:
+                logger.LogError(exception, "MCP request failed because PostgreSQL is unavailable; correlation_id={CorrelationId}", correlationId);
+                throw CreateMCPException(ApplicationErrorCodes.DatabaseUnavailable, correlationId);
+            default:
+                logger.LogError(exception, "MCP request failed with an unexpected error; correlation_id={CorrelationId}", correlationId);
+                throw CreateMCPException(ApplicationErrorCodes.InternalError, correlationId);
         }
-
-        if (exception is IOException or UnauthorizedAccessException)
-        {
-            logger.LogError(exception, "MCP request failed because the Markdown root is unavailable; correlation_id={CorrelationId}", correlationId);
-            throw CreateMCPException(ApplicationErrorCodes.MarkdownRootUnavailable, correlationId);
-        }
-
-        if (exception is DbException or DbUpdateException)
-        {
-            logger.LogError(exception, "MCP request failed because PostgreSQL is unavailable; correlation_id={CorrelationId}", correlationId);
-            throw CreateMCPException(ApplicationErrorCodes.DatabaseUnavailable, correlationId);
-        }
-
-        logger.LogError(exception, "MCP request failed with an unexpected error; correlation_id={CorrelationId}", correlationId);
-        throw CreateMCPException(ApplicationErrorCodes.InternalError, correlationId);
     }
 
     private static McpException CreateMCPException(string errorCode, string correlationId) =>

@@ -1,10 +1,12 @@
 using ContextDepot.Infrastructure.Contracts;
 using ContextDepot.Infrastructure.CurrentDepot;
 
-namespace ContextDepot.MCP.Authentication;
+namespace ContextDepot.Middlewares;
 
 public sealed class DepotAccessKeyAuthenticationMiddleware(RequestDelegate next)
 {
+    private const string HeaderName = "X-ContextDepot-Key";
+
     public async Task InvokeAsync(
         HttpContext httpContext,
         IDepotAccessKeyAuthenticator authenticator,
@@ -16,7 +18,7 @@ public sealed class DepotAccessKeyAuthenticationMiddleware(RequestDelegate next)
             return;
         }
 
-        var values = httpContext.Request.Headers[DepotAccessKeyAuthenticationDefaults.HeaderName];
+        var values = httpContext.Request.Headers[HeaderName];
         if (values.Count != 1 || string.IsNullOrWhiteSpace(values[0]))
         {
             await WriteUnauthorizedAsync(httpContext);

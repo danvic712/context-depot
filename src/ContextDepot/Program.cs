@@ -10,9 +10,9 @@ using ContextDepot.Infrastructure.DataProtection;
 using ContextDepot.MCP.Contexts;
 using ContextDepot.MCP.Documents;
 using ContextDepot.MCP.Depots;
-using ContextDepot.MCP.Authentication;
 using ContextDepot.MCP.Shared;
 using ContextDepot.MCP.Workspaces;
+using ContextDepot.Middlewares;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.DataProtection;
 using ModelContextProtocol.AspNetCore;
@@ -79,6 +79,8 @@ try
     builder.Services.AddContextDepotEmbeddingProvider();
     builder.Services.AddContextDepotInfrastructure(builder.Configuration);
     builder.Services.AddHostedService<IndexRepairHostedService>();
+    builder.Services.AddHostedService<DatabaseApplicationSettingsReloadService>();
+
     builder.Services
         .AddMcpServer(options => options.ServerInstructions = ContextDepotMCPInstructions.Text)
         .WithHttpTransport(options => options.SessionMode = HttpServerSessionMode.Stateless)

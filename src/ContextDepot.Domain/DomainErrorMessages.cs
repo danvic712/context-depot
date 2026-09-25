@@ -1,7 +1,7 @@
 using System.Globalization;
-using ContextDepot.Domain.Shared.Localization;
+using ContextDepot.Domain.Localization;
 
-namespace ContextDepot.Domain.Shared;
+namespace ContextDepot.Domain;
 
 public static class DomainErrorMessages
 {

@@ -13,6 +13,7 @@ using ContextDepot.Infrastructure.Contracts;
 using ContextDepot.Infrastructure.Configuration;
 using ContextDepot.Infrastructure.CurrentDepot;
 using ContextDepot.Infrastructure.HealthChecks;
+using ContextDepot.Infrastructure.Jobs;
 using ContextDepot.Infrastructure.Markdown;
 using ContextDepot.Infrastructure.Options;
 using ContextDepot.Infrastructure.Repositories;
@@ -51,12 +52,12 @@ public static class ServiceCollectionExtensions
             ?? throw new InvalidOperationException("The database application settings provider was not initialized.");
         services.AddSingleton(settingsConfigurationProvider);
         services.AddSingleton<DatabaseApplicationSettingsSnapshotBuilder>();
-        services.AddSingleton<DatabaseApplicationSettingsReloadService>();
+        services.AddSingleton<DatabaseApplicationSettingsSnapshotLoader>();
         services.AddSingleton<InferenceRuntimeSnapshotAccessor>();
         services.AddSingleton<InferenceRuntimeSnapshotLoader>();
         services.AddSingleton<IConfigureOptions<EmbeddingOptions>, ConfigureEmbeddingOptionsFromInferenceSnapshot>();
-        services.AddHostedService(provider => provider.GetRequiredService<DatabaseApplicationSettingsReloadService>());
         services.AddSingleton<ContextDepotStartupInitializer>();
+        services.AddSingleton<IndexRepairCycleRunner>();
 
         services.AddDbContext<ContextDepotDbContext>(options =>
             options.UseNpgsql(connectionString, npgsql => npgsql.MigrationsHistoryTable("ef_migrations", "public")));

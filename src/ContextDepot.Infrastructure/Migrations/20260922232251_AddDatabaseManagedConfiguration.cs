@@ -124,7 +124,7 @@ namespace ContextDepot.Infrastructure.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_inference_routes_provider_id",
+                name: "ix_inference_routes_provider_id",
                 schema: "public",
                 table: "inference_routes",
                 column: "provider_id");

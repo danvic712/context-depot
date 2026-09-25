@@ -1,12 +1,12 @@
-using ContextDepot.Infrastructure.Configuration;
+using ContextDepot.Domain.Settings;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace ContextDepot.Infrastructure.Configurations;
 
-public sealed class ApplicationSettingRecordConfiguration : IEntityTypeConfiguration<ApplicationSettingRecord>
+public sealed class ApplicationSettingConfiguration : IEntityTypeConfiguration<ApplicationSetting>
 {
-    public void Configure(EntityTypeBuilder<ApplicationSettingRecord> entity)
+    public void Configure(EntityTypeBuilder<ApplicationSetting> entity)
     {
         entity.ToTable("application_settings", table => table.HasCheckConstraint(
             "ck_application_settings_value_scalar",

@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace ContextDepot.Infrastructure.Configuration;
+namespace ContextDepot.Infrastructure.Embeddings;
 
 public static class EmbeddingProfileFingerprint
 {

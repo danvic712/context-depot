@@ -1,4 +1,4 @@
-using ContextDepot.Domain.Shared;
+using ContextDepot.Domain;
 
 namespace ContextDepot.Application.Tests.Shared.Exceptions;
 
