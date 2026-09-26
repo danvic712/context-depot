@@ -2,7 +2,7 @@ using ContextDepot.Application.Depots.Contracts;
 using ContextDepot.Application.IndexRepair;
 using ContextDepot.Application.IndexRepair.Contracts;
 using ContextDepot.Application.IndexRepair.Dtos;
-using ContextDepot.Infrastructure.Configuration;
+using ContextDepot.Infrastructure.RuntimeConfiguration;
 using ContextDepot.Infrastructure.CurrentDepot;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

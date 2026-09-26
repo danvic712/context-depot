@@ -26,11 +26,11 @@ namespace ContextDepot.Application.Contexts;
 public sealed class ContextQueryAppService : IContextQueryAppService
 {
     private readonly ICurrentDepotContext currentDepot;
-    private readonly IWorkspaceAccessContext workspaceAccess;
     private readonly IContextQueryRepository repository;
     private readonly IWorkspaceAppService workspaceAppService;
-    private readonly ISemanticRetrievalRepository semanticRepository;
+    private readonly ContextSearchScopeResolver scopeResolver;
     private readonly EmbeddingGeneratorService embeddingGenerator;
+    private readonly SemanticCandidateSearcher semanticSearcher;
     private readonly SemanticFallbackDecider semanticFallbackDecider;
     private readonly HybridCandidateRanker hybridCandidateRanker;
     private readonly RetrievalDeduplicator retrievalDeduplicator;
@@ -53,11 +53,11 @@ public sealed class ContextQueryAppService : IContextQueryAppService
         ILogger<ContextQueryAppService> logger)
     {
         this.currentDepot = currentDepot;
-        this.workspaceAccess = workspaceAccess;
         this.repository = repository;
         this.workspaceAppService = workspaceAppService;
-        this.semanticRepository = semanticRepository;
+        scopeResolver = new ContextSearchScopeResolver(workspaceAccess, workspaceAppService);
         this.embeddingGenerator = embeddingGenerator;
+        semanticSearcher = new SemanticCandidateSearcher(semanticRepository);
         this.semanticFallbackDecider = semanticFallbackDecider;
         this.hybridCandidateRanker = hybridCandidateRanker;
         this.retrievalDeduplicator = retrievalDeduplicator;
@@ -72,7 +72,7 @@ public sealed class ContextQueryAppService : IContextQueryAppService
     {
         var options = retrievalOptions.CurrentValue;
         var query = ValidateAndNormalize(request, options, out var limit);
-        var workspaceScope = await ResolveWorkspaceScopeAsync(request, cancellationToken);
+        var workspaceScope = await scopeResolver.ResolveAsync(request, cancellationToken);
         var searchQuery = new ContextSearchQuery(
             currentDepot.DepotId,
             workspaceScope.Ids,
@@ -92,7 +92,7 @@ public sealed class ContextQueryAppService : IContextQueryAppService
         {
             workspacePaths.TryAdd(candidate.WorkspaceId, candidate.WorkspacePath);
         }
-        await AddMissingWorkspacePathsAsync(
+        await scopeResolver.AddMissingPathsAsync(
             lexicalContexts.Select(x => x.WorkspaceId)
                 .Concat(lexicalDocuments.Select(x => x.WorkspaceId))
                 .Distinct()
@@ -143,18 +143,23 @@ public sealed class ContextQueryAppService : IContextQueryAppService
                 topLexicalScore,
                 options.Semantic))
         {
-            var semantic = await TrySearchSemanticAsync(
-                workspaceScope.Ids,
-                request.Kinds,
+            var semantic = await semanticSearcher.SearchAsync(
+                new SemanticCandidateQuery(
+                    currentDepot.DepotId,
+                    workspaceScope.Ids?.ToArray(),
+                    request.Kinds,
+                    options.Semantic.CandidateTopKPerSource,
+                    searchQuery.Now,
+                    options.Semantic.OversampleFactor),
                 query,
-                options,
-                searchQuery.Now,
+                new QueryEmbeddingCache(embeddingGenerator),
+                logger,
                 cancellationToken);
             semanticContexts = semantic.Contexts.ToArray();
             semanticDocuments = semantic.Documents.ToArray();
             semanticUsed = semantic.Used;
             retrievalDegraded = semantic.Degraded;
-            await AddMissingWorkspacePathsAsync(
+            await scopeResolver.AddMissingPathsAsync(
                 semanticContexts.Select(x => x.WorkspaceId)
                     .Concat(semanticDocuments.Select(x => x.WorkspaceId))
                     .Distinct()
@@ -234,121 +239,6 @@ public sealed class ContextQueryAppService : IContextQueryAppService
 
         var workspace = await workspaceAppService.GetAsync(context.WorkspaceId, cancellationToken);
         return workspace is null ? null : ToDetailModel(context, workspace.Path);
-    }
-
-    private async Task<(HashSet<Guid>? Ids, Dictionary<Guid, string> Paths)> ResolveWorkspaceScopeAsync(
-        ContextSearchRequest request,
-        CancellationToken cancellationToken)
-    {
-        if (request.Workspaces is not { Count: > 0 })
-        {
-            return workspaceAccess.HasUnrestrictedAccess
-                ? (null, new Dictionary<Guid, string>())
-                : (new HashSet<Guid>(workspaceAccess.WorkspaceIds), new Dictionary<Guid, string>());
-        }
-
-        var ids = new HashSet<Guid>();
-        var paths = new Dictionary<Guid, string>();
-        foreach (var path in request.Workspaces)
-        {
-            var workspace = await workspaceAppService.ResolveAsync(path, cancellationToken)
-                ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspaceNotFound);
-            ids.Add(workspace.Id);
-            paths[workspace.Id] = workspace.Path;
-            if (request.IncludeDescendants)
-            {
-                await AddDescendantsAsync(workspace.Path, ids, paths, cancellationToken);
-            }
-        }
-
-        return (ids, paths);
-    }
-
-    private async Task AddDescendantsAsync(
-        string parentPath,
-        ISet<Guid> ids,
-        IDictionary<Guid, string> paths,
-        CancellationToken cancellationToken)
-    {
-        var pending = new Queue<string>([parentPath]);
-        var visited = new HashSet<string>(StringComparer.Ordinal);
-        while (pending.Count > 0)
-        {
-            var currentPath = pending.Dequeue();
-            if (!visited.Add(currentPath))
-            {
-                continue;
-            }
-
-            var children = await workspaceAppService.ListAsync(currentPath, cancellationToken);
-            foreach (var child in children)
-            {
-                ids.Add(child.Id);
-                paths[child.Id] = child.Path;
-                pending.Enqueue(child.Path);
-            }
-        }
-    }
-
-    private async Task AddMissingWorkspacePathsAsync(
-        IEnumerable<Guid> workspaceIds,
-        IDictionary<Guid, string> workspacePaths,
-        CancellationToken cancellationToken)
-    {
-        foreach (var workspaceId in workspaceIds.Distinct())
-        {
-            var workspace = await workspaceAppService.GetAsync(workspaceId, cancellationToken);
-            if (workspace is not null)
-            {
-                workspacePaths[workspaceId] = workspace.Path;
-            }
-        }
-    }
-
-    private async Task<(IReadOnlyList<SemanticContextCandidateRecord> Contexts,
-        IReadOnlyList<SemanticDocumentCandidateRecord> Documents,
-        bool Used,
-        bool Degraded)> TrySearchSemanticAsync(
-        IReadOnlySet<Guid>? workspaceIds,
-        IReadOnlyList<ContextKind>? kinds,
-        string query,
-        RetrievalOptions retrievalSettings,
-        DateTimeOffset now,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            var queryVector = await new QueryEmbeddingCache(embeddingGenerator)
-                .GetOrCreateAsync(query, cancellationToken);
-            var semanticQuery = new SemanticCandidateQuery(
-                currentDepot.DepotId,
-                workspaceIds?.ToArray(),
-                kinds,
-                retrievalSettings.Semantic.CandidateTopKPerSource,
-                now,
-                retrievalSettings.Semantic.OversampleFactor);
-            var contexts = await semanticRepository.FindContextCandidatesAsync(
-                semanticQuery,
-                queryVector,
-                cancellationToken);
-            var documents = await semanticRepository.FindDocumentCandidatesAsync(
-                semanticQuery,
-                queryVector,
-                cancellationToken);
-            return (contexts, documents, true, false);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (ContextDepotApplicationException exception) when (IsSemanticDegradation(exception.ErrorCode))
-        {
-            logger.LogWarning(
-                exception,
-                "{ErrorCode} degraded explicit context search.",
-                exception.ErrorCode);
-            return ([], [], false, true);
-        }
     }
 
     private static string ValidateAndNormalize(
@@ -451,10 +341,4 @@ public sealed class ContextQueryAppService : IContextQueryAppService
             context.UpdatedAt);
     }
 
-    private static bool IsSemanticDegradation(string errorCode) =>
-        errorCode is ApplicationErrorCodes.EmbeddingGeneratorUnavailable
-            or ApplicationErrorCodes.EmbeddingGeneratorInvalidResponse
-            or ApplicationErrorCodes.EmbeddingDimensionMismatch
-            or ApplicationErrorCodes.SecretContentRejected
-            or ApplicationErrorCodes.VectorSearchFailed;
 }

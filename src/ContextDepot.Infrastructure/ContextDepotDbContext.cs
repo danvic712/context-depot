@@ -5,7 +5,7 @@ using ContextDepot.Domain.Depots;
 using ContextDepot.Domain.Inferences;
 using ContextDepot.Domain.Settings;
 using ContextDepot.Domain.Workspaces;
-using ContextDepot.Infrastructure.Configuration;
+using ContextDepot.Infrastructure.RuntimeConfiguration;
 using Microsoft.EntityFrameworkCore;
 
 namespace ContextDepot.Infrastructure;

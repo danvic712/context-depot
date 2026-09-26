@@ -9,7 +9,7 @@ public sealed class LowerCaseEnumConverter<TEnum> : JsonConverter<TEnum> where T
     {
         if (reader.TokenType != JsonTokenType.String || !Enum.TryParse<TEnum>(reader.GetString(), true, out var value))
         {
-            throw new JsonException(DomainErrorMessages.ExpectedEnumValue(typeof(TEnum).Name));
+            throw new JsonException($"Invalid {typeof(TEnum).Name} value.");
         }
 
         return value;

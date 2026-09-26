@@ -5,7 +5,6 @@ using ContextDepot.Application.VectorIndex.Contracts;
 using ContextDepot.Application.Workspaces;
 using ContextDepot.Domain.Contexts.Enums;
 using ContextDepot.Domain.Documents.Enums;
-using ContextDepot.Infrastructure.Dtos;
 using ContextDepot.Infrastructure.Options;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;

@@ -4,7 +4,7 @@ using ContextDepot.Application.Embeddings;
 using ContextDepot.Application.SemanticRetrieval.Contracts;
 using ContextDepot.Application.SemanticRetrieval.Dtos;
 using ContextDepot.Application.Shared.Exceptions;
-using ContextDepot.Infrastructure.Configuration;
+using ContextDepot.Infrastructure.RuntimeConfiguration;
 using ContextDepot.Domain.Contexts.Enums;
 using ContextDepot.Domain.Documents.Enums;
 using ContextDepot.Infrastructure.VectorStore;

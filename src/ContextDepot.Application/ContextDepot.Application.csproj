@@ -9,7 +9,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <EmbeddedResource Include="..\..\locales\**\*.json" Exclude="..\..\locales\**\domain.json">
+      <EmbeddedResource Include="..\..\locales\**\*.json">
         <Link>locales\%(RecursiveDir)%(Filename)%(Extension)</Link>
       </EmbeddedResource>
     </ItemGroup>

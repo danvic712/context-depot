@@ -276,10 +276,12 @@ public sealed class IndexRepairAppServiceTests
             new DocumentWriteCoordinator(),
             new Mock<ISourceSafetyService>().Object,
             idGenerator.Object,
-            vectors.Object,
-            embeddingService,
-            new ContextEmbeddingTextBuilder(),
-            new DocumentEmbeddingTextBuilder(),
+            new VectorIndexRepairer(
+                vectors.Object,
+                embeddingService,
+                new ContextEmbeddingTextBuilder(),
+                new DocumentEmbeddingTextBuilder(),
+                NullLogger<VectorIndexRepairer>.Instance),
             TimeProvider.System,
             NullLogger<IndexRepairAppService>.Instance);
     }

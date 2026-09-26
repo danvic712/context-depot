@@ -1,4 +1,4 @@
-using ContextDepot.Infrastructure.Dtos;
+using ContextDepot.Infrastructure.CurrentDepot;
 
 namespace ContextDepot.Infrastructure.Contracts;
 

@@ -1,3 +1,4 @@
+using ContextDepot.Application.Retrieval;
 using ContextDepot.Application.Bootstrap.Dtos;
 using ContextDepot.Application.Bootstrap.Enums;
 using ContextDepot.Application.Embeddings;

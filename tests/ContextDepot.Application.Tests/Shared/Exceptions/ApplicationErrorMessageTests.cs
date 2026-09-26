@@ -23,11 +23,21 @@ public sealed class ApplicationErrorMessageTests
     }
 
     [Fact]
-    public void Application_exception_uses_the_catalog_message()
+    public void Application_exception_keeps_a_stable_error_code()
     {
         var exception = new ContextDepotApplicationException(ApplicationErrorCodes.DocumentConflict);
 
         Assert.Equal(ApplicationErrorCodes.DocumentConflict, exception.ErrorCode);
-        Assert.Equal(ApplicationErrorMessages.Get(ApplicationErrorCodes.DocumentConflict), exception.Message);
+        Assert.Equal(ApplicationErrorCodes.DocumentConflict, exception.Message);
+    }
+
+    [Fact]
+    public void Error_messages_use_the_explicit_locale()
+    {
+        var code = ApplicationErrorCodes.DocumentConflict;
+
+        Assert.NotEqual(
+            ApplicationErrorMessages.Get(code, "zh-CN"),
+            ApplicationErrorMessages.Get(code, "en-US"));
     }
 }

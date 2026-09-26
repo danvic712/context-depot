@@ -7,11 +7,8 @@ using ContextDepot.Infrastructure;
 using ContextDepot.Infrastructure.Embeddings;
 using ContextDepot.HealthChecks;
 using ContextDepot.Infrastructure.DataProtection;
-using ContextDepot.MCP.Contexts;
-using ContextDepot.MCP.Documents;
-using ContextDepot.MCP.Depots;
-using ContextDepot.MCP.Shared;
-using ContextDepot.MCP.Workspaces;
+using ContextDepot.MCP;
+using ContextDepot.MCP.Tools;
 using ContextDepot.Middlewares;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.DataProtection;
@@ -70,6 +67,8 @@ try
     builder.Host.UseSerilog((context, logger) => logger
         .ReadFrom.Configuration(context.Configuration));
     builder.Services.AddHealthChecks();
+    builder.Services.AddHttpContextAccessor();
+    builder.Services.AddSingleton<MCPToolExecutor>();
     builder.Services.ConfigureHttpJsonOptions(options =>
     {
         options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;

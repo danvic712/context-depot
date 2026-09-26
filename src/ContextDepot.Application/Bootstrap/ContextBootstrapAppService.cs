@@ -22,8 +22,8 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
     private readonly IWorkspaceAccessContext workspaceAccess;
     private readonly IWorkspaceAppService workspaceAppService;
     private readonly IBootstrapRepository repository;
-    private readonly ISemanticRetrievalRepository semanticRepository;
     private readonly EmbeddingGeneratorService embeddingGenerator;
+    private readonly SemanticCandidateSearcher semanticSearcher;
     private readonly SemanticFallbackDecider semanticFallbackDecider;
     private readonly SemanticWorkspaceAggregator semanticWorkspaceAggregator;
     private readonly HybridCandidateRanker hybridCandidateRanker;
@@ -55,8 +55,8 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
         this.workspaceAccess = workspaceAccess;
         this.workspaceAppService = workspaceAppService;
         this.repository = repository;
-        this.semanticRepository = semanticRepository;
         this.embeddingGenerator = embeddingGenerator;
+        semanticSearcher = new SemanticCandidateSearcher(semanticRepository);
         this.semanticFallbackDecider = semanticFallbackDecider;
         this.semanticWorkspaceAggregator = semanticWorkspaceAggregator;
         this.hybridCandidateRanker = hybridCandidateRanker;
@@ -131,13 +131,17 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
         var hasExplicitScope = request.Workspaces is { Count: > 0 };
         if (semanticFallbackDecider.ShouldUseForScope(query, hasExplicitScope, scopeResolution))
         {
-            var semantic = await TrySearchSemanticAsync(
-                queryEmbeddingCache,
-                permittedWorkspaceIds,
-                retrievalSettings.Semantic.ScopeTopK,
-                retrievalSettings.Semantic.OversampleFactor,
+            var semantic = await semanticSearcher.SearchAsync(
+                new SemanticCandidateQuery(
+                    currentDepot.DepotId,
+                    permittedWorkspaceIds?.ToArray(),
+                    null,
+                    retrievalSettings.Semantic.ScopeTopK,
+                    bootstrapQuery.Now,
+                    retrievalSettings.Semantic.OversampleFactor),
                 query,
-                bootstrapQuery.Now,
+                queryEmbeddingCache,
+                logger,
                 cancellationToken);
             semanticContexts = semantic.Contexts.ToArray();
             semanticDocuments = semantic.Documents.ToArray();
@@ -188,13 +192,17 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
                 retrievalSettings.Semantic));
         if (shouldUseSemanticRetrieval)
         {
-            var semantic = await TrySearchSemanticAsync(
-                queryEmbeddingCache,
-                scopeIds,
-                retrievalSettings.Semantic.CandidateTopKPerSource,
-                retrievalSettings.Semantic.OversampleFactor,
+            var semantic = await semanticSearcher.SearchAsync(
+                new SemanticCandidateQuery(
+                    currentDepot.DepotId,
+                    scopeIds?.ToArray(),
+                    null,
+                    retrievalSettings.Semantic.CandidateTopKPerSource,
+                    bootstrapQuery.Now,
+                    retrievalSettings.Semantic.OversampleFactor),
                 query,
-                bootstrapQuery.Now,
+                queryEmbeddingCache,
+                logger,
                 cancellationToken);
             if (semantic.Contexts.Count > 0 || semantic.Documents.Count > 0)
             {
@@ -276,56 +284,4 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
             selection.EstimatedTokens);
     }
 
-    private async Task<(IReadOnlyList<SemanticContextCandidateRecord> Contexts,
-        IReadOnlyList<SemanticDocumentCandidateRecord> Documents,
-        bool Used,
-        bool Degraded)> TrySearchSemanticAsync(
-        QueryEmbeddingCache embeddingCache,
-        IReadOnlySet<Guid>? workspaceIds,
-        int topK,
-        int oversampleFactor,
-        string query,
-        DateTimeOffset now,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            var queryVector = await embeddingCache.GetOrCreateAsync(query, cancellationToken);
-            var semanticQuery = new SemanticCandidateQuery(
-                currentDepot.DepotId,
-                workspaceIds?.ToArray(),
-                null,
-                topK,
-                now,
-                oversampleFactor);
-            var contexts = await semanticRepository.FindContextCandidatesAsync(
-                semanticQuery,
-                queryVector,
-                cancellationToken);
-            var documents = await semanticRepository.FindDocumentCandidatesAsync(
-                semanticQuery,
-                queryVector,
-                cancellationToken);
-            return (contexts, documents, true, false);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (ContextDepotApplicationException exception) when (IsSemanticDegradation(exception.ErrorCode))
-        {
-            logger.LogWarning(
-                exception,
-                "{ErrorCode} degraded semantic retrieval for the current read request.",
-                exception.ErrorCode);
-            return ([], [], false, true);
-        }
-    }
-
-    private static bool IsSemanticDegradation(string errorCode) =>
-        errorCode is ApplicationErrorCodes.EmbeddingGeneratorUnavailable
-            or ApplicationErrorCodes.EmbeddingGeneratorInvalidResponse
-            or ApplicationErrorCodes.EmbeddingDimensionMismatch
-            or ApplicationErrorCodes.SecretContentRejected
-            or ApplicationErrorCodes.VectorSearchFailed;
 }

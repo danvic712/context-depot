@@ -1,5 +1,5 @@
 using System.ClientModel;
-using ContextDepot.Infrastructure.Configuration;
+using ContextDepot.Infrastructure.RuntimeConfiguration;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;

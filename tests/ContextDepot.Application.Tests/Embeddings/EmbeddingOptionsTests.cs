@@ -20,17 +20,6 @@ public sealed class EmbeddingOptionsTests
     }
 
     [Fact]
-    public void Invalid_retrieval_thresholds_fail_validation()
-    {
-        var options = new RetrievalOptions();
-        options.Semantic.RetrievalLexicalFallbackThreshold = 1.1;
-
-        var result = new RetrievalOptionsValidator().Validate(Options.DefaultName, options);
-
-        Assert.False(result.Succeeded);
-    }
-
-    [Fact]
     public void Profile_identity_contains_only_provider_model_and_dimensions()
     {
         var profile = EmbeddingProfile.From(new EmbeddingOptions

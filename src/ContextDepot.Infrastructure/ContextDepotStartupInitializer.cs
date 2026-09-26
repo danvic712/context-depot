@@ -1,5 +1,5 @@
 using ContextDepot.Application.Shared.Exceptions;
-using ContextDepot.Infrastructure.Configuration;
+using ContextDepot.Infrastructure.RuntimeConfiguration;
 using ContextDepot.Infrastructure.VectorStore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;

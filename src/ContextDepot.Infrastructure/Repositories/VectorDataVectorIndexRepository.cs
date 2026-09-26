@@ -3,7 +3,7 @@ using ContextDepot.Application.VectorIndex.Contracts;
 using ContextDepot.Application.VectorIndex.Dtos;
 using ContextDepot.Domain.Contexts.Enums;
 using ContextDepot.Infrastructure.VectorStore;
-using ContextDepot.Infrastructure.Configuration;
+using ContextDepot.Infrastructure.RuntimeConfiguration;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.VectorData;
 

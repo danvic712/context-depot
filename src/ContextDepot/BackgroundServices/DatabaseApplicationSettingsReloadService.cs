@@ -1,4 +1,4 @@
-using ContextDepot.Infrastructure.Configuration;
+using ContextDepot.Infrastructure.RuntimeConfiguration;
 
 namespace ContextDepot.BackgroundServices;
 

@@ -1,7 +1,7 @@
 using ContextDepot.Application.Embeddings.Dtos;
 using ContextDepot.Domain.Inferences.Enums;
 using ContextDepot.Infrastructure.CurrentDepot;
-using ContextDepot.Infrastructure.Configuration;
+using ContextDepot.Infrastructure.RuntimeConfiguration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;

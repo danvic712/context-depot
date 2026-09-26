@@ -1,5 +1,5 @@
 using ContextDepot.Application.Embeddings;
-using ContextDepot.Infrastructure.Configuration;
+using ContextDepot.Infrastructure.RuntimeConfiguration;
 using Microsoft.Extensions.Options;
 
 namespace ContextDepot.Infrastructure.Options;
