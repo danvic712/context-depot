@@ -69,7 +69,7 @@ public sealed class QueryEmbeddingCacheTests
             .Returns(generator.Object);
         return new EmbeddingGeneratorService(
             services.Object,
-            Options.Create(new EmbeddingOptions { Dimensions = 3 }),
+            new StaticOptionsSnapshot<EmbeddingOptions>(new EmbeddingOptions { Dimensions = 3 }),
             new ContextDepot.Application.Shared.Safety.HighConfidenceSecretDetector(),
             new EmbeddingResultValidator(),
             NullLogger<EmbeddingGeneratorService>.Instance);

@@ -5,7 +5,6 @@ using ContextDepot.Application.SemanticRetrieval.Contracts;
 using ContextDepot.Application.SemanticRetrieval.Dtos;
 using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Infrastructure.RuntimeConfiguration;
-using ContextDepot.Domain.Contexts.Enums;
 using ContextDepot.Domain.Documents.Enums;
 using ContextDepot.Infrastructure.VectorStore;
 using Microsoft.EntityFrameworkCore;
@@ -25,25 +24,25 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
     public VectorDataSemanticRetrievalRepository(
         PostgreSqlVectorStore vectorStore,
         ContextDepotDbContext db,
-        InferenceRuntimeSnapshotAccessor snapshotAccessor,
+        ScopedInferenceRuntimeSnapshot snapshot,
         ILogger<VectorDataSemanticRetrievalRepository> logger)
     {
         ArgumentNullException.ThrowIfNull(vectorStore);
         ArgumentNullException.ThrowIfNull(db);
-        ArgumentNullException.ThrowIfNull(snapshotAccessor);
+        ArgumentNullException.ThrowIfNull(snapshot);
         this.db = db;
         this.logger = logger;
-        var embedding = snapshotAccessor.Current.Embedding;
+        var embedding = snapshot.Value.Embedding;
         if (embedding is null)
         {
             return;
         }
 
         contextCollection = vectorStore.GetCollection<Guid, ContextVectorRecord>(
-            VectorCollectionNamePolicy.CreateContextCollectionName(embedding.ProviderName, embedding.ModelName, embedding.Dimensions),
+            VectorCollectionNamePolicy.CreateContextCollectionName(embedding.ProfileFingerprint),
             VectorCollectionDefinitions.CreateContext(embedding.Dimensions));
         documentCollection = vectorStore.GetCollection<Guid, DocumentVectorRecord>(
-            VectorCollectionNamePolicy.CreateDocumentCollectionName(embedding.ProviderName, embedding.ModelName, embedding.Dimensions),
+            VectorCollectionNamePolicy.CreateDocumentCollectionName(embedding.ProfileFingerprint),
             VectorCollectionDefinitions.CreateDocument(embedding.Dimensions));
     }
 
@@ -68,10 +67,8 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
         var ids = vectorCandidates.Select(candidate => candidate.Id).Distinct().ToArray();
         var sourceQuery = db.ContextItems
             .AsNoTracking()
-            .Where(x => x.DepotId == query.DepotId &&
-                        x.Status == ContextStatus.Active &&
-                        (x.ExpiresAt == null || x.ExpiresAt > query.Now) &&
-                        ids.Contains(x.Id));
+            .WhereRetrievableAt(query.Now)
+            .Where(x => x.DepotId == query.DepotId && ids.Contains(x.Id));
         var workspaceIds = query.WorkspaceIds?.ToArray();
         var kinds = query.Kinds?.ToArray();
         if (workspaceIds is not null)

@@ -50,19 +50,6 @@ public sealed class Document
 
     public ICollection<DocumentChunk> Chunks { get; } = new List<DocumentChunk>();
 
-    public void UpdateMetadata(string title, string contentHash, DocumentIndexStatus indexStatus, DateTimeOffset now)
-    {
-        Title = title;
-        ContentHash = contentHash;
-        IndexStatus = indexStatus;
-        UpdatedAt = now;
-        if (indexStatus == DocumentIndexStatus.Indexed)
-        {
-            IndexedContentHash = contentHash;
-            LastIndexError = null;
-        }
-    }
-
     public void Reconcile(string title, string contentHash, DateTimeOffset now)
     {
         Title = title;
@@ -77,6 +64,7 @@ public sealed class Document
     public void MarkPending(DateTimeOffset now)
     {
         IndexStatus = DocumentIndexStatus.Pending;
+        LastIndexError = null;
         UpdatedAt = now;
     }
 

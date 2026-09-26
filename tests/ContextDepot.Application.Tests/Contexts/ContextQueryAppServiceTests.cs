@@ -11,6 +11,7 @@ using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Application.Shared.Runtime.Contracts;
 using ContextDepot.Application.Shared.Safety;
 using ContextDepot.Application.Workspaces.Contracts;
+using ContextDepot.Application.Workspaces;
 using ContextDepot.Application.Workspaces.Dtos;
 using ContextDepot.Domain.Contexts;
 using ContextDepot.Domain.Contexts.Enums;
@@ -51,17 +52,17 @@ public sealed class ContextQueryAppServiceTests
     {
         var parentId = Guid.CreateVersion7();
         var childId = Guid.CreateVersion7();
-        var parent = new WorkspaceModel(parentId, DepotId, "projects", "Projects", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
-        var child = new WorkspaceModel(childId, DepotId, "projects/context-depot", "Context Depot", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
         var repository = new Mock<IContextQueryRepository>();
         repository.Setup(x => x.FindLexicalContextCandidatesAsync(It.IsAny<ContextSearchQuery>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
         repository.Setup(x => x.FindLexicalDocumentCandidatesAsync(It.IsAny<ContextSearchQuery>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
         var workspaces = new Mock<IWorkspaceAppService>();
-        workspaces.Setup(x => x.ResolveAsync("projects", It.IsAny<CancellationToken>())).ReturnsAsync(parent);
-        workspaces.Setup(x => x.ListAsync("projects", It.IsAny<CancellationToken>())).ReturnsAsync([child]);
-        workspaces.Setup(x => x.ListAsync("projects/context-depot", It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        workspaces.Setup(x => x.LoadTopologyAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
+            new WorkspaceTopology([
+                new WorkspaceTreeNode(parentId, null, "projects"),
+                new WorkspaceTreeNode(childId, parentId, "context-depot")
+            ]));
         var service = CreateService(repository, workspaces);
 
         await service.SearchAsync(
@@ -73,6 +74,8 @@ public sealed class ContextQueryAppServiceTests
                                                query.WorkspaceIds.Contains(parentId) &&
                                                query.WorkspaceIds.Contains(childId)),
             It.IsAny<CancellationToken>()), Times.Once);
+        workspaces.Verify(x => x.LoadTopologyAsync(It.IsAny<CancellationToken>()), Times.Once);
+        workspaces.Verify(x => x.ListAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -163,6 +166,24 @@ public sealed class ContextQueryAppServiceTests
     }
 
     [Fact]
+    public async Task Chinese_query_finds_canonical_context_when_embedding_is_unavailable()
+    {
+        var workspaceId = Guid.CreateVersion7();
+        var candidate = ContextCandidate(workspaceId, "数据库已配置。");
+        var repository = new Mock<IContextQueryRepository>();
+        repository.Setup(x => x.FindLexicalContextCandidatesAsync(It.IsAny<ContextSearchQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new ContextSearchCandidateRecord(candidate, "projects/context-depot")]);
+        repository.Setup(x => x.FindLexicalDocumentCandidatesAsync(It.IsAny<ContextSearchQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        var result = await CreateService(repository, new Mock<IWorkspaceAppService>())
+            .SearchAsync(new ContextSearchRequest("数据库"), CancellationToken.None);
+
+        Assert.Equal(candidate.Id, Assert.Single(result.Contexts).ContextId);
+        Assert.Equal("lexical-degraded", result.Retrieval.Mode);
+    }
+
+    [Fact]
     public async Task Search_rejects_empty_query_and_limit_above_configuration()
     {
         var service = CreateService(new Mock<IContextQueryRepository>(), new Mock<IWorkspaceAppService>());
@@ -186,6 +207,7 @@ public sealed class ContextQueryAppServiceTests
         {
             workspaceAccess = new Mock<IWorkspaceAccessContext>();
             workspaceAccess.SetupGet(x => x.HasUnrestrictedAccess).Returns(true);
+            workspaceAccess.Setup(x => x.CanAccess(It.IsAny<Guid>())).Returns(true);
         }
         var services = new Mock<IServiceProvider>();
         if (generator is not null)
@@ -196,7 +218,7 @@ public sealed class ContextQueryAppServiceTests
 
         var embeddingGenerator = new EmbeddingGeneratorService(
             services.Object,
-            Options.Create(new EmbeddingOptions { Dimensions = generator is null ? 1536 : 3 }),
+            new StaticOptionsSnapshot<EmbeddingOptions>(new EmbeddingOptions { Dimensions = generator is null ? 1536 : 3 }),
             new HighConfidenceSecretDetector(),
             new EmbeddingResultValidator(),
             NullLogger<EmbeddingGeneratorService>.Instance);

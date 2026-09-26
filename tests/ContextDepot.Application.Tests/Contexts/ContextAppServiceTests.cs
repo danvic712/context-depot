@@ -69,6 +69,21 @@ public sealed class ContextAppServiceTests
     }
 
     [Fact]
+    public async Task Invalid_validity_interval_is_rejected_before_repository_write()
+    {
+        var repository = new Mock<IContextRepository>();
+        var service = CreateService(repository);
+        var now = DateTimeOffset.Parse("2026-09-19T00:00:00Z");
+
+        var exception = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => service.SaveAsync(
+            new SaveContextCommand("projects/context-depot", ContextKind.Fact, "content",
+                ValidFrom: now, ValidUntil: now), CancellationToken.None));
+
+        Assert.Equal(ApplicationErrorCodes.InvalidContextValidity, exception.ErrorCode);
+        repository.VerifyNoOtherCalls();
+    }
+
+    [Fact]
     public async Task Secret_in_metadata_or_tags_is_rejected_before_repository_write()
     {
         var repository = new Mock<IContextRepository>();

@@ -3,9 +3,10 @@ using ContextDepot.Application.Embeddings;
 using ContextDepot.Application.Embeddings.Dtos;
 using ContextDepot.Application.VectorIndex.Contracts;
 using ContextDepot.Application.Workspaces;
-using ContextDepot.Domain.Contexts.Enums;
 using ContextDepot.Domain.Documents.Enums;
 using ContextDepot.Infrastructure.Options;
+using ContextDepot.Infrastructure.Repositories;
+using ContextDepot.Infrastructure.RuntimeConfiguration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
@@ -18,9 +19,11 @@ public sealed class VectorCoverageSnapshotProvider(
     ContextEmbeddingTextBuilder contextTextBuilder,
     DocumentEmbeddingTextBuilder documentTextBuilder,
     IMemoryCache cache,
+    ScopedInferenceRuntimeSnapshot inferenceSnapshot,
     IOptionsMonitor<VectorCoverageOptions> options)
 {
     private const int HashLookupBatchSize = 256;
+    private readonly string profileFingerprint = inferenceSnapshot.Value.Embedding?.ProfileFingerprint ?? string.Empty;
 
     public async Task<VectorCoverageSnapshot> GetAsync(
         Guid depotId,
@@ -89,9 +92,8 @@ public sealed class VectorCoverageSnapshotProvider(
         // once per depot, which made probe cost grow linearly with both depot count
         // and the amount of data in each depot.
         var contexts = await db.ContextItems.AsNoTracking()
-            .Where(context => depotIds.Contains(context.DepotId) &&
-                              context.Status == ContextStatus.Active &&
-                              (context.ExpiresAt == null || context.ExpiresAt > now))
+            .WhereRetrievableAt(now)
+            .Where(context => depotIds.Contains(context.DepotId))
             .Select(context => new ContextCoverageSource(
                 context.Id,
                 context.DepotId,
@@ -177,7 +179,7 @@ public sealed class VectorCoverageSnapshotProvider(
                 documentIndexedByDepot.GetValueOrDefault(depotId)));
     }
 
-    private static string GetCacheKey(Guid depotId) => $"context-depot:vector-coverage:{depotId:N}";
+    private string GetCacheKey(Guid depotId) => $"context-depot:vector-coverage:{profileFingerprint}:{depotId:N}";
 
     private async Task<IReadOnlyDictionary<Guid, string>> ReadContextHashesAsync(
         IReadOnlyList<Guid> ids,

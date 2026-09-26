@@ -13,6 +13,8 @@ public interface IWorkspaceRepository
 
     Task<IReadOnlyList<WorkspacePathLookup>> ListWithPathsAsync(Guid depotId, string? parentPath, CancellationToken cancellationToken);
 
+    Task<WorkspaceTopology> LoadVisibleTopologyAsync(Guid depotId, CancellationToken cancellationToken);
+
     Task<WorkspaceUpsertPersistenceResult> UpsertPathAsync(
         Guid depotId,
         string normalizedPath,

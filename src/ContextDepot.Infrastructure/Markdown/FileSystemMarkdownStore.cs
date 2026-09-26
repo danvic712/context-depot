@@ -58,12 +58,12 @@ public sealed class FileSystemMarkdownStore(IHostEnvironment environment, IOptio
         try
         {
             Directory.CreateDirectory(root);
-            var probe = Path.Combine(root, ".context-depot-ready");
-            using (File.Open(probe, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read))
+            var probe = Path.Combine(root, ".context-depot-ready-" + Path.GetRandomFileName());
+            using (new FileStream(probe, FileMode.CreateNew, FileAccess.ReadWrite,
+                       FileShare.None, 1, FileOptions.DeleteOnClose))
             {
             }
 
-            File.Delete(probe);
             return true;
         }
         catch (IOException)

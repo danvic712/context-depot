@@ -10,16 +10,14 @@ namespace ContextDepot.Infrastructure;
 public sealed class ContextDepotStartupInitializer(
     IServiceScopeFactory scopeFactory,
     DatabaseApplicationSettingsSnapshotLoader applicationSettingsSnapshotLoader,
-    InferenceRuntimeSnapshotLoader inferenceRuntimeSnapshotLoader,
-    VectorCollectionInitializer vectorCollectionInitializer,
+    InferenceRuntimeSnapshotRefresher inferenceRuntimeSnapshotRefresher,
     ILogger<ContextDepotStartupInitializer> logger)
 {
     public async Task InitializeAsync(CancellationToken cancellationToken)
     {
         await EnsureDatabaseSchemaAsync(cancellationToken);
         await applicationSettingsSnapshotLoader.RefreshAsync(cancellationToken);
-        await inferenceRuntimeSnapshotLoader.LoadAsync(cancellationToken);
-        await vectorCollectionInitializer.InitializeAsync(cancellationToken);
+        await inferenceRuntimeSnapshotRefresher.RefreshAsync(cancellationToken);
     }
 
     private async Task EnsureDatabaseSchemaAsync(CancellationToken cancellationToken)

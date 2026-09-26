@@ -1,4 +1,4 @@
-namespace ContextDepot.Domain.Inferences.Enums;
+namespace ContextDepot.Infrastructure.RuntimeConfiguration;
 
 public enum InferenceRuntimeState
 {

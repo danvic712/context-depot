@@ -3,25 +3,17 @@ using ContextDepot.Infrastructure.RuntimeConfiguration;
 namespace ContextDepot.Infrastructure.VectorStore;
 
 public sealed class VectorCollectionInitializer(
-    PostgreSqlVectorStore vectorStore,
-    InferenceRuntimeSnapshotAccessor snapshotAccessor)
+    PostgreSqlVectorStore vectorStore)
 {
-    public async Task InitializeAsync(CancellationToken cancellationToken)
+    public async Task InitializeAsync(EmbeddingRouteRuntimeSnapshot? embedding, CancellationToken cancellationToken)
     {
-        var embedding = snapshotAccessor.Current.Embedding;
         if (embedding is null)
         {
             return;
         }
 
-        var contextName = VectorCollectionNamePolicy.CreateContextCollectionName(
-            embedding.ProviderName,
-            embedding.ModelName,
-            embedding.Dimensions);
-        var documentName = VectorCollectionNamePolicy.CreateDocumentCollectionName(
-            embedding.ProviderName,
-            embedding.ModelName,
-            embedding.Dimensions);
+        var contextName = VectorCollectionNamePolicy.CreateContextCollectionName(embedding.ProfileFingerprint);
+        var documentName = VectorCollectionNamePolicy.CreateDocumentCollectionName(embedding.ProfileFingerprint);
 
         var contextCollection = vectorStore.GetCollection<Guid, ContextVectorRecord>(
             contextName,

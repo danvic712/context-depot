@@ -8,6 +8,6 @@ public static class EmbeddingInputHash
     public static string Compute(string embeddingInput)
     {
         ArgumentNullException.ThrowIfNull(embeddingInput);
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(embeddingInput))).ToLowerInvariant();
+        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(embeddingInput)));
     }
 }

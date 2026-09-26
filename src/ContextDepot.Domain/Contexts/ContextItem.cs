@@ -114,6 +114,11 @@ public sealed class ContextItem
 
     public void SetValidity(DateTimeOffset? validFrom, DateTimeOffset? validUntil, DateTimeOffset? expiresAt)
     {
+        if (validFrom is not null && validUntil is not null && validFrom >= validUntil)
+        {
+            throw new ArgumentException("The valid-from time must be earlier than the valid-until time.", nameof(validUntil));
+        }
+
         ValidFrom = validFrom;
         ValidUntil = validUntil;
         ExpiresAt = expiresAt;
@@ -121,6 +126,16 @@ public sealed class ContextItem
 
     public void SetQuality(short importance, decimal? confidence)
     {
+        if (importance is < 0 or > 100)
+        {
+            throw new ArgumentOutOfRangeException(nameof(importance));
+        }
+
+        if (confidence is < 0 or > 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(confidence));
+        }
+
         Importance = importance;
         Confidence = confidence;
     }

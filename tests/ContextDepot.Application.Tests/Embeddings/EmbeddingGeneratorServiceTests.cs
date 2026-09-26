@@ -65,7 +65,7 @@ public sealed class EmbeddingGeneratorServiceTests
         var services = new Mock<IServiceProvider>();
         var service = new EmbeddingGeneratorService(
             services.Object,
-            Options.Create(new EmbeddingOptions { Dimensions = 3 }),
+            new StaticOptionsSnapshot<EmbeddingOptions>(new EmbeddingOptions { Dimensions = 3 }),
             new ContextDepot.Application.Shared.Safety.HighConfidenceSecretDetector(),
             new EmbeddingResultValidator(),
             NullLogger<EmbeddingGeneratorService>.Instance);
@@ -125,7 +125,7 @@ public sealed class EmbeddingGeneratorServiceTests
     private static EmbeddingGeneratorService CreateService(Mock<IEmbeddingGenerator<string, Embedding<float>>> generator) =>
         new(
             CreateServices(generator),
-            Options.Create(new EmbeddingOptions { Dimensions = 3 }),
+            new StaticOptionsSnapshot<EmbeddingOptions>(new EmbeddingOptions { Dimensions = 3 }),
             new ContextDepot.Application.Shared.Safety.HighConfidenceSecretDetector(),
             new EmbeddingResultValidator(),
             NullLogger<EmbeddingGeneratorService>.Instance);

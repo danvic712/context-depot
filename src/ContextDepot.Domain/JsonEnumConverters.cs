@@ -7,7 +7,10 @@ public sealed class LowerCaseEnumConverter<TEnum> : JsonConverter<TEnum> where T
 {
     public override TEnum Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        if (reader.TokenType != JsonTokenType.String || !Enum.TryParse<TEnum>(reader.GetString(), true, out var value))
+        var text = reader.TokenType == JsonTokenType.String ? reader.GetString() : null;
+        if (text is null ||
+            !Enum.TryParse<TEnum>(text, true, out var value) ||
+            !string.Equals(Enum.GetName(value), text, StringComparison.OrdinalIgnoreCase))
         {
             throw new JsonException($"Invalid {typeof(TEnum).Name} value.");
         }
@@ -17,7 +20,12 @@ public sealed class LowerCaseEnumConverter<TEnum> : JsonConverter<TEnum> where T
 
     public override void Write(Utf8JsonWriter writer, TEnum value, JsonSerializerOptions options)
     {
-        var text = value.ToString();
-        writer.WriteStringValue(text.Length == 0 ? text : char.ToLowerInvariant(text[0]) + text[1..]);
+        var text = Enum.GetName(value);
+        if (text is null)
+        {
+            throw new JsonException($"Invalid {typeof(TEnum).Name} value.");
+        }
+
+        writer.WriteStringValue(char.ToLowerInvariant(text[0]) + text[1..]);
     }
 }

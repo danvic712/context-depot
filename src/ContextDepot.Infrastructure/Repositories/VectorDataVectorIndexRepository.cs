@@ -16,17 +16,17 @@ public sealed class VectorDataVectorIndexRepository : IVectorIndexRepository
 
     public VectorDataVectorIndexRepository(
         PostgreSqlVectorStore vectorStore,
-        InferenceRuntimeSnapshotAccessor snapshotAccessor)
+        ScopedInferenceRuntimeSnapshot snapshot)
     {
         ArgumentNullException.ThrowIfNull(vectorStore);
-        ArgumentNullException.ThrowIfNull(snapshotAccessor);
-        var embedding = snapshotAccessor.Current.Embedding
+        ArgumentNullException.ThrowIfNull(snapshot);
+        var embedding = snapshot.Value.Embedding
             ?? throw new InvalidOperationException("Vector index operations require a configured embedding inference route.");
         _contextCollection = vectorStore.GetCollection<Guid, ContextVectorRecord>(
-            VectorCollectionNamePolicy.CreateContextCollectionName(embedding.ProviderName, embedding.ModelName, embedding.Dimensions),
+            VectorCollectionNamePolicy.CreateContextCollectionName(embedding.ProfileFingerprint),
             VectorCollectionDefinitions.CreateContext(embedding.Dimensions));
         _documentCollection = vectorStore.GetCollection<Guid, DocumentVectorRecord>(
-            VectorCollectionNamePolicy.CreateDocumentCollectionName(embedding.ProviderName, embedding.ModelName, embedding.Dimensions),
+            VectorCollectionNamePolicy.CreateDocumentCollectionName(embedding.ProfileFingerprint),
             VectorCollectionDefinitions.CreateDocument(embedding.Dimensions));
     }
 

@@ -53,8 +53,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<DatabaseApplicationSettingsSnapshotBuilder>();
         services.AddSingleton<DatabaseApplicationSettingsSnapshotLoader>();
         services.AddSingleton<InferenceRuntimeSnapshotAccessor>();
+        services.AddScoped(sp => new ScopedInferenceRuntimeSnapshot(
+            sp.GetRequiredService<InferenceRuntimeSnapshotAccessor>().Current));
         services.AddSingleton<InferenceRuntimeSnapshotLoader>();
-        services.AddSingleton<IConfigureOptions<EmbeddingOptions>, ConfigureEmbeddingOptionsFromInferenceSnapshot>();
+        services.AddSingleton<InferenceRuntimeSnapshotRefresher>();
+        services.AddScoped<IConfigureOptions<EmbeddingOptions>, ConfigureEmbeddingOptionsFromInferenceSnapshot>();
         services.AddSingleton<ContextDepotStartupInitializer>();
         services.AddSingleton<IndexRepairCycleRunner>();
 
@@ -92,6 +95,7 @@ public static class ServiceCollectionExtensions
             .AddCheck<VectorCoverageHealthCheck>("vector_coverage");
 
         services.AddScoped<CurrentDepotAccessContext>();
+        services.AddScoped<VisibleWorkspaceTopologyProvider>();
         services.AddScoped<ICurrentDepotContext>(sp => sp.GetRequiredService<CurrentDepotAccessContext>());
         services.AddScoped<IWorkspaceAccessContext>(sp => sp.GetRequiredService<CurrentDepotAccessContext>());
         services.AddSingleton<DepotAccessKeySecretHasher>();

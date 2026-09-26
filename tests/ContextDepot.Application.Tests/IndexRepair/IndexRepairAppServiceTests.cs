@@ -172,6 +172,31 @@ public sealed class IndexRepairAppServiceTests
     }
 
     [Fact]
+    public async Task Document_repair_runs_without_embedding_route()
+    {
+        var document = new DocumentIndexRepairCandidate(
+            Guid.CreateVersion7(), DepotId, WorkspaceId,
+            "projects/context-depot", "docs/readme.md", "README");
+        var repository = CreateRepository(
+            contextPage: [ContextCandidate()],
+            documentCandidates: [document]);
+        var markdown = new Mock<IMarkdownStore>();
+        markdown.Setup(x => x.GetAsync(DepotId, "projects/context-depot/docs/readme.md", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MarkdownDocument("projects/context-depot/docs/readme.md", "# README", "hash"));
+        var vectors = new Mock<IVectorIndexRepository>();
+        var repair = CreateService(repository, vectors, CreateGenerator(), markdown);
+
+        var result = await repair.RepairAsync(
+            DepotId, new IndexRepairRequest(32, 1, RepairVectors: false), CancellationToken.None);
+
+        Assert.Equal(1, result.DocumentsReconciled);
+        Assert.True(result.RetrievalDegraded);
+        repository.Verify(x => x.FindContextSourcePageAsync(
+            It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<int>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()), Times.Never);
+        vectors.VerifyNoOtherCalls();
+    }
+
+    [Fact]
     public async Task Stale_document_vector_is_regenerated_and_upserted()
     {
         var chunk = new DocumentEmbeddingRepairCandidate(
@@ -264,7 +289,7 @@ public sealed class IndexRepairAppServiceTests
         idGenerator.Setup(x => x.NewId()).Returns(Guid.CreateVersion7());
         var embeddingService = new EmbeddingGeneratorService(
             CreateServices(generator),
-            Options.Create(new EmbeddingOptions { Dimensions = 3 }),
+            new StaticOptionsSnapshot<EmbeddingOptions>(new EmbeddingOptions { Dimensions = 3 }),
             new HighConfidenceSecretDetector(),
             new EmbeddingResultValidator(),
             NullLogger<EmbeddingGeneratorService>.Instance);

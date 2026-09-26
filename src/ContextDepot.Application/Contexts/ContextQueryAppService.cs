@@ -106,41 +106,21 @@ public sealed class ContextQueryAppService : IContextQueryAppService
         var lexicalDocumentCandidates = lexicalDocuments
             .GroupBy(x => x.DocumentChunkId)
             .ToDictionary(x => x.Key, x => x.First().Document);
-        var scopeRanker = new ScopeCandidateRanker();
         var queryTokens = BootstrapQueryTokenizer.Tokenize(query);
-        var lexicalContextScores = lexicalContextCandidates.Values.ToDictionary(
-            candidate => candidate.Id,
-            candidate => scopeRanker.ScoreContext(
-                candidate,
-                workspacePaths.GetValueOrDefault(candidate.WorkspaceId, string.Empty),
-                query,
-                queryTokens));
-        var lexicalDocumentScores = lexicalDocumentCandidates.Values.ToDictionary(
-            candidate => candidate.Id,
-            candidate => scopeRanker.ScoreDocument(
-                candidate,
-                workspacePaths.GetValueOrDefault(candidate.WorkspaceId, string.Empty),
-                query,
-                queryTokens));
-        var lexicalContextSignals = lexicalContextCandidates.Values.ToDictionary(
-            candidate => candidate.Id,
-            candidate => lexicalContextScores.GetValueOrDefault(candidate.Id) - candidate.Importance / 100d);
-        var lexicalDocumentSignals = lexicalDocumentScores;
-        var hasLexicalCandidates = lexicalContextSignals.Values.Any(score => score > 0) ||
-                                   lexicalDocumentSignals.Values.Any(score => score > 0);
-        var topLexicalScore = lexicalContextSignals.Values
-            .Concat(lexicalDocumentSignals.Values)
-            .Select(score => Math.Clamp(score / 10d, 0, 1))
-            .DefaultIfEmpty(0)
-            .Max();
+        var lexical = RetrievalCandidateComposer.AnalyzeLexical(
+            lexicalContextCandidates.Values.ToArray(),
+            lexicalDocumentCandidates.Values.ToArray(),
+            workspacePaths,
+            query,
+            queryTokens);
         var semanticContexts = Array.Empty<SemanticContextCandidateRecord>();
         var semanticDocuments = Array.Empty<SemanticDocumentCandidateRecord>();
         var semanticUsed = false;
         var retrievalDegraded = false;
         if (semanticFallbackDecider.ShouldUseForRetrieval(
                 hasQuerySignal: query.Length > 0,
-                hasLexicalCandidates,
-                topLexicalScore,
+                lexical.HasCandidates,
+                lexical.TopScore,
                 options.Semantic))
         {
             var semantic = await semanticSearcher.SearchAsync(
@@ -168,48 +148,28 @@ public sealed class ContextQueryAppService : IContextQueryAppService
                 cancellationToken);
         }
 
-        foreach (var candidate in semanticContexts)
-        {
-            lexicalContextCandidates[candidate.ContextItemId] = candidate.Context;
-        }
-
-        foreach (var candidate in semanticDocuments)
-        {
-            lexicalDocumentCandidates[candidate.DocumentChunkId] = candidate.Document;
-        }
-
-        var semanticContextScores = semanticContexts
-            .GroupBy(candidate => candidate.ContextItemId)
-            .ToDictionary(group => group.Key, group => group.Max(candidate => candidate.Similarity));
-        var semanticDocumentScores = semanticDocuments
-            .GroupBy(candidate => candidate.DocumentChunkId)
-            .ToDictionary(group => group.Key, group => group.Max(candidate => candidate.Similarity));
-        var rankedContexts = hybridCandidateRanker
-            .RankContexts(
+        var composed = RetrievalCandidateComposer.Compose(
+            new RetrievalCandidateSources(
                 lexicalContextCandidates.Values.ToArray(),
-                query,
-                workspacePaths,
-                semanticContextScores)
-            .Where(candidate => lexicalContextSignals.GetValueOrDefault(candidate.Context.Id) > 0 ||
-                                candidate.SemanticScore >= 0.65)
-            .ToArray();
-        var rankedDocuments = hybridCandidateRanker
-            .RankDocuments(
                 lexicalDocumentCandidates.Values.ToArray(),
-                query,
+                semanticContexts,
+                semanticDocuments),
+            lexical,
+            new RetrievalCompositionSettings(
                 workspacePaths,
-                semanticDocumentScores)
-            .Where(candidate => lexicalDocumentSignals.GetValueOrDefault(candidate.Document.Id) > 0 ||
-                                candidate.SemanticScore >= 0.65)
-            .ToArray();
-        var deduplicatedContexts = retrievalDeduplicator.DeduplicateContexts(rankedContexts, options.Semantic);
-        var deduplicatedDocuments = retrievalDeduplicator.DeduplicateDocuments(rankedDocuments, options.Semantic);
+                query,
+                options.Semantic,
+                new CandidateSelection(CandidateSelectionKind.Search, true),
+                SemanticUsed: semanticUsed,
+                RetrievalDegraded: retrievalDegraded),
+            hybridCandidateRanker,
+            retrievalDeduplicator);
         var matches = new List<(double Score, ContextSearchMatch? Context, DocumentSearchMatch? Document)>();
-        matches.AddRange(deduplicatedContexts.Select(candidate =>
+        matches.AddRange(composed.Contexts.Select(candidate =>
             (candidate.Score,
                 (ContextSearchMatch?)ToContextMatch(candidate, workspacePaths),
                 (DocumentSearchMatch?)null)));
-        matches.AddRange(deduplicatedDocuments.Select(candidate =>
+        matches.AddRange(composed.Documents.Select(candidate =>
             (candidate.Score,
                 (ContextSearchMatch?)null,
                 (DocumentSearchMatch?)ToDocumentMatch(candidate, workspacePaths))));
@@ -221,10 +181,7 @@ public sealed class ContextQueryAppService : IContextQueryAppService
         return new ContextSearchResult(
             selected.Where(match => match.Context is not null).Select(match => match.Context!).ToArray(),
             selected.Where(match => match.Document is not null).Select(match => match.Document!).ToArray(),
-            new RetrievalDiagnostics(
-                retrievalDegraded,
-                semanticUsed,
-                semanticUsed ? "hybrid" : retrievalDegraded ? "lexical-degraded" : "lexical"));
+            composed.Diagnostics);
     }
 
     public async Task<ContextDetailModel?> GetAsync(

@@ -12,6 +12,7 @@ public static class ApplicationErrorCodes
     public const string InvalidContextKey = "InvalidContextKey";
     public const string InvalidContextMetadata = "InvalidContextMetadata";
     public const string InvalidContextQuality = "InvalidContextQuality";
+    public const string InvalidContextValidity = "InvalidContextValidity";
     public const string InvalidStateKey = "InvalidStateKey";
     public const string InvalidSupersedeTarget = "InvalidSupersedeTarget";
     public const string InvalidVerificationStatus = "InvalidVerificationStatus";

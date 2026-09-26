@@ -31,8 +31,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<DocumentWriteCoordinator>();
         services.AddSingleton<HeadingAwareMarkdownChunker>();
-        services.AddOptions<EmbeddingOptions>()
-            .ValidateOnStart();
+        services.AddOptions<EmbeddingOptions>();
         services.AddSingleton<IValidateOptions<EmbeddingOptions>, EmbeddingOptionsValidator>();
         services.AddOptions<RetrievalOptions>()
             .Bind(configuration.GetSection("ContextDepot:Retrieval"), binder => binder.ErrorOnUnknownConfiguration = true)

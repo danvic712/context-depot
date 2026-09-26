@@ -3,13 +3,14 @@ using ContextDepot.Application.Bootstrap.Dtos;
 using ContextDepot.Application.Retrieval.Dtos;
 using ContextDepot.Application.Workspaces;
 using ContextDepot.Domain.Contexts;
-using ContextDepot.Domain.Contexts.Enums;
 using ContextDepot.Domain.Documents.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace ContextDepot.Infrastructure.Repositories;
 
-public sealed class ContextQueryRepository(ContextDepotDbContext db) : IContextQueryRepository
+public sealed class ContextQueryRepository(
+    ContextDepotDbContext db,
+    VisibleWorkspaceTopologyProvider topologyProvider) : IContextQueryRepository
 {
     public Task<ContextItem?> FindContextByIdAsync(
         Guid depotId,
@@ -28,9 +29,8 @@ public sealed class ContextQueryRepository(ContextDepotDbContext db) : IContextQ
         var workspaceIds = query.WorkspaceIds?.ToArray();
         var kinds = query.Kinds?.ToArray();
         var contexts = db.ContextItems.AsNoTracking()
-            .Where(context => context.DepotId == query.DepotId &&
-                              context.Status == ContextStatus.Active &&
-                              (context.ExpiresAt == null || context.ExpiresAt > query.Now));
+            .WhereRetrievableAt(query.Now)
+            .Where(context => context.DepotId == query.DepotId);
         if (workspaceIds is not null)
         {
             contexts = contexts.Where(context => workspaceIds.Contains(context.WorkspaceId));
@@ -120,10 +120,7 @@ public sealed class ContextQueryRepository(ContextDepotDbContext db) : IContextQ
         Guid depotId,
         CancellationToken cancellationToken)
     {
-        var workspaces = await db.Workspaces.AsNoTracking()
-            .Where(workspace => workspace.DepotId == depotId)
-            .ToListAsync(cancellationToken);
-        return WorkspacePath.BuildPaths(workspaces);
+        return (await topologyProvider.GetAsync(depotId, cancellationToken)).Topology.Paths;
     }
 
 }

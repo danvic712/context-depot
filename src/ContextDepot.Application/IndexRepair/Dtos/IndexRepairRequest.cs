@@ -4,4 +4,5 @@ public sealed record IndexRepairRequest(
     int BatchSize,
     int MaxBatches,
     Guid? ContextAfterId = null,
-    Guid? DocumentChunkAfterId = null);
+    Guid? DocumentChunkAfterId = null,
+    bool RepairVectors = true);

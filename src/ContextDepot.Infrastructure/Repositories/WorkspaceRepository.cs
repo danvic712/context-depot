@@ -12,8 +12,12 @@ namespace ContextDepot.Infrastructure.Repositories;
 public sealed class WorkspaceRepository(
     ContextDepotDbContext db,
     IIdGenerator idGenerator,
-    IWorkspaceAccessContext workspaceAccess) : IWorkspaceRepository
+    IWorkspaceAccessContext workspaceAccess,
+    VisibleWorkspaceTopologyProvider topologyProvider) : IWorkspaceRepository
 {
+    public async Task<WorkspaceTopology> LoadVisibleTopologyAsync(Guid depotId, CancellationToken cancellationToken) =>
+        (await topologyProvider.GetAsync(depotId, cancellationToken)).Topology;
+
     public Task<Workspace?> GetByIdAsync(Guid depotId, Guid workspaceId, CancellationToken cancellationToken) =>
         workspaceAccess.CanAccess(workspaceId)
             ? db.Workspaces.AsNoTracking().SingleOrDefaultAsync(
@@ -28,43 +32,45 @@ public sealed class WorkspaceRepository(
             return null;
         }
 
-        var workspaces = await db.Workspaces.AsNoTracking().Where(x => x.DepotId == depotId).ToListAsync(cancellationToken);
-        var workspace = workspaces.SingleOrDefault(x => x.Id == workspaceId);
+        var tree = await topologyProvider.GetAsync(depotId, cancellationToken);
+        var workspace = tree.Workspaces.SingleOrDefault(x => x.Id == workspaceId);
         if (workspace is null)
         {
             return null;
         }
 
-        var paths = WorkspacePath.BuildPaths(workspaces);
-        return new WorkspacePathLookup(workspace, paths[workspace.Id]);
+        return new WorkspacePathLookup(workspace, tree.Topology.Paths[workspace.Id]);
     }
 
     public async Task<Workspace?> GetByPathAsync(Guid depotId, string normalizedPath, CancellationToken cancellationToken)
     {
-        var workspaces = await db.Workspaces.AsNoTracking().Where(x => x.DepotId == depotId).ToListAsync(cancellationToken);
-        var workspace = FindByPath(workspaces, normalizedPath);
-        return workspace is not null && workspaceAccess.CanAccess(workspace.Id) ? workspace : null;
+        var tree = await topologyProvider.GetAsync(depotId, cancellationToken);
+        if (!tree.Topology.TryGetId(normalizedPath, out var workspaceId) || !workspaceAccess.CanAccess(workspaceId))
+        {
+            return null;
+        }
+
+        return tree.Workspaces.SingleOrDefault(workspace => workspace.Id == workspaceId);
     }
 
     public async Task<IReadOnlyList<WorkspacePathLookup>> ListWithPathsAsync(Guid depotId, string? parentPath, CancellationToken cancellationToken)
     {
-        var workspaces = await db.Workspaces.AsNoTracking().Where(x => x.DepotId == depotId).ToListAsync(cancellationToken);
-        var paths = WorkspacePath.BuildPaths(workspaces);
-        var byPath = paths.ToDictionary(x => x.Value, x => x.Key, StringComparer.Ordinal);
+        var tree = await topologyProvider.GetAsync(depotId, cancellationToken);
         Guid? parentId = null;
         if (!string.IsNullOrWhiteSpace(parentPath))
         {
-            parentId = byPath.GetValueOrDefault(parentPath);
-            if (parentId is null)
+            if (!tree.Topology.TryGetId(parentPath, out var resolvedParentId))
             {
                 return [];
             }
+
+            parentId = resolvedParentId;
         }
 
-        return workspaces
+        return tree.Workspaces
             .Where(x => x.ParentWorkspaceId == parentId && workspaceAccess.CanAccess(x.Id))
             .OrderBy(x => x.Slug)
-            .Select(x => new WorkspacePathLookup(x, paths[x.Id]))
+            .Select(x => new WorkspacePathLookup(x, tree.Topology.Paths[x.Id]))
             .ToArray();
     }
 
@@ -102,6 +108,7 @@ public sealed class WorkspaceRepository(
                 existing.Update(name, description, metadataJson, now);
                 await db.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
+                topologyProvider.Invalidate(depotId);
                 return new WorkspaceUpsertPersistenceResult(existing, WorkspaceUpsertPersistenceOutcome.Updated);
             }
 
@@ -158,6 +165,7 @@ public sealed class WorkspaceRepository(
 
             await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+            topologyProvider.Invalidate(depotId);
             return new WorkspaceUpsertPersistenceResult(result, WorkspaceUpsertPersistenceOutcome.Created);
         }
         catch (DbUpdateException)
@@ -167,18 +175,4 @@ public sealed class WorkspaceRepository(
         }
     }
 
-    private static Workspace? FindByPath(IReadOnlyList<Workspace> workspaces, string path)
-    {
-        var paths = WorkspacePath.BuildPaths(workspaces);
-        var workspaceById = workspaces.ToDictionary(x => x.Id);
-        foreach (var (workspaceId, workspacePath) in paths)
-        {
-            if (string.Equals(workspacePath, path, StringComparison.Ordinal))
-            {
-                return workspaceById[workspaceId];
-            }
-        }
-
-        return null;
-    }
 }

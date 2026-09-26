@@ -5,11 +5,11 @@ using Microsoft.Extensions.Options;
 namespace ContextDepot.Infrastructure.Options;
 
 public sealed class ConfigureEmbeddingOptionsFromInferenceSnapshot(
-    InferenceRuntimeSnapshotAccessor snapshotAccessor) : IConfigureOptions<EmbeddingOptions>
+    ScopedInferenceRuntimeSnapshot snapshot) : IConfigureOptions<EmbeddingOptions>
 {
     public void Configure(EmbeddingOptions options)
     {
-        var embedding = snapshotAccessor.Current.Embedding;
+        var embedding = snapshot.Value.Embedding;
         if (embedding is null)
         {
             return;

@@ -2,7 +2,6 @@ using ContextDepot.Application.IndexRepair.Contracts;
 using ContextDepot.Application.IndexRepair.Dtos;
 using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Application.Workspaces;
-using ContextDepot.Domain.Contexts.Enums;
 using ContextDepot.Domain.Documents.Enums;
 using Microsoft.EntityFrameworkCore;
 
@@ -62,9 +61,8 @@ public sealed class PostgreSqlIndexRepairRepository(
     {
         var query = db.ContextItems
             .AsNoTracking()
-            .Where(x => x.DepotId == depotId &&
-                        x.Status == ContextStatus.Active &&
-                        (x.ExpiresAt == null || x.ExpiresAt > now));
+            .WhereRetrievableAt(now)
+            .Where(x => x.DepotId == depotId);
         if (afterContextId is Guid cursor)
         {
             query = query.Where(x => x.Id.CompareTo(cursor) > 0);

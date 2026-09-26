@@ -29,9 +29,9 @@
     <PackageVersion Include="Npgsql" Version="10.0.3" />
     <PackageVersion Include="Pgvector" Version="0.3.2" />
     <!-- Microsoft.Extensions.Options.ConfigurationExtensions is shared by Application and Infrastructure. -->
-    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.1" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="10.0.1" />
-    <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.1" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.11" />
     <PackageVersion Include="ModelContextProtocol.Core" Version="2.2.0" />
     <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
 

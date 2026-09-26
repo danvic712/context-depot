@@ -49,7 +49,42 @@ public sealed class BootstrapRetrievalTests
         var item = Assert.Single(result.Contexts);
         Assert.Equal(matching.Id, item.Id);
         Assert.Equal(ScopeResolutionStatus.Resolved, result.ScopeResolution.Status);
-        Assert.Equal("lexical", result.Diagnostics.Mode);
+        Assert.Equal("lexical-degraded", result.Diagnostics.Mode);
+    }
+
+    [Fact]
+    public async Task Importance_without_query_match_does_not_suppress_semantic_fallback()
+    {
+        var workspaceId = Guid.CreateVersion7();
+        var workspace = new BootstrapWorkspaceCandidate(workspaceId, DepotId, null, "Project", "project");
+        var unrelated = Context(workspaceId, "Unrelated information", null) with { Importance = 80 };
+        var relevant = Context(workspaceId, "Database decision", null);
+        var repository = new Mock<IBootstrapRepository>();
+        repository.Setup(x => x.FindScopeCandidatesAsync(It.IsAny<BootstrapQuery>(), It.IsAny<CancellationToken>())).ReturnsAsync([workspace]);
+        repository.Setup(x => x.FindContextCandidatesAsync(It.IsAny<BootstrapQuery>(), It.IsAny<CancellationToken>())).ReturnsAsync([unrelated]);
+        repository.Setup(x => x.FindDocumentCandidatesAsync(It.IsAny<BootstrapQuery>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        var workspaces = new Mock<IWorkspaceAppService>();
+        workspaces.Setup(x => x.ResolveAsync("project", It.IsAny<CancellationToken>())).ReturnsAsync(
+            new WorkspaceModel(workspaceId, DepotId, "project", "Project", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
+        var semanticRepository = new Mock<ISemanticRetrievalRepository>();
+        semanticRepository.Setup(x => x.FindContextCandidatesAsync(
+                It.IsAny<SemanticCandidateQuery>(), It.IsAny<ReadOnlyMemory<float>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new SemanticContextCandidateRecord(relevant, 0.92)]);
+        semanticRepository.Setup(x => x.FindDocumentCandidatesAsync(
+                It.IsAny<SemanticCandidateQuery>(), It.IsAny<ReadOnlyMemory<float>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        var generator = new Mock<IEmbeddingGenerator<string, Embedding<float>>>();
+        generator.Setup(x => x.GenerateAsync(
+                It.IsAny<IEnumerable<string>>(), It.IsAny<EmbeddingGenerationOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GeneratedEmbeddings<Embedding<float>>([new(new[] { 1f, 0f, 0f })]));
+
+        var result = await CreateService(Depot(), workspaces, repository, semanticRepository, generator)
+            .BootstrapAsync(new BootstrapRequest("database", ["project"], 100), CancellationToken.None);
+
+        Assert.Equal(relevant.Id, Assert.Single(result.Contexts).Id);
+        Assert.True(result.Diagnostics.SemanticUsed);
+        generator.Verify(x => x.GenerateAsync(
+            It.IsAny<IEnumerable<string>>(), It.IsAny<EmbeddingGenerationOptions>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -247,7 +282,7 @@ public sealed class BootstrapRetrievalTests
         }
         var embeddingGenerator = new EmbeddingGeneratorService(
             services.Object,
-            Options.Create(new EmbeddingOptions { Dimensions = generator is null ? 1536 : 3 }),
+            new StaticOptionsSnapshot<EmbeddingOptions>(new EmbeddingOptions { Dimensions = generator is null ? 1536 : 3 }),
             new HighConfidenceSecretDetector(),
             new EmbeddingResultValidator(),
             NullLogger<EmbeddingGeneratorService>.Instance);

@@ -1,4 +1,5 @@
 using ContextDepot.Infrastructure.Contracts;
+using ContextDepot.Application.Workspaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace ContextDepot.Infrastructure.CurrentDepot;
@@ -36,9 +37,12 @@ public sealed class DepotAccessKeyAuthenticator(
             .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(workspace => workspace.DepotId == accessKey.DepotId)
-            .Select(workspace => new WorkspaceNode(workspace.Id, workspace.ParentWorkspaceId))
+            .Select(workspace => new WorkspaceTreeNode(workspace.Id, workspace.ParentWorkspaceId, workspace.Slug))
             .ToListAsync(cancellationToken);
-        var navigableWorkspaceIds = ResolveNavigableWorkspaceIds(workspaceIds, workspaceTree);
+        var navigableWorkspaceIds = new WorkspaceTopology(workspaceTree)
+            .AncestorsIncludingSelf(workspaceIds)
+            .Order()
+            .ToArray();
 
         accessKey.MarkUsed(timeProvider.GetUtcNow());
         await db.SaveChangesAsync(cancellationToken);
@@ -50,25 +54,4 @@ public sealed class DepotAccessKeyAuthenticator(
             navigableWorkspaceIds);
     }
 
-    private static Guid[] ResolveNavigableWorkspaceIds(
-        IReadOnlyCollection<Guid> workspaceIds,
-        IReadOnlyCollection<WorkspaceNode> workspaceTree)
-    {
-        var parents = workspaceTree.ToDictionary(workspace => workspace.Id, workspace => workspace.ParentWorkspaceId);
-        var navigable = new HashSet<Guid>(workspaceIds);
-        foreach (var workspaceId in workspaceIds)
-        {
-            var currentId = workspaceId;
-            var visited = new HashSet<Guid>();
-            while (visited.Add(currentId) && parents.TryGetValue(currentId, out var parentId) && parentId is Guid parent)
-            {
-                navigable.Add(parent);
-                currentId = parent;
-            }
-        }
-
-        return navigable.Order().ToArray();
-    }
-
-    private sealed record WorkspaceNode(Guid Id, Guid? ParentWorkspaceId);
 }

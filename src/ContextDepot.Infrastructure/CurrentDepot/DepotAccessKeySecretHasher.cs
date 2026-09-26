@@ -1,3 +1,4 @@
+using System.Buffers.Text;
 using System.Security.Cryptography;
 
 namespace ContextDepot.Infrastructure.CurrentDepot;
@@ -10,8 +11,8 @@ public sealed class DepotAccessKeySecretHasher
 
     public GeneratedDepotAccessKey Generate()
     {
-        var publicPart = Base64UrlEncode(RandomNumberGenerator.GetBytes(PublicPartByteCount));
-        var secretPart = Base64UrlEncode(RandomNumberGenerator.GetBytes(SecretPartByteCount));
+        var publicPart = Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(PublicPartByteCount));
+        var secretPart = Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(SecretPartByteCount));
         var prefix = Marker + publicPart;
         var plaintext = prefix + "." + secretPart;
         return new GeneratedDepotAccessKey(plaintext, prefix, Hash(plaintext));
@@ -67,8 +68,6 @@ public sealed class DepotAccessKeySecretHasher
     private static string Hash(string plaintext) =>
         Convert.ToHexStringLower(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(plaintext)));
 
-    private static string Base64UrlEncode(ReadOnlySpan<byte> value) =>
-        Convert.ToBase64String(value).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 }
 
 public sealed record GeneratedDepotAccessKey(string Plaintext, string Prefix, string SecretHash);

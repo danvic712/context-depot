@@ -25,58 +25,15 @@ public static partial class WorkspacePath
     public static IReadOnlyList<string> Segments(string normalizedPath) => normalizedPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
     public static string BuildPath(IReadOnlyDictionary<Guid, Workspace> workspaces, Workspace workspace)
-        => BuildPath(workspaces, workspace, new Dictionary<Guid, string>());
+        => new WorkspaceTopology(workspaces.Values.Select(ToNode)).Paths[workspace.Id];
 
     public static IReadOnlyDictionary<Guid, string> BuildPaths(IEnumerable<Workspace> workspaces)
     {
-        var byId = workspaces.ToDictionary(x => x.Id);
-        var paths = new Dictionary<Guid, string>(byId.Count);
-        foreach (var workspace in byId.Values)
-        {
-            BuildPath(byId, workspace, paths);
-        }
-
-        return paths;
+        return new WorkspaceTopology(workspaces.Select(ToNode)).Paths;
     }
 
-    private static string BuildPath(
-        IReadOnlyDictionary<Guid, Workspace> workspaces,
-        Workspace workspace,
-        IDictionary<Guid, string> paths)
-    {
-        if (paths.TryGetValue(workspace.Id, out var knownPath))
-        {
-            return knownPath;
-        }
-
-        var chain = new List<Workspace>();
-        var visited = new HashSet<Guid>();
-        var current = workspace;
-        var prefix = string.Empty;
-        while (visited.Add(current.Id))
-        {
-            if (paths.TryGetValue(current.Id, out var cachedPrefix))
-            {
-                prefix = cachedPrefix;
-                break;
-            }
-
-            chain.Add(current);
-            if (current.ParentWorkspaceId is not Guid parentId || !workspaces.TryGetValue(parentId, out current!))
-            {
-                prefix = string.Empty;
-                break;
-            }
-        }
-
-        for (var index = chain.Count - 1; index >= 0; index--)
-        {
-            prefix = prefix.Length == 0 ? chain[index].Slug : chain[index].Slug + "/" + prefix;
-            paths[chain[index].Id] = prefix;
-        }
-
-        return paths[workspace.Id];
-    }
+    private static WorkspaceTreeNode ToNode(Workspace workspace) =>
+        new(workspace.Id, workspace.ParentWorkspaceId, workspace.Slug);
 
     [GeneratedRegex("^[a-z0-9]+(?:-[a-z0-9]+)*$", RegexOptions.CultureInvariant)]
     private static partial Regex SlugRegex();

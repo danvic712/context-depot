@@ -1,5 +1,3 @@
-using ContextDepot.Domain.Inferences.Enums;
-
 namespace ContextDepot.Infrastructure.RuntimeConfiguration;
 
 public sealed record EmbeddingRouteRuntimeSnapshot(
@@ -33,4 +31,9 @@ public sealed class InferenceRuntimeSnapshotAccessor
         ArgumentNullException.ThrowIfNull(snapshot);
         Volatile.Write(ref current, snapshot);
     }
+}
+
+public sealed class ScopedInferenceRuntimeSnapshot(InferenceRuntimeSnapshot value)
+{
+    public InferenceRuntimeSnapshot Value { get; } = value;
 }

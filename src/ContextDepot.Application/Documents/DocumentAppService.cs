@@ -23,6 +23,8 @@ public sealed class DocumentAppService(
     IIdGenerator idGenerator,
     TimeProvider timeProvider) : IDocumentAppService
 {
+    private readonly CanonicalDocumentIndexer indexer = new(repository, markdownStore, chunker, sourceSafety, idGenerator, timeProvider);
+
     public async Task<DocumentModel> UpsertAsync(UpsertDocumentCommand command, CancellationToken cancellationToken)
     {
         var workspace = await workspaceAppService.ResolveAsync(command.Workspace, cancellationToken)
@@ -47,7 +49,7 @@ public sealed class DocumentAppService(
         MarkdownDocument? currentFile;
         try
         {
-            currentFile = await markdownStore.GetAsync(depotId, relativePath, cancellationToken);
+            currentFile = await indexer.ReadAsync(depotId, workspace.Path, normalizedPath, cancellationToken);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -83,7 +85,7 @@ public sealed class DocumentAppService(
         MarkdownDocument? canonical;
         try
         {
-            canonical = await markdownStore.GetAsync(depotId, relativePath, cancellationToken);
+            canonical = await indexer.ReadAsync(depotId, workspace.Path, normalizedPath, cancellationToken);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -94,18 +96,14 @@ public sealed class DocumentAppService(
         {
             throw new ContextDepotApplicationException(ApplicationErrorCodes.DocumentWriteFailed);
         }
-        var chunks = chunker.Chunk(canonical.Content);
-        var write = new DocumentIndexWrite(
+        var result = await indexer.ReconcileAsync(new CanonicalDocumentSource(
             document?.Id ?? idGenerator.NewId(),
             depotId,
             workspace.Id,
+            workspace.Path,
             normalizedPath,
             command.Title.Trim(),
-            canonical.ContentHash,
-            chunks.Select((chunk, ordinal) => new DocumentChunkWrite(idGenerator.NewId(), ordinal, chunk.HeadingPath, chunk.Content, chunk.ContentHash)).ToArray(),
-            timeProvider.GetUtcNow());
-
-        var result = await repository.ReconcileIndexAsync(write, cancellationToken);
+            canonical), cancellationToken);
         return ToModel(result.Document, workspace.Path);
     }
 

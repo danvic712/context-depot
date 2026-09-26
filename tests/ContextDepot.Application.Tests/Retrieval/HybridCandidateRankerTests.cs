@@ -45,6 +45,23 @@ public sealed class HybridCandidateRankerTests
         Assert.False(ranked[1].IsExactMatch);
     }
 
+    [Fact]
+    public void Chinese_document_content_has_a_lexical_score()
+    {
+        var workspaceId = Guid.CreateVersion7();
+        var document = Document(workspaceId, Guid.CreateVersion7(), "docs/readme.md") with
+        {
+            Content = "数据库已配置。"
+        };
+
+        var ranked = new HybridCandidateRanker().RankDocuments(
+            [document],
+            "数据库",
+            new Dictionary<Guid, string> { [workspaceId] = "projects/context-depot" });
+
+        Assert.True(Assert.Single(ranked).LexicalScore > 0);
+    }
+
     private static BootstrapContextCandidate Context(Guid workspaceId, string key, string content) => new(
         Guid.CreateVersion7(),
         Guid.CreateVersion7(),

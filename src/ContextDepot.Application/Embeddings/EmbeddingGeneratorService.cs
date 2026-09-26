@@ -9,7 +9,7 @@ namespace ContextDepot.Application.Embeddings;
 
 public sealed class EmbeddingGeneratorService(
     IServiceProvider services,
-    IOptions<EmbeddingOptions> options,
+    IOptionsSnapshot<EmbeddingOptions> options,
     ISecretDetector secretDetector,
     EmbeddingResultValidator resultValidator,
     ILogger<EmbeddingGeneratorService> logger)

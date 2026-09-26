@@ -1,7 +1,6 @@
 using ContextDepot.Application.Bootstrap.Contracts;
 using ContextDepot.Application.Bootstrap.Dtos;
 using ContextDepot.Domain.Contexts;
-using ContextDepot.Domain.Contexts.Enums;
 using ContextDepot.Domain.Documents;
 using ContextDepot.Domain.Documents.Enums;
 using ContextDepot.Domain.Workspaces;
@@ -32,8 +31,8 @@ public sealed class BootstrapRepository(ContextDepotDbContext db) : IBootstrapRe
         CancellationToken cancellationToken) =>
         await ApplyWorkspaceScope(
                 db.ContextItems.AsNoTracking()
-                    .Where(x => x.DepotId == query.DepotId && x.Status == ContextStatus.Active &&
-                                (x.ExpiresAt == null || x.ExpiresAt > query.Now)),
+                    .WhereRetrievableAt(query.Now)
+                    .Where(x => x.DepotId == query.DepotId),
                 query.WorkspaceIds)
             .OrderByDescending(x => x.Importance)
             .ThenByDescending(x => x.UpdatedAt)

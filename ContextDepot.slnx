@@ -7,5 +7,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ContextDepot.Application.Tests/ContextDepot.Application.Tests.csproj" />
+    <Project Path="tests/ContextDepot.Infrastructure.Tests/ContextDepot.Infrastructure.Tests.csproj" />
   </Folder>
 </Solution>

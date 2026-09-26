@@ -2,6 +2,7 @@ using ContextDepot.Application.Contexts.Dtos;
 using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Application.Shared.Runtime.Contracts;
 using ContextDepot.Application.Workspaces.Contracts;
+using ContextDepot.Application.Workspaces;
 
 namespace ContextDepot.Application.Contexts;
 
@@ -20,17 +21,27 @@ internal sealed class ContextSearchScopeResolver(
                 : (new HashSet<Guid>(workspaceAccess.WorkspaceIds), new Dictionary<Guid, string>());
         }
 
+        var workspaceTopology = await workspaceAppService.LoadTopologyAsync(cancellationToken);
         var ids = new HashSet<Guid>();
         var paths = new Dictionary<Guid, string>();
         foreach (var path in request.Workspaces)
         {
-            var workspace = await workspaceAppService.ResolveAsync(path, cancellationToken)
-                ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspaceNotFound);
-            ids.Add(workspace.Id);
-            paths[workspace.Id] = workspace.Path;
+            var normalizedPath = WorkspacePath.Normalize(path);
+            if (!workspaceTopology.TryGetId(normalizedPath, out var workspaceId) ||
+                !workspaceAccess.CanAccess(workspaceId))
+            {
+                throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspaceNotFound);
+            }
+
+            ids.Add(workspaceId);
+            paths[workspaceId] = normalizedPath;
             if (request.IncludeDescendants)
             {
-                await AddDescendantsAsync(workspace.Path, ids, paths, cancellationToken);
+                foreach (var descendantId in workspaceTopology.AccessibleDescendants(workspaceId, workspaceAccess.CanAccess))
+                {
+                    ids.Add(descendantId);
+                    paths[descendantId] = workspaceTopology.Paths[descendantId];
+                }
             }
         }
 
@@ -42,39 +53,21 @@ internal sealed class ContextSearchScopeResolver(
         IDictionary<Guid, string> workspacePaths,
         CancellationToken cancellationToken)
     {
-        foreach (var workspaceId in workspaceIds.Distinct())
+        var missing = workspaceIds.Distinct().ToArray();
+        if (missing.Length == 0)
         {
-            var workspace = await workspaceAppService.GetAsync(workspaceId, cancellationToken);
-            if (workspace is not null)
+            return;
+        }
+
+        var workspaceTopology = await workspaceAppService.LoadTopologyAsync(cancellationToken);
+        foreach (var workspaceId in missing)
+        {
+            if (workspaceAccess.CanAccess(workspaceId) &&
+                workspaceTopology.TryGetPath(workspaceId, out var path))
             {
-                workspacePaths[workspaceId] = workspace.Path;
+                workspacePaths[workspaceId] = path;
             }
         }
     }
 
-    private async Task AddDescendantsAsync(
-        string parentPath,
-        ISet<Guid> ids,
-        IDictionary<Guid, string> paths,
-        CancellationToken cancellationToken)
-    {
-        var pending = new Queue<string>([parentPath]);
-        var visited = new HashSet<string>(StringComparer.Ordinal);
-        while (pending.Count > 0)
-        {
-            var currentPath = pending.Dequeue();
-            if (!visited.Add(currentPath))
-            {
-                continue;
-            }
-
-            var children = await workspaceAppService.ListAsync(currentPath, cancellationToken);
-            foreach (var child in children)
-            {
-                ids.Add(child.Id);
-                paths[child.Id] = child.Path;
-                pending.Enqueue(child.Path);
-            }
-        }
-    }
 }

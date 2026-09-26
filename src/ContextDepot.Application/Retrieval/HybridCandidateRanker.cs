@@ -22,7 +22,8 @@ public sealed class HybridCandidateRanker
         IReadOnlyList<BootstrapContextCandidate> candidates,
         string query,
         IReadOnlyDictionary<Guid, string> workspacePaths,
-        IReadOnlyDictionary<Guid, double>? semanticScores = null)
+        IReadOnlyDictionary<Guid, double>? semanticScores = null,
+        IReadOnlyDictionary<Guid, double>? lexicalScores = null)
     {
         ArgumentNullException.ThrowIfNull(candidates);
         ArgumentNullException.ThrowIfNull(query);
@@ -33,7 +34,9 @@ public sealed class HybridCandidateRanker
             .Select(candidate =>
             {
                 var workspacePath = workspacePaths.GetValueOrDefault(candidate.WorkspaceId, string.Empty);
-                var rawLexicalScore = lexicalRanker.ScoreContext(candidate, workspacePath, query, tokens);
+                var rawLexicalScore = lexicalScores?.TryGetValue(candidate.Id, out var knownScore) == true
+                    ? knownScore
+                    : lexicalRanker.ScoreContext(candidate, workspacePath, query, tokens);
                 var exactScore = GetContextExactScore(candidate, workspacePath, query);
                 var semanticScore = ClampScore(semanticScores?.GetValueOrDefault(candidate.Id) ?? 0);
                 var qualityScore = GetContextQualityScore(candidate);
@@ -63,7 +66,8 @@ public sealed class HybridCandidateRanker
         IReadOnlyList<BootstrapDocumentChunkCandidate> candidates,
         string query,
         IReadOnlyDictionary<Guid, string> workspacePaths,
-        IReadOnlyDictionary<Guid, double>? semanticScores = null)
+        IReadOnlyDictionary<Guid, double>? semanticScores = null,
+        IReadOnlyDictionary<Guid, double>? lexicalScores = null)
     {
         ArgumentNullException.ThrowIfNull(candidates);
         ArgumentNullException.ThrowIfNull(query);
@@ -74,7 +78,9 @@ public sealed class HybridCandidateRanker
             .Select(candidate =>
             {
                 var workspacePath = workspacePaths.GetValueOrDefault(candidate.WorkspaceId, string.Empty);
-                var rawLexicalScore = lexicalRanker.ScoreDocument(candidate, workspacePath, query, tokens);
+                var rawLexicalScore = lexicalScores?.TryGetValue(candidate.Id, out var knownScore) == true
+                    ? knownScore
+                    : lexicalRanker.ScoreDocument(candidate, workspacePath, query, tokens);
                 var exactScore = GetDocumentExactScore(candidate, workspacePath, query);
                 var semanticScore = ClampScore(semanticScores?.GetValueOrDefault(candidate.Id) ?? 0);
                 const double qualityScore = 0.50;

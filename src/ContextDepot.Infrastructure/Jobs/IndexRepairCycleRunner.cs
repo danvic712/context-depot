@@ -15,14 +15,18 @@ public sealed class IndexRepairCycleRunner(
     ILogger<IndexRepairCycleRunner> logger)
 {
     private readonly Dictionary<Guid, DepotRepairCursor> cursors = new();
+    private string? lastProfileFingerprint;
 
     public async Task RunAsync(IndexRepairOptions repairOptions, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(repairOptions);
 
-        if (inferenceSnapshotAccessor.Current.Embedding is null)
+        var embedding = inferenceSnapshotAccessor.Current.Embedding;
+        if (embedding is not null &&
+            !string.Equals(lastProfileFingerprint, embedding.ProfileFingerprint, StringComparison.OrdinalIgnoreCase))
         {
-            return;
+            cursors.Clear();
+            lastProfileFingerprint = embedding.ProfileFingerprint;
         }
 
         await using var scope = scopeFactory.CreateAsyncScope();
@@ -43,7 +47,8 @@ public sealed class IndexRepairCycleRunner(
                         repairOptions.BatchSize,
                         repairOptions.MaxBatchesPerCycle,
                         cursor?.ContextAfterId,
-                        cursor?.DocumentChunkAfterId),
+                        cursor?.DocumentChunkAfterId,
+                        RepairVectors: embedding is not null),
                     cancellationToken);
                 cursors[depot.Id] = new DepotRepairCursor(
                     result.NextContextAfterId,

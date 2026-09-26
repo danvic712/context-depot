@@ -154,6 +154,12 @@ public sealed partial class ContextAppService(
             throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidContextQuality);
         }
 
+        if (command.ValidFrom is not null && command.ValidUntil is not null &&
+            command.ValidFrom >= command.ValidUntil)
+        {
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidContextValidity);
+        }
+
         if (content.Length > 100_000)
         {
             throw new ContextDepotApplicationException(ApplicationErrorCodes.ContextTooLarge);

@@ -1,5 +1,4 @@
 using ContextDepot.Application.Embeddings.Dtos;
-using ContextDepot.Domain.Inferences.Enums;
 using ContextDepot.Infrastructure.CurrentDepot;
 using ContextDepot.Infrastructure.RuntimeConfiguration;
 using Microsoft.EntityFrameworkCore;

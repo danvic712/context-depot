@@ -23,6 +23,8 @@ public sealed class IndexRepairAppService(
     TimeProvider timeProvider,
     ILogger<IndexRepairAppService> logger) : IIndexRepairAppService
 {
+    private readonly CanonicalDocumentIndexer indexer = new(documentRepository, markdownStore, chunker, sourceSafety, idGenerator, timeProvider);
+
     public async Task<IndexRepairCycleResult> RepairAsync(
         Guid depotId,
         IndexRepairRequest request,
@@ -45,6 +47,14 @@ public sealed class IndexRepairAppService(
             }
 
             retrievalDegraded |= result.Degraded;
+        }
+
+        if (!request.RepairVectors)
+        {
+            return new IndexRepairCycleResult(
+                documentsReconciled, 0, 0,
+                request.ContextAfterId, request.DocumentChunkAfterId,
+                false, false, true);
         }
 
         var contextAfterId = request.ContextAfterId;
@@ -161,16 +171,17 @@ public sealed class IndexRepairAppService(
         MarkdownDocument? markdown;
         try
         {
-            markdown = await markdownStore.GetAsync(
+            markdown = await indexer.ReadAsync(
                 depotId,
-                candidate.WorkspacePath + "/" + candidate.Path,
+                candidate.WorkspacePath,
+                candidate.Path,
                 cancellationToken);
         }
         catch (OperationCanceledException)
         {
             throw;
         }
-        catch (IOException exception)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             logger.LogWarning(
                 exception,
@@ -184,21 +195,6 @@ public sealed class IndexRepairAppService(
                 cancellationToken);
             return (false, true);
         }
-        catch (UnauthorizedAccessException exception)
-        {
-            logger.LogWarning(
-                exception,
-                "{ErrorCode} prevented document repair for {DocumentId}.",
-                ApplicationErrorCodes.MarkdownRootUnavailable,
-                candidate.DocumentId);
-            await repairRepository.MarkDocumentIndexFailedAsync(
-                depotId,
-                candidate.DocumentId,
-                ApplicationErrorCodes.MarkdownRootUnavailable,
-                cancellationToken);
-            return (false, true);
-        }
-
         if (markdown is null)
         {
             await repairRepository.MarkDocumentIndexFailedAsync(
@@ -211,10 +207,15 @@ public sealed class IndexRepairAppService(
 
         try
         {
-            sourceSafety.EnsureSafe(candidate.WorkspacePath);
-            sourceSafety.EnsureSafe(candidate.Path);
-            sourceSafety.EnsureSafe(candidate.Title);
-            sourceSafety.EnsureSafe(markdown.Content);
+            await indexer.ReconcileAsync(new CanonicalDocumentSource(
+                candidate.DocumentId,
+                depotId,
+                candidate.WorkspaceId,
+                candidate.WorkspacePath,
+                candidate.Path,
+                candidate.Title,
+                markdown), cancellationToken);
+            return (true, false);
         }
         catch (ContextDepotApplicationException exception)
         {
@@ -224,30 +225,6 @@ public sealed class IndexRepairAppService(
                 exception.ErrorCode,
                 cancellationToken);
             return (false, true);
-        }
-
-        var chunks = chunker.Chunk(markdown.Content)
-            .Select((chunk, ordinal) => new DocumentChunkWrite(
-                idGenerator.NewId(),
-                ordinal,
-                chunk.HeadingPath,
-                chunk.Content,
-                chunk.ContentHash))
-            .ToArray();
-        var write = new DocumentIndexWrite(
-            candidate.DocumentId,
-            depotId,
-            candidate.WorkspaceId,
-            candidate.Path,
-            candidate.Title,
-            markdown.ContentHash,
-            chunks,
-            timeProvider.GetUtcNow());
-
-        try
-        {
-            await documentRepository.ReconcileIndexAsync(write, cancellationToken);
-            return (true, false);
         }
         catch (OperationCanceledException)
         {

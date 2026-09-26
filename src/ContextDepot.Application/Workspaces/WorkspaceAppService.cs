@@ -37,6 +37,9 @@ public sealed class WorkspaceAppService(
             .ToArray();
     }
 
+    public Task<WorkspaceTopology> LoadTopologyAsync(CancellationToken cancellationToken) =>
+        repository.LoadVisibleTopologyAsync(currentDepot.DepotId, cancellationToken);
+
     public async Task<WorkspaceModel> UpsertAsync(UpsertWorkspaceCommand command, CancellationToken cancellationToken)
     {
         var normalizedPath = WorkspacePath.Normalize(command.Path);

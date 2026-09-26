@@ -32,7 +32,7 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
     private readonly TimeProvider timeProvider;
     private readonly WorkspaceScopeResolver scopeResolver;
     private readonly ScopeCandidateRanker candidateRanker;
-    private readonly BootstrapResultSelector resultSelector;
+    private readonly ContextBudgetAllocator contextBudgetAllocator;
     private readonly ILogger<ContextBootstrapAppService> logger;
 
     public ContextBootstrapAppService(
@@ -66,7 +66,7 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
         this.logger = logger;
         candidateRanker = new ScopeCandidateRanker();
         scopeResolver = new WorkspaceScopeResolver(candidateRanker);
-        resultSelector = new BootstrapResultSelector(contextBudgetAllocator);
+        this.contextBudgetAllocator = contextBudgetAllocator;
     }
 
     public async Task<BootstrapResult> BootstrapAsync(BootstrapRequest request, CancellationToken cancellationToken)
@@ -160,35 +160,18 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
             }
         }
 
-        var lexicalContextScores = contexts
-            .Where(x => scopeIds is null || scopeIds.Contains(x.WorkspaceId))
-            .ToDictionary(
-                x => x.Id,
-                x => candidateRanker.ScoreContext(
-                    x,
-                    workspacePaths.GetValueOrDefault(x.WorkspaceId, string.Empty),
-                    query,
-                    queryTokens));
-        var lexicalDocumentScores = chunks
-            .Where(x => scopeIds is null || scopeIds.Contains(x.WorkspaceId))
-            .ToDictionary(
-                x => x.Id,
-                x => candidateRanker.ScoreDocument(
-                    x,
-                    workspacePaths.GetValueOrDefault(x.WorkspaceId, string.Empty),
-                    query,
-                    queryTokens));
-        var hasLexicalCandidates = lexicalContextScores.Values.Any(score => score > 0) ||
-                                   lexicalDocumentScores.Values.Any(score => score > 0);
-        var topLexicalScore = lexicalContextScores.Values
-            .Concat(lexicalDocumentScores.Values)
-            .DefaultIfEmpty(0)
-            .Max();
+        var lexical = RetrievalCandidateComposer.AnalyzeLexical(
+            contexts,
+            chunks,
+            workspacePaths,
+            query,
+            queryTokens,
+            scopeIds);
         var shouldUseSemanticRetrieval = scopeIds is not { Count: 0 } &&
             (semanticUsed || semanticFallbackDecider.ShouldUseForRetrieval(
                 queryTokens.Count > 0,
-                hasLexicalCandidates,
-                topLexicalScore,
+                lexical.HasCandidates,
+                lexical.TopScore,
                 retrievalSettings.Semantic));
         if (shouldUseSemanticRetrieval)
         {
@@ -214,73 +197,40 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
             retrievalDegraded |= semantic.Degraded;
         }
 
-        var contextCandidates = contexts.ToDictionary(x => x.Id);
-        foreach (var candidate in semanticContexts)
-        {
-            contextCandidates[candidate.Context.Id] = candidate.Context;
-        }
-
-        var documentCandidates = chunks.ToDictionary(x => x.Id);
-        foreach (var candidate in semanticDocuments)
-        {
-            documentCandidates[candidate.Document.Id] = candidate.Document;
-        }
-
-        var semanticContextScores = semanticContexts
-            .GroupBy(x => x.ContextItemId)
-            .ToDictionary(x => x.Key, x => x.Max(candidate => candidate.Similarity));
-        var semanticDocumentScores = semanticDocuments
-            .GroupBy(x => x.DocumentChunkId)
-            .ToDictionary(x => x.Key, x => x.Max(candidate => candidate.Similarity));
         var broadQuery = scopeResolution.Status == ScopeResolutionStatus.Broad && queryTokens.Count > 0;
-        var rankedContextCandidates = hybridCandidateRanker.RankContexts(
-                contextCandidates.Values
-            .Where(x => scopeIds is null || scopeIds.Contains(x.WorkspaceId))
-            .ToArray(),
-                query,
+        var composed = RetrievalCandidateComposer.Compose(
+            new RetrievalCandidateSources(contexts, chunks, semanticContexts, semanticDocuments),
+            lexical,
+            new RetrievalCompositionSettings(
                 workspacePaths,
-                semanticContextScores)
-            .Where(x => x.SemanticScore >= 0.65 || (!broadQuery
-                ? queryTokens.Count == 0 || lexicalContextScores.GetValueOrDefault(x.Context.Id) - x.Context.Importance / 100d > 0
-                : lexicalContextScores.GetValueOrDefault(x.Context.Id) - x.Context.Importance / 100d >= 2))
-            .ToArray();
-        var deduplicatedContexts = retrievalDeduplicator
-            .DeduplicateContexts(rankedContextCandidates, retrievalSettings.Semantic);
-        var rankedContexts = deduplicatedContexts
+                query,
+                retrievalSettings.Semantic,
+                new CandidateSelection(
+                    broadQuery ? CandidateSelectionKind.BootstrapBroad : CandidateSelectionKind.Bootstrap,
+                    queryTokens.Count > 0),
+                scopeIds,
+                semanticUsed,
+                retrievalDegraded),
+            hybridCandidateRanker,
+            retrievalDeduplicator);
+        var rankedContexts = composed.Contexts
             .Select(x => BootstrapModelMapper.ToContextModel(x.Context))
             .ToArray();
-
-        var rankedDocumentCandidates = hybridCandidateRanker.RankDocuments(
-                documentCandidates.Values
-            .Where(x => scopeIds is null || scopeIds.Contains(x.WorkspaceId))
-            .ToArray(),
-                query,
-                workspacePaths,
-                semanticDocumentScores)
-            .Where(x => x.SemanticScore >= 0.65 || (!broadQuery
-                ? x.LexicalScore > 0 || queryTokens.Count == 0
-                : lexicalDocumentScores.GetValueOrDefault(x.Document.Id) >= 2))
-            .ToArray();
-        var deduplicatedDocuments = retrievalDeduplicator
-            .DeduplicateDocuments(rankedDocumentCandidates, retrievalSettings.Semantic);
-        var rankedDocuments = deduplicatedDocuments
+        var rankedDocuments = composed.Documents
             .Select(x => BootstrapModelMapper.ToDocumentExcerpt(x.Document, workspacePaths))
             .ToArray();
 
-        var selection = resultSelector.Select(
+        var selection = contextBudgetAllocator.Allocate(
             rankedContexts,
             rankedDocuments,
             request.MaxTokens,
-            deduplicatedContexts.ToDictionary(x => x.Context.Id, x => x.Score),
-            deduplicatedDocuments.ToDictionary(x => x.Document.Id, x => x.Score));
+            composed.Contexts.ToDictionary(x => x.Context.Id, x => x.Score),
+            composed.Documents.ToDictionary(x => x.Document.Id, x => x.Score));
         return new BootstrapResult(
             scopeResolution,
             selection.Contexts,
             selection.Documents,
-            new RetrievalDiagnostics(
-                retrievalDegraded,
-                semanticUsed,
-                semanticUsed ? "hybrid" : retrievalDegraded ? "lexical-degraded" : "lexical"),
+            composed.Diagnostics,
             selection.EstimatedTokens);
     }
 

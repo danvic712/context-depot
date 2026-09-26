@@ -79,6 +79,7 @@ try
     builder.Services.AddContextDepotInfrastructure(builder.Configuration);
     builder.Services.AddHostedService<IndexRepairHostedService>();
     builder.Services.AddHostedService<DatabaseApplicationSettingsReloadService>();
+    builder.Services.AddHostedService<InferenceRuntimeReloadService>();
 
     builder.Services
         .AddMcpServer(options => options.ServerInstructions = ContextDepotMCPInstructions.Text)

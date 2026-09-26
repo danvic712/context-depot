@@ -12,11 +12,11 @@ public static class EmbeddingProviderServiceCollectionExtensions
     public static IServiceCollection AddContextDepotEmbeddingProvider(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
-        services.TryAddSingleton<IEmbeddingGenerator<string, Embedding<float>>>(serviceProvider =>
+        services.TryAddScoped<IEmbeddingGenerator<string, Embedding<float>>>(serviceProvider =>
         {
             var embedding = serviceProvider
-                .GetRequiredService<InferenceRuntimeSnapshotAccessor>()
-                .Current
+                .GetRequiredService<ScopedInferenceRuntimeSnapshot>()
+                .Value
                 .Embedding;
             if (embedding is null)
             {

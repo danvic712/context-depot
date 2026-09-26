@@ -13,7 +13,7 @@ internal sealed class ScopeCandidateRanker
     {
         var contentTokens = BootstrapQueryTokenizer.Tokenize(
             $"{workspacePath} {context.Title} {context.Content} {context.TagsJson} {context.MetadataJson}");
-        var score = tokens.Count(token => contentTokens.Contains(token));
+        var score = BootstrapQueryTokenizer.CountMatches(tokens, contentTokens);
         if (!string.IsNullOrWhiteSpace(context.Key) && query.Contains(context.Key, StringComparison.OrdinalIgnoreCase))
         {
             score += 100;
@@ -33,8 +33,9 @@ internal sealed class ScopeCandidateRanker
         string query,
         IReadOnlySet<string> tokens)
     {
-        var score = tokens.Count(token => BootstrapQueryTokenizer.Tokenize(
-            $"{workspacePath} {chunk.Path} {chunk.Title} {chunk.HeadingPath} {chunk.Content}").Contains(token));
+        var contentTokens = BootstrapQueryTokenizer.Tokenize(
+            $"{workspacePath} {chunk.Path} {chunk.Title} {chunk.HeadingPath} {chunk.Content}");
+        var score = BootstrapQueryTokenizer.CountMatches(tokens, contentTokens);
         if (!string.IsNullOrWhiteSpace(chunk.Path) && query.Contains(chunk.Path, StringComparison.OrdinalIgnoreCase))
         {
             score += 30;

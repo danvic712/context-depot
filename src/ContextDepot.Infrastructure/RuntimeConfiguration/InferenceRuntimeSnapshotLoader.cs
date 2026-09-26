@@ -1,19 +1,15 @@
 using ContextDepot.Application.DataProtection;
 using ContextDepot.Application.DataProtection.Enums;
 using ContextDepot.Domain.Inferences;
-using ContextDepot.Domain.Inferences.Enums;
 using ContextDepot.Infrastructure.Embeddings;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 
 namespace ContextDepot.Infrastructure.RuntimeConfiguration;
 
 public sealed class InferenceRuntimeSnapshotLoader(
     IServiceScopeFactory scopeFactory,
-    ISecretProtector apiKeyProtector,
-    InferenceRuntimeSnapshotAccessor snapshotAccessor,
-    ILogger<InferenceRuntimeSnapshotLoader> logger)
+    ISecretProtector apiKeyProtector)
 {
     public async Task<InferenceRuntimeSnapshot> LoadAsync(CancellationToken cancellationToken)
     {
@@ -30,24 +26,7 @@ public sealed class InferenceRuntimeSnapshotLoader(
             throw new InvalidOperationException("The database must contain exactly one embedding inference route.");
         }
 
-        var snapshot = BuildSnapshot(embeddingRoutes[0]);
-        snapshotAccessor.Publish(snapshot);
-        if (snapshot.State == InferenceRuntimeState.Ready)
-        {
-            logger.LogInformation("Loaded the configured embedding inference route from the database.");
-        }
-        else if (snapshot.State == InferenceRuntimeState.Unconfigured)
-        {
-            logger.LogWarning("No embedding inference route is configured; semantic retrieval is disabled.");
-        }
-        else
-        {
-            logger.LogWarning(
-                "The embedding inference route is unavailable ({DegradedReason}); semantic retrieval is disabled.",
-                snapshot.DegradedReason);
-        }
-
-        return snapshot;
+        return BuildSnapshot(embeddingRoutes[0]);
     }
 
     private InferenceRuntimeSnapshot BuildSnapshot(InferenceRoute route)

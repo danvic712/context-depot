@@ -31,7 +31,7 @@ public static class EmbeddingProfileFingerprint
             endpoint.AbsoluteUri,
             Normalize(modelName),
             dimensions.ToString(CultureInfo.InvariantCulture));
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonicalProfile))).ToLowerInvariant();
+        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(canonicalProfile)));
     }
 
     private static string Normalize(string value) => value.Trim().Normalize(NormalizationForm.FormC);
