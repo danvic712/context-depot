@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.VisualStudio.JavaScript.Sdk/1.0.5277448">
+  <PropertyGroup>
+    <ShouldRunNpmInstall>false</ShouldRunNpmInstall>
+    <ShouldRunNpmAudit>false</ShouldRunNpmAudit>
+    <ShouldRunBuildScript>false</ShouldRunBuildScript>
+    <PackageJsonDirectory>$(MSBuildProjectDirectory)/</PackageJsonDirectory>
+    <StartupCommand>bun run --bun dev</StartupCommand>
+    <BuildCommand>bun run --bun build</BuildCommand>
+    <TestCommand>bun run test</TestCommand>
+    <PublishCommand>bun run --bun build</PublishCommand>
+    <BuildOutputFolder>$(MSBuildProjectDirectory)/../ContextDepot/wwwroot</BuildOutputFolder>
+  </PropertyGroup>
+</Project>

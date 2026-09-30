@@ -1,3 +1,12 @@
+FROM oven/bun:1.4.2 AS frontend-build
+
+WORKDIR /workspace/src/ContextDepot.Web
+COPY src/ContextDepot.Web/package.json src/ContextDepot.Web/bun.lock ./
+RUN bun install --frozen-lockfile
+COPY src/ContextDepot.Web/ ./
+COPY locales/ /workspace/locales/
+RUN bun run --bun build
+
 FROM mcr.microsoft.com/dotnet/sdk:10.0.100-alpine3.22 AS build
 
 WORKDIR /workspace
@@ -9,10 +18,11 @@ COPY src/ContextDepot.Application/ContextDepot.Application.csproj src/ContextDep
 COPY src/ContextDepot.Domain/ContextDepot.Domain.csproj src/ContextDepot.Domain/
 COPY src/ContextDepot.Infrastructure/ContextDepot.Infrastructure.csproj src/ContextDepot.Infrastructure/
 
-RUN dotnet restore src/ContextDepot/ContextDepot.csproj
+RUN dotnet restore src/ContextDepot/ContextDepot.csproj -p:Configuration=Release
 
 COPY src/ ./src/
 COPY locales/ ./locales/
+COPY --from=frontend-build /workspace/src/ContextDepot/wwwroot ./src/ContextDepot/wwwroot
 
 RUN dotnet publish src/ContextDepot/ContextDepot.csproj \
     -c Release \

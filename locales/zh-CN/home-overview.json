@@ -1,0 +1,12 @@
+{
+  "hero": "让知识安放于一处。",
+  "heroSub": "找到需要的上下文，接着上次的思路继续。",
+  "yourSpaces": "你的空间",
+  "recent": "最近的知识",
+  "spacesMissing": "安全的 Web 连接建立后，你的空间会显示在这里。",
+  "spacesWhy": "空间列表需要执行 Depot 和访问授权检查的 Web API。这里不会展示示例空间。",
+  "recentMissing": "最近知识需要 Web 读取接口。",
+  "recentWhy": "现有知识未受影响。可信接口可用后，这里将展示当前记录。",
+  "story": "让重要的知识各得其所",
+  "storyText": "ContextDepot 为 Agent 保存结构化上下文和规范文档。这个 Web 界面正在接入同一可信知识来源。"
+}

@@ -1,0 +1,85 @@
+.topbar {
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 clamp(24px, 4.5vw, 74px);
+  gap: 24px;
+}
+
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.brand-lockup .brand-mark {
+  transform: scale(1.12);
+}
+
+.brand-lockup strong {
+  display: block;
+  font-size: 18px;
+  letter-spacing: -0.03em;
+}
+
+.brand-lockup small {
+  display: block;
+  color: var(--muted);
+  margin-top: 3px;
+  font-size: 12px;
+}
+
+.top-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.top-controls [data-slot="button"] {
+  min-width: 100px;
+}
+
+@media (max-width: 900px) {
+  .topbar {
+    height: 82px;
+  }
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    height: auto;
+    min-height: 76px;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 14px 20px;
+  }
+  .brand-lockup {
+    gap: 9px;
+  }
+  .brand-lockup .brand-mark {
+    transform: scale(0.85);
+  }
+  .brand-lockup strong {
+    font-size: 15px;
+  }
+  .brand-lockup small {
+    font-size: 10px;
+    max-width: 160px;
+  }
+  .top-controls [data-slot="button"] {
+    min-width: 70px;
+  }
+}
+
+.preference-menu {
+  max-width: min(280px, calc(100vw - 24px));
+}
+.preference-scope {
+  max-width: 250px;
+  margin: 0;
+  padding: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}

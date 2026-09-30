@@ -1,0 +1,9 @@
+.spaces .spaces-content {
+  margin-top: 16px;
+  max-width: 950px;
+}
+
+.spaces .spaces-content .notice {
+  min-height: 210px;
+  align-items: center;
+}

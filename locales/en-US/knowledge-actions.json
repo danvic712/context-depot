@@ -1,0 +1,23 @@
+{
+  "sampleDetail": "SAMPLE DETAIL",
+  "correction": "Preview correction",
+  "archive": "Preview archive",
+  "edit": "Preview edit",
+  "close": "Close preview",
+  "draft": "Your draft",
+  "reviewCorrection": "Correction review",
+  "correctionWhy": "A real correction would preserve the previous Context version and create a new current version. Saving requires an authorized Web API.",
+  "archiveWhy": "Archiving this item would remove it from current knowledge results while preserving its history. This prototype cannot archive data.",
+  "saveUnavailable": "Saving requires Web API",
+  "simulateConflict": "Simulate hash conflict",
+  "conflictTitle": "Your draft is preserved",
+  "conflictWhy": "The document changed since it was opened. A real update must send expectedContentHash and never overwrite the latest content silently.",
+  "copyDraft": "Copy draft",
+  "copied": "Draft copied",
+  "copyFailed": "Could not copy draft",
+  "latest": "Read latest version",
+  "latestWhy": "Latest sample content is shown below. Your draft remains in the editor.",
+  "discardDraft": "Discard changes",
+  "discardWhy": "Replace your draft with the original content?",
+  "archiveUnavailable": "Archiving requires Web API"
+}

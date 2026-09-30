@@ -1,0 +1,21 @@
+.search-box {
+  max-width: 880px;
+}
+
+.search-input-group {
+  min-height: 62px;
+}
+
+.search-input-group [data-slot="input-group-control"] {
+  min-width: 0;
+}
+
+.search-input-group [data-slot="input-group-addon"] svg {
+  color: var(--primary);
+}
+
+@media (max-width: 640px) {
+  .search-input-group {
+    min-height: 54px;
+  }
+}

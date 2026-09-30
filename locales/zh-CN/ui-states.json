@@ -1,0 +1,23 @@
+{
+  "preview": "预览示例数据",
+  "previewOff": "退出预览",
+  "sampleHint": "原型使用示例内容，尚未接入服务端数据或写入操作。",
+  "previewState": "预览状态",
+  "success": "示例内容",
+  "loading": "加载中",
+  "empty": "空状态",
+  "error": "错误",
+  "permission": "权限不足",
+  "degraded": "检索降级",
+  "retry": "重试",
+  "emptyWhy": "此示例状态中没有知识。",
+  "errorWhy": "示例请求失败；重试会恢复示例结果。",
+  "permissionWhy": "此示例密钥无权读取该区域。",
+  "degradedWhy": "此示例状态下语义检索不可用，关键词结果仍可阅读。",
+  "pageLoadError": "页面无法加载",
+  "pageLoadErrorWhy": "请刷新页面重试。现有知识未受影响。",
+  "reload": "刷新页面",
+  "notifications": "操作通知",
+  "languageLoadError": "无法加载所选语言，已保留当前语言。请重试。",
+  "dismissNotification": "关闭通知"
+}

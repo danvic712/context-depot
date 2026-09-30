@@ -31,6 +31,19 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Validate and build frontend
+        working-directory: src/ContextDepot.Web
+        run: |
+          bun install --frozen-lockfile
+          bun run lint
+          bun run test
+          bun run --bun build
+
       - name: Cache NuGet packages
         uses: actions/cache@v4
         with:
@@ -40,10 +53,17 @@ jobs:
             nuget-${{ runner.os }}-
 
       - name: Restore .NET dependencies
-        run: dotnet restore ContextDepot.slnx
+        run: dotnet restore ContextDepot.slnx -p:Configuration=Release
 
       - name: Build solution
         run: dotnet build ContextDepot.slnx --configuration Release --no-restore
 
       - name: Run tests
         run: dotnet test ContextDepot.slnx --configuration Release --no-build --no-restore
+
+      - name: Verify SPA publish output
+        run: |
+          dotnet publish src/ContextDepot/ContextDepot.csproj -c Release --no-build --no-restore -o artifacts/publish
+          test -f artifacts/publish/wwwroot/index.html
+          test -d artifacts/publish/wwwroot/assets
+          test ! -f artifacts/publish/Microsoft.AspNetCore.SpaProxy.dll

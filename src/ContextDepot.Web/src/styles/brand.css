@@ -1,0 +1,32 @@
+.brand-mark {
+  display: inline-flex;
+  width: 28px;
+  height: 30px;
+  position: relative;
+  flex: none;
+}
+
+.brand-mark i {
+  position: absolute;
+  width: 24px;
+  height: 10px;
+  left: 2px;
+  border: 5px solid var(--primary);
+  border-top: 0;
+  transform: rotate(-28deg) skew(20deg);
+  border-radius: 1px;
+}
+
+.brand-mark i:nth-child(1) {
+  top: 0;
+}
+
+.brand-mark i:nth-child(2) {
+  top: 8px;
+  opacity: 0.82;
+}
+
+.brand-mark i:nth-child(3) {
+  top: 16px;
+  opacity: 0.62;
+}

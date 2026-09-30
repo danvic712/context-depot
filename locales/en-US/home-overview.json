@@ -1,0 +1,12 @@
+{
+  "hero": "Your knowledge, in one calm place.",
+  "heroSub": "Find the context you need and pick up where you left off.",
+  "yourSpaces": "Your spaces",
+  "recent": "Recent knowledge",
+  "spacesMissing": "Spaces will appear here when a secure Web connection is available.",
+  "spacesWhy": "A workspace list needs a Web API that applies your Depot and access grants. No sample spaces are shown.",
+  "recentMissing": "Recent knowledge needs a Web read API.",
+  "recentWhy": "Your saved knowledge is not changed. This page will show current records when the trusted API is available.",
+  "story": "A thoughtful place for what matters",
+  "storyText": "ContextDepot keeps structured context and canonical documents together for your agents. This Web interface is being connected to the same trusted knowledge source."
+}

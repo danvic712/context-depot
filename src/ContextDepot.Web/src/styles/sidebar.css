@@ -1,0 +1,120 @@
+.rail {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--navigation);
+  border-right: 1px solid var(--border);
+  padding: 22px 12px 18px;
+  z-index: 5;
+}
+
+.rail-brand {
+  height: 56px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 18px;
+}
+
+.rail-links {
+  display: grid;
+  gap: 10px;
+}
+
+.rail-bottom {
+  margin-top: auto;
+  display: grid;
+  gap: 20px;
+}
+
+.rail-link {
+  border: 0;
+  background: transparent;
+  color: var(--foreground);
+  min-height: 72px;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 3px;
+  font-size: 11px;
+  text-decoration: none;
+  transition: background 0.18s ease;
+}
+
+.rail-link:hover:not(.disabled),
+.rail-link.selected {
+  background: var(--selection);
+}
+
+.rail-link.selected {
+  font-weight: 700;
+}
+
+.rail-link.disabled {
+  opacity: 0.44;
+  cursor: not-allowed;
+}
+
+.rail-status {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  display: inline-block;
+  border: 1px solid var(--muted);
+  border-radius: 50%;
+  margin-right: 5px;
+}
+
+@media (max-width: 640px) {
+  .rail {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    width: 100%;
+    height: 64px;
+    padding: 5px 7px;
+    flex-direction: row;
+    justify-content: center;
+    border-right: 0;
+    border-top: 1px solid var(--border);
+  }
+  .rail-brand,
+  .rail-status {
+    display: none;
+  }
+  .rail-links {
+    display: flex;
+    flex: 1;
+    justify-content: space-around;
+    gap: 2px;
+  }
+  .rail-bottom {
+    display: flex;
+    margin: 0;
+    gap: 0;
+  }
+  .rail-link {
+    min-width: 61px;
+    min-height: 54px;
+    font-size: 10px;
+    gap: 3px;
+  }
+  .rail-link svg {
+    width: 20px;
+    height: 20px;
+  }
+}

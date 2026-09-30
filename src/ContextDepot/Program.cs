@@ -1,8 +1,10 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ContextDepot;
 using ContextDepot.Application;
 using ContextDepot.Application.DataProtection;
 using ContextDepot.BackgroundServices;
+using ContextDepot.Extensions;
 using ContextDepot.Infrastructure;
 using ContextDepot.Infrastructure.Embeddings;
 using ContextDepot.HealthChecks;
@@ -96,12 +98,15 @@ try
         .InitializeAsync(CancellationToken.None);
 
     app.UseMiddleware<DepotAccessKeyAuthenticationMiddleware>();
+    app.UseDefaultFiles();
+    app.UseStaticFiles();
     app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
     app.MapHealthChecks("/readyz", new HealthCheckOptions
     {
         ResponseWriter = ReadinessResponseWriter.WriteAsync
     });
     app.MapMcp("/mcp");
+    app.MapContextDepot();
 
     await app.RunAsync();
 }

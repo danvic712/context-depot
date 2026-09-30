@@ -1,0 +1,303 @@
+import { toast } from "sonner";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ScrollRestoration,
+  Outlet,
+  useMatches,
+  useNavigation,
+  parsePath,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+  type NavigateOptions,
+} from "react-router";
+import { sampleKnowledge } from "./features/knowledge/sample-data";
+import { useTranslation } from "react-i18next";
+import { useTheme } from "next-themes";
+import { changeLanguage, type Lang } from "@/lib/i18n";
+import { Sidebar } from "./components/layout/Sidebar";
+import { Header } from "./components/layout/Header";
+import { AppSelect } from "./components/ui/AppSelect";
+import { Button } from "./components/ui/button";
+import { RouteLoading } from "./components/feedback/RouteFeedback";
+import type { AppContext, PageHandle } from "./hooks/use-app-context";
+import type { PreviewState } from "./components/feedback/StatePreview";
+import { normalizeKnowledgeParams } from "./features/knowledge/query-params";
+import {
+  load,
+  save,
+  type Theme,
+} from "./features/settings/browser-preferences";
+
+export default function App() {
+  const { t, i18n } = useTranslation();
+  const { setTheme: applyTheme } = useTheme();
+  const location = useLocation();
+  const routerNavigate = useNavigate();
+  const [rawParams, setParams] = useSearchParams();
+  const params = useMemo(
+    () => normalizeKnowledgeParams(rawParams),
+    [rawParams],
+  );
+  const matched = useMatches().at(-1);
+  const handle = (matched?.handle ?? {
+    page: "home",
+    title: "home",
+  }) as PageHandle;
+  const page = handle.page;
+  const itemId = matched?.params.knowledgeId ?? matched?.params.spaceId;
+  const navigation = useNavigation();
+  useEffect(() => {
+    if (params.toString() !== rawParams.toString()) {
+      setParams(params, {
+        replace: true,
+        state: location.state,
+        preventScrollReset: true,
+      });
+    }
+  }, [params, rawParams, setParams, location.state]);
+  const [theme, setTheme] = useState<Theme | null>(() =>
+    load("contextdepot.theme", ["system", "light", "dark"]),
+  );
+  const [lang, setLang] = useState<Lang | null>(() => {
+    const saved = load("contextdepot.language", ["en", "zh"]);
+    return saved === null ? null : i18n.resolvedLanguage === "zh" ? "zh" : "en";
+  });
+  const preview = params.get("preview") === "1";
+  const previewState = (
+    ["loading", "empty", "error", "permission", "degraded"].includes(
+      params.get("state") ?? "",
+    )
+      ? params.get("state")
+      : "success"
+  ) as PreviewState;
+  const activeLang: Lang = i18n.resolvedLanguage === "zh" ? "zh" : "en";
+  const q = params.get("q") ?? "";
+  const selectedKnowledge = sampleKnowledge.find(
+    (item) =>
+      item.id === itemId &&
+      (page === "context" ? item.type === "context" : item.type === "document"),
+  );
+  const previewPath = useCallback(
+    (path: string) => {
+      const next = parsePath(path);
+      const searchParams = new URLSearchParams(next.search);
+      if (preview) searchParams.set("preview", "1");
+      return { ...next, search: searchParams.size ? `?${searchParams}` : "" };
+    },
+    [preview],
+  );
+  const navigate = useCallback(
+    (path: string, options?: NavigateOptions) => {
+      void routerNavigate(previewPath(path), options);
+    },
+    [routerNavigate, previewPath],
+  );
+  function backFromDetail() {
+    const state: unknown = location.state;
+    if (
+      state &&
+      typeof state === "object" &&
+      "from" in state &&
+      typeof state.from === "string" &&
+      state.from.startsWith("/") &&
+      !state.from.startsWith("//")
+    ) {
+      void routerNavigate(-1);
+    } else {
+      navigate(
+        selectedKnowledge
+          ? `/spaces/${selectedKnowledge.workspaceId}`
+          : "/spaces",
+      );
+    }
+  }
+  function setSearchFilter(key: "type" | "kind" | "workspace", value: string) {
+    const next = new URLSearchParams();
+    if (q) next.set("q", q);
+    if (preview) next.set("preview", "1");
+    for (const item of ["type", "kind", "workspace"] as const) {
+      const current = item === key ? value : params.get(item);
+      if (current && current !== "all") next.set(item, current);
+    }
+    if (key === "type" && value !== "contexts") next.delete("kind");
+    if (key === "kind" && value !== "all") next.set("type", "contexts");
+    setParams(next, { state: location.state, preventScrollReset: true });
+  }
+  function togglePreview() {
+    const nextParams = new URLSearchParams(params);
+    if (preview) {
+      nextParams.delete("preview");
+      nextParams.delete("state");
+    } else nextParams.set("preview", "1");
+    setParams(nextParams, {
+      replace: true,
+      state: location.state,
+      preventScrollReset: true,
+    });
+  }
+  function setPreviewState(value: PreviewState) {
+    const nextParams = new URLSearchParams(params);
+    if (value === "success") nextParams.delete("state");
+    else nextParams.set("state", value);
+    setParams(nextParams, {
+      replace: true,
+      state: location.state,
+      preventScrollReset: true,
+    });
+  }
+  function search(query: string) {
+    const next = new URLSearchParams();
+    if (query) next.set("q", query);
+    if (page === "search")
+      for (const key of ["type", "kind", "workspace"]) {
+        const value = params.get(key);
+        if (value) next.set(key, value);
+      }
+    navigate(`/search${next.size ? `?${next.toString()}` : ""}`);
+  }
+  function changeTheme(value: Theme | null) {
+    setTheme(value);
+    applyTheme(value ?? "system");
+    save("contextdepot.theme", value);
+  }
+  function changeLang(value: Lang | null) {
+    void changeLanguage(value ?? "en")
+      .then((resolved) => {
+        if (resolved === null) return;
+        const preference = value === null ? null : resolved;
+        setLang(preference);
+        save("contextdepot.language", preference);
+      })
+      .catch(() => {
+        toast.error(t("languageLoadError"));
+      });
+  }
+  useEffect(() => {
+    const syncPreference = (event: StorageEvent) => {
+      if (event.key === "contextdepot.theme" || event.key === null) {
+        setTheme(
+          load<Theme>("contextdepot.theme", ["system", "light", "dark"]),
+        );
+      }
+    };
+    addEventListener("storage", syncPreference);
+    return () => removeEventListener("storage", syncPreference);
+  }, []);
+  useEffect(() => {
+    document.documentElement.lang = activeLang === "zh" ? "zh-CN" : "en";
+    document.title = `ContextDepot · ${t(handle.title)}`;
+  }, [activeLang, handle.title, t]);
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        navigate("/search");
+        requestAnimationFrame(() =>
+          document.getElementById("knowledge-search")?.focus(),
+        );
+      }
+    };
+    addEventListener("keydown", key);
+    return () => removeEventListener("keydown", key);
+  }, [navigate]);
+  const filteredSamples = sampleKnowledge.filter((item) => {
+    if (
+      q &&
+      !`${item.title} ${item.summary} ${item.kind} ${item.workspace}`
+        .toLowerCase()
+        .includes(q.toLowerCase())
+    )
+      return false;
+    if (params.get("type") === "contexts" && item.type !== "context")
+      return false;
+    if (params.get("type") === "documents" && item.type !== "document")
+      return false;
+    if (
+      params.get("kind") &&
+      params.get("kind") !== "all" &&
+      item.kind.toLowerCase() !== params.get("kind")
+    )
+      return false;
+    if (
+      params.get("workspace") &&
+      params.get("workspace") !== "all" &&
+      item.workspaceId !== params.get("workspace")
+    )
+      return false;
+    return true;
+  });
+  const context: AppContext = {
+    preview,
+    state: previewState,
+    onRetry: () => setPreviewState("success"),
+    query: q,
+    params,
+    results: filteredSamples,
+    onSearch: search,
+    onFilter: setSearchFilter,
+    navigate,
+    linkTo: previewPath,
+    selectedId: itemId ?? "",
+    view: params.get("view") ?? "all",
+    item: selectedKnowledge,
+    onBack: backFromDetail,
+    theme,
+    language: lang,
+    onTheme: changeTheme,
+    onLanguage: changeLang,
+  };
+  return (
+    <div className="shell">
+      <ScrollRestoration />
+      <Sidebar linkTo={previewPath} />
+      <div className="frame">
+        <Header
+          theme={theme}
+          lang={lang}
+          onTheme={changeTheme}
+          onLanguage={changeLang}
+        />
+        <div className={`preview-control ${preview ? "is-preview" : ""}`}>
+          <span>{preview ? t("sampleHint") : ""}</span>
+          {preview && handle.previewControls && (
+            <div className="preview-state-select">
+              <span>{t("previewState")}</span>
+              <AppSelect
+                label={t("previewState")}
+                value={previewState}
+                onChange={(value) => setPreviewState(value as PreviewState)}
+                options={(
+                  [
+                    "success",
+                    "loading",
+                    "empty",
+                    "error",
+                    "permission",
+                    "degraded",
+                  ] as const
+                ).map((state) => ({ value: state, label: t(state) }))}
+              />
+            </div>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={togglePreview}
+          >
+            {preview ? t("previewOff") : t("preview")}
+          </Button>
+        </div>
+        <main className={`page ${page}`}>
+          {navigation.state === "loading" && <RouteLoading />}
+          <Outlet key={itemId} context={context} />
+        </main>
+        <footer>
+          <span>ContextDepot</span>
+          <span>Capture / Organize / Understand</span>
+        </footer>
+      </div>
+    </div>
+  );
+}

@@ -7,6 +7,9 @@ Dockerfile.*
 **/bin/
 **/obj/
 **/publish/
+**/node_modules/
+**/dist/
+src/ContextDepot/wwwroot/
 
 tests/
 docs/

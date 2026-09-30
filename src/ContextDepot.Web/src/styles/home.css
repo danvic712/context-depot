@@ -1,0 +1,105 @@
+.home {
+  padding-top: 35px;
+}
+
+.home .hero {
+  padding: 22px 0 34px;
+  max-width: 920px;
+}
+
+.home .hero > p {
+  color: var(--muted);
+  font-size: clamp(16px, 1.6vw, 20px);
+  line-height: 1.5;
+  margin-bottom: 26px;
+}
+
+.home .home-section {
+  margin-top: 32px;
+}
+
+.home .home-section h2 {
+  font-size: 19px;
+  letter-spacing: -0.025em;
+  margin: 0 0 16px;
+}
+
+.home .section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.home .story p {
+  color: var(--muted);
+  line-height: 1.55;
+  margin: 0;
+  font-size: 14px;
+}
+
+.home .home-bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(270px, 0.8fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.home .home-bottom .home-section {
+  min-width: 0;
+}
+
+.home .story {
+  margin-top: 32px;
+  min-height: 214px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px 26px;
+  background: linear-gradient(130deg, var(--surface), var(--selection));
+}
+
+.home .story .brand-mark {
+  transform: scale(0.7);
+  transform-origin: left top;
+  height: 26px;
+}
+
+.home .story h2 {
+  font:
+    500 23px/1.15 "Inter",
+    "Noto Sans SC",
+    sans-serif;
+  margin: 7px 0 12px;
+}
+
+.home .story-line {
+  width: 50px;
+  border-top: 1px solid var(--primary);
+  margin: 22px 0 12px;
+}
+
+.home .story small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+@media (max-width: 900px) {
+  .home .home-bottom {
+    grid-template-columns: 1fr;
+  }
+  .home .home-bottom .story {
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .home .hero {
+    padding: 18px 0 10px;
+  }
+  .home .hero > p {
+    font-size: 16px;
+  }
+  .home .home-section {
+    margin-top: 26px;
+  }
+}

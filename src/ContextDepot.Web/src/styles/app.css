@@ -1,0 +1,216 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--canvas);
+  --color-foreground: var(--foreground);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--elevated);
+  --color-popover-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--selection);
+  --color-secondary-foreground: var(--foreground);
+  --color-muted: var(--subtle);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--selection);
+  --color-accent-foreground: var(--foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--focus);
+}
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+:root {
+  --radius: 0.625rem;
+}
+:root {
+  font-family: "Inter", "Noto Sans SC", sans-serif;
+  color: var(--foreground);
+  background: var(--canvas);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --canvas: #f3f5f2;
+  --navigation: #ecefeb;
+  --surface: #fafbf9;
+  --elevated: #fff;
+  --foreground: #18201d;
+  --muted: #5e6862;
+  --primary: #477565;
+  --primary-foreground: #fff;
+  --destructive: #b44343;
+  --selection: #e1eae4;
+  --border: #dde2de;
+  --subtle: #f0f3ef;
+  --focus: #326d58;
+}
+:root[data-theme="dark"] {
+  --canvas: #151917;
+  --navigation: #181d1b;
+  --surface: #1b201e;
+  --elevated: #222825;
+  --foreground: #e9eeeb;
+  --muted: #98a19c;
+  --primary: #81a897;
+  --primary-foreground: #102019;
+  --destructive: #e47777;
+  --selection: #29362f;
+  --border: #303733;
+  --subtle: #212a25;
+  --focus: #a1c7b4;
+  color-scheme: dark;
+}
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    min-width: 320px;
+  }
+  button {
+    cursor: pointer;
+  }
+  a {
+    color: inherit;
+  }
+  :focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 3px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  background: var(--canvas);
+}
+
+.frame {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.page {
+  width: min(100%, 1600px);
+  margin: 0 auto;
+  padding: 24px clamp(24px, 4.5vw, 74px) 80px;
+  flex: 1;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  font:
+    500 clamp(40px, 4vw, 62px)/1.07 "Inter",
+    "Noto Sans SC",
+    sans-serif;
+  letter-spacing: -0.025em;
+  margin: 15px 0 13px;
+  max-width: 900px;
+}
+
+footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px clamp(24px, 4.5vw, 74px) 26px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+@media (max-width: 640px) {
+  .shell {
+    display: block;
+    padding-bottom: 67px;
+  }
+  .page {
+    padding: 14px 20px 50px;
+  }
+  footer {
+    padding: 10px 20px 20px;
+  }
+  footer span:last-child {
+    display: none;
+  }
+}
+
+.preview-control {
+  min-height: 33px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  padding: 0 clamp(24px, 4.5vw, 74px);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.preview-control.is-preview {
+  background: var(--selection);
+  justify-content: space-between;
+  color: var(--foreground);
+}
+
+@media (max-width: 640px) {
+  .preview-control {
+    padding: 5px 20px;
+    gap: 8px;
+  }
+  .preview-control.is-preview {
+    align-items: flex-start;
+  }
+}
+
+.preview-state-select {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.preview-state-select [data-slot="select-trigger"] {
+  min-width: 120px;
+}
+
+@media (max-width: 640px) {
+  .preview-control.is-preview {
+    flex-wrap: wrap;
+  }
+  .preview-control > span {
+    width: 100%;
+  }
+}

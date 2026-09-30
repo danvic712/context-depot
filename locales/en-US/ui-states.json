@@ -1,0 +1,23 @@
+{
+  "preview": "Preview sample data",
+  "previewOff": "Exit preview",
+  "sampleHint": "Prototype with sample content. No server data or write actions are connected.",
+  "previewState": "Preview state",
+  "success": "Sample content",
+  "loading": "Loading",
+  "empty": "Empty",
+  "error": "Error",
+  "permission": "Permission",
+  "degraded": "Degraded",
+  "retry": "Retry",
+  "emptyWhy": "There is no knowledge in this sample state.",
+  "errorWhy": "The sample request failed. Retry restores the sample results.",
+  "permissionWhy": "This sample key cannot read this area.",
+  "degradedWhy": "Semantic retrieval is unavailable in this sample state. Keyword results remain readable.",
+  "pageLoadError": "Unable to load this page",
+  "pageLoadErrorWhy": "Reload the page to try again. Your saved knowledge has not changed.",
+  "reload": "Reload page",
+  "notifications": "Notifications",
+  "languageLoadError": "Unable to load the selected language. Your current language is unchanged. Please try again.",
+  "dismissNotification": "Dismiss notification"
+}

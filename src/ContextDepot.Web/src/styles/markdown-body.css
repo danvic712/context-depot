@@ -1,0 +1,89 @@
+.markdown-body {
+  max-width: 850px;
+  min-width: 0;
+  border-top: 1px solid var(--border);
+  padding: 24px 0;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.markdown-body :is(h2, h3, h4, h5, h6) {
+  margin: 24px 0 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.markdown-body > :first-child {
+  margin-top: 0;
+}
+.markdown-body h2 {
+  font-size: 24px;
+}
+.markdown-body h3 {
+  font-size: 20px;
+}
+.markdown-body p {
+  margin-bottom: 16px;
+}
+.markdown-body :is(ul, ol) {
+  padding-left: 24px;
+  margin: 16px 0;
+}
+.markdown-body ul {
+  list-style: disc;
+}
+.markdown-body ol {
+  list-style: decimal;
+}
+.markdown-body li > :is(ul, ol) {
+  margin: 4px 0;
+}
+.markdown-body a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.markdown-body blockquote {
+  margin: 16px 0;
+  padding-left: 16px;
+  border-left: 3px solid var(--border);
+  color: var(--muted);
+}
+.markdown-body code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.9em;
+  background: var(--subtle);
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+.markdown-body pre {
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 16px;
+  margin: 16px 0;
+  border-radius: 8px;
+  background: var(--subtle);
+}
+.markdown-body pre code {
+  white-space: pre;
+  overflow-wrap: normal;
+  padding: 0;
+}
+.markdown-table {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 16px 0;
+}
+.markdown-body table {
+  border-collapse: collapse;
+}
+.markdown-body :is(th, td) {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  text-align: left;
+}
+.markdown-body input[type="checkbox"] {
+  margin-right: 8px;
+}
+.markdown-body hr {
+  margin: 24px 0;
+  border-color: var(--border);
+}

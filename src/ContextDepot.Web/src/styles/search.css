@@ -1,0 +1,27 @@
+.search .results h2 {
+  font-size: 19px;
+  letter-spacing: -0.025em;
+  margin: 0 0 16px;
+}
+
+.search .results {
+  margin-top: 40px;
+}
+
+.search .filters {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 18px 0 0;
+}
+
+.search .filters > [data-slot="field"] {
+  width: auto;
+}
+
+.search .results h2 small {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 400;
+}

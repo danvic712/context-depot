@@ -1,0 +1,11 @@
+{
+  "spacesTitle": "你的空间。",
+  "spacesSub": "浏览你有权访问的 Workspace。",
+  "allKnowledge": "全部知识",
+  "sampleSpace": "示例空间",
+  "newSpace": "新建空间",
+  "newSpaceUnavailable": "创建需要 Web API 和相应权限。",
+  "noKnowledge": "当前视图中没有知识。",
+  "changeView": "选择其他视图，浏览这个空间的知识。",
+  "spacesKicker": "知识 / 空间"
+}

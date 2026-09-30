@@ -84,6 +84,7 @@ Lexical / Semantic / Hybrid Retrieval
 
 | Endpoint | Description |
 | --- | --- |
+| `/` and frontend routes | Web prototype, served by the ASP.NET Core host |
 | `/mcp` | Stateless Streamable HTTP MCP endpoint |
 | `/healthz` | Process health check |
 | `/readyz` | Dependency and retrieval readiness check |
@@ -97,12 +98,32 @@ X-ContextDepot-Key: cdk_<public-part>.<secret-part>
 ## Requirements
 
 - .NET 10
+- Bun 1.4.2 for frontend development and builds
 - PostgreSQL 17
 - pgvector
 - A writable Markdown storage location
 - An optional embedding provider for semantic retrieval
 
 Embedding is optional. When semantic retrieval is unavailable, ContextDepot continues to support lexical retrieval.
+
+## Web Development and Publishing
+
+Install frontend dependencies, then start the Host with its Web profile:
+
+```sh
+bun install --frozen-lockfile --cwd src/ContextDepot.Web
+dotnet run --project src/ContextDepot --launch-profile web
+```
+
+The Host requires its normal PostgreSQL and storage configuration. The Web profile starts Bun/Vite on port 5173 and redirects the browser from the Host on port 5289. The existing HTTP/HTTPS profiles continue to run the backend independently.
+
+Publish the frontend and Host together:
+
+```sh
+dotnet publish src/ContextDepot/ContextDepot.csproj -c Release -p:BuildFrontend=true -o artifacts/publish
+```
+
+Frontend assets are built into the Host's generated `wwwroot` directory and included in the publish output. Production only requires ASP.NET Core. The Docker build also builds and packages the frontend. The Web interface remains a clearly labeled prototype until authorized Web data and browser authentication APIs are available.
 
 ## Security Model
 
