@@ -43,6 +43,7 @@ export default function App() {
   const handle = (matched?.handle ?? {
     page: "home",
     title: "home",
+    navigation: "home",
   }) as PageHandle;
   const page = handle.page;
   const itemId = matched?.params.knowledgeId ?? matched?.params.spaceId;
@@ -289,9 +290,17 @@ export default function App() {
             {preview ? t("previewOff") : t("preview")}
           </Button>
         </div>
-        <main className={`page ${page}`}>
-          {navigation.state === "loading" && <RouteLoading />}
-          <Outlet key={itemId} context={context} />
+        <main
+          className={`page ${page}`}
+          aria-busy={navigation.state === "loading"}
+        >
+          {navigation.state === "loading" ? (
+            <RouteLoading />
+          ) : (
+            <div className="route-content" key={location.pathname}>
+              <Outlet key={itemId} context={context} />
+            </div>
+          )}
         </main>
         <footer>
           <span>ContextDepot</span>

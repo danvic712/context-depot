@@ -1,3 +1,4 @@
+import { AppLoading } from "./components/feedback/RouteFeedback";
 import { StrictMode } from "react";
 import { ThemeProvider } from "next-themes";
 import { createBrowserRouter } from "react-router";
@@ -12,6 +13,7 @@ import { load, type Theme } from "./features/settings/browser-preferences";
 const router = createBrowserRouter(appRoutes);
 
 const root = createRoot(document.getElementById("root")!);
+root.render(<AppLoading />);
 
 initializeI18n()
   .then(() => {

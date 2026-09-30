@@ -1,15 +1,24 @@
+import { HouseIcon, SearchIcon, FolderIcon, SettingsIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { NavLink, type To } from "react-router";
-import { Brand } from "../Brand";
 import {
-  HouseIcon,
-  SearchIcon,
-  FolderIcon,
-  ClockIcon,
-  SettingsIcon,
-} from "lucide-react";
+  Link,
+  useLocation,
+  useMatches,
+  useNavigation,
+  type To,
+} from "react-router";
+import type { NavigationItem, PageHandle } from "@/hooks/use-app-context";
 import { cn } from "@/lib/utils";
+import { Brand } from "../Brand";
+import { Skeleton } from "../ui/skeleton";
 import "@/styles/sidebar.css";
+
+const items = [
+  { item: "home", path: "/", Icon: HouseIcon },
+  { item: "search", path: "/search", Icon: SearchIcon },
+  { item: "spaces", path: "/spaces", Icon: FolderIcon },
+  { item: "settings", path: "/settings", Icon: SettingsIcon },
+] as const;
 
 interface Props {
   linkTo: (path: string) => To;
@@ -17,52 +26,81 @@ interface Props {
 
 export function Sidebar({ linkTo }: Props) {
   const { t } = useTranslation();
+  const handle = useMatches().at(-1)?.handle as PageHandle;
+  const { state } = useLocation();
+  const navigation = useNavigation();
+  let active: NavigationItem = handle.navigation;
+  if (
+    (handle.page === "context" || handle.page === "document") &&
+    (state?.navigation === "home" ||
+      state?.navigation === "search" ||
+      state?.navigation === "spaces")
+  ) {
+    active = state.navigation;
+  }
+
   return (
-    <aside className="rail" aria-label={t("primaryNavigation")}>
+    <aside className="rail">
+      <div className="rail-brand">
+        <Link
+          className="rail-brand-link"
+          to={linkTo("/")}
+          aria-label={`ContextDepot · ${t("home")}`}
+          title={t("home")}
+        >
+          <Brand />
+        </Link>
+      </div>
+      <nav className="rail-links" aria-label={t("primaryNavigation")}>
+        {items.map(({ item, path, Icon }) => {
+          const pending = navigation.location?.pathname === path;
+          return (
+            <Link
+              key={item}
+              to={linkTo(path)}
+              aria-current={active === item ? "page" : undefined}
+              className={cn(
+                "rail-link",
+                active === item && "selected",
+                pending && "pending",
+                item === "settings" && "rail-settings",
+              )}
+            >
+              <Icon size={22} aria-hidden="true" />
+              <span>{t(item)}</span>
+              {pending && (
+                <span className="sr-only" role="status">
+                  {t("loading")}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+      </nav>
+      <div className="rail-status">
+        <span className="status-dot" aria-hidden="true" />
+        {t("unknown")}
+      </div>
+    </aside>
+  );
+}
+
+export function SidebarSkeleton() {
+  return (
+    <aside className="rail" aria-hidden="true">
       <div className="rail-brand">
         <Brand />
       </div>
-      <nav className="rail-links">
-        {(
-          [
-            { item: "home", Icon: HouseIcon },
-            { item: "search", Icon: SearchIcon },
-            { item: "spaces", Icon: FolderIcon },
-          ] as const
-        ).map(({ item, Icon }) => (
-          <NavLink
+      <div className="rail-links">
+        {items.map(({ item }) => (
+          <div
             key={item}
-            to={linkTo(item === "home" ? "/" : `/${item}`)}
-            end={item === "home"}
-            className={({ isActive }) =>
-              cn("rail-link", isActive && "selected")
-            }
+            className={cn("rail-link", item === "settings" && "rail-settings")}
           >
-            <Icon size={22} aria-hidden="true" />
-            <span>{t(item)}</span>
-          </NavLink>
+            <Skeleton className="size-6" />
+            <Skeleton className="h-3 w-10" />
+          </div>
         ))}
-        <span
-          className="rail-link disabled"
-          title={t("timelineWhy")}
-          aria-disabled="true"
-        >
-          <ClockIcon size={22} aria-hidden="true" />
-          <span>{t("timeline")}</span>
-        </span>
-      </nav>
-      <div className="rail-bottom">
-        <NavLink
-          to={linkTo("/settings")}
-          className={({ isActive }) => cn("rail-link", isActive && "selected")}
-        >
-          <SettingsIcon size={22} aria-hidden="true" />
-          <span>{t("settings")}</span>
-        </NavLink>
-        <div className="rail-status">
-          <span className="status-dot" />
-          {t("unknown")}
-        </div>
       </div>
     </aside>
   );

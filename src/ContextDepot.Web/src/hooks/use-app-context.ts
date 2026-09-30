@@ -6,7 +6,10 @@ import type { Lang } from "@/lib/i18n";
 
 export type PageId =
   "home" | "search" | "spaces" | "space" | "context" | "document" | "settings";
+export type NavigationItem = "home" | "search" | "spaces" | "settings";
+
 export interface PageHandle {
+  navigation: NavigationItem;
   page: PageId;
   title: "home" | "search" | "spaces" | "settings";
   previewControls?: boolean;

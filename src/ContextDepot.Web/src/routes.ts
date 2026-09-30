@@ -1,6 +1,6 @@
 import type { RouteObject } from "react-router";
 import App from "./App";
-import { RouteError, RouteLoading } from "@/components/feedback/RouteFeedback";
+import { AppLoading, RouteError } from "@/components/feedback/RouteFeedback";
 import { RouteRedirect } from "@/components/layout/RouteRedirect";
 import type { PageHandle } from "@/hooks/use-app-context";
 
@@ -12,19 +12,29 @@ export const appRoutes: RouteObject[] = [
     path: "/",
     Component: App,
     ErrorBoundary: RouteError,
-    HydrateFallback: RouteLoading,
+    HydrateFallback: AppLoading,
     children: [
       {
         index: true,
         id: "home",
-        handle: { page: "home", title: "home", previewControls: true },
+        handle: {
+          page: "home",
+          title: "home",
+          navigation: "home",
+          previewControls: true,
+        },
         lazy: () =>
           import("./pages/home/Home").then(({ Home }) => ({ Component: Home })),
       },
       {
         path: "search",
         id: "search",
-        handle: { page: "search", title: "search", previewControls: true },
+        handle: {
+          page: "search",
+          title: "search",
+          navigation: "search",
+          previewControls: true,
+        },
         lazy: () =>
           import("./pages/search/Search").then(({ Search }) => ({
             Component: Search,
@@ -33,7 +43,12 @@ export const appRoutes: RouteObject[] = [
       {
         path: "spaces",
         id: "spaces",
-        handle: { page: "spaces", title: "spaces", previewControls: true },
+        handle: {
+          page: "spaces",
+          title: "spaces",
+          navigation: "spaces",
+          previewControls: true,
+        },
         lazy: () =>
           import("./pages/spaces/Spaces").then(({ Spaces }) => ({
             Component: Spaces,
@@ -42,7 +57,12 @@ export const appRoutes: RouteObject[] = [
       {
         path: "spaces/:spaceId",
         id: "space",
-        handle: { page: "space", title: "spaces", previewControls: true },
+        handle: {
+          page: "space",
+          title: "spaces",
+          navigation: "spaces",
+          previewControls: true,
+        },
         lazy: () =>
           import("./pages/space-detail/SpaceDetail").then(
             ({ SpaceDetail }) => ({ Component: SpaceDetail }),
@@ -51,7 +71,7 @@ export const appRoutes: RouteObject[] = [
       {
         path: "contexts/:knowledgeId",
         id: "context",
-        handle: { page: "context", title: "search" },
+        handle: { page: "context", title: "search", navigation: "search" },
         lazy: () =>
           import("./pages/context-detail/ContextDetail").then(
             ({ ContextDetail }) => ({ Component: ContextDetail }),
@@ -60,7 +80,7 @@ export const appRoutes: RouteObject[] = [
       {
         path: "documents/:knowledgeId",
         id: "document",
-        handle: { page: "document", title: "search" },
+        handle: { page: "document", title: "search", navigation: "search" },
         lazy: () =>
           import("./pages/document-reader/DocumentReader").then(
             ({ DocumentReader }) => ({ Component: DocumentReader }),
@@ -69,7 +89,7 @@ export const appRoutes: RouteObject[] = [
       {
         path: "settings",
         id: "settings",
-        handle: { page: "settings", title: "settings" },
+        handle: { page: "settings", title: "settings", navigation: "settings" },
         lazy: () =>
           import("./pages/settings/Settings").then(({ Settings }) => ({
             Component: Settings,
@@ -78,7 +98,7 @@ export const appRoutes: RouteObject[] = [
       {
         path: "*",
         id: "not-found",
-        handle: { page: "home", title: "home" },
+        handle: { page: "home", title: "home", navigation: "home" },
         Component: RouteRedirect,
       },
     ] satisfies PageRoute[],

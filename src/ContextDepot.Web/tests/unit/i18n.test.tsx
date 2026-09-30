@@ -13,7 +13,9 @@ import i18n, {
 async function readMessages(language: Lang): Promise<Messages> {
   const locale = language === "zh" ? "zh-CN" : "en-US";
   const directory = new URL(`../../../../locales/${locale}/`, import.meta.url);
-  const glob = new Glob("{navigation-and-actions,home-overview,knowledge-search,workspace-browser,knowledge-actions,application-settings,ui-states}.json");
+  const glob = new Glob(
+    "{navigation-and-actions,home-overview,knowledge-search,workspace-browser,knowledge-actions,application-settings,ui-states}.json",
+  );
   const messages = [];
   for await (const file of glob.scan({ cwd: directory.pathname })) {
     messages.push(await Bun.file(new URL(file, directory)).json());
@@ -38,7 +40,10 @@ function recordedLoader() {
 
 describe("UI translations", () => {
   test("English and Chinese provide the same translation keys", async () => {
-    const [en, zh] = await Promise.all([readMessages("en"), readMessages("zh")]);
+    const [en, zh] = await Promise.all([
+      readMessages("en"),
+      readMessages("zh"),
+    ]);
     expect(Object.keys(zh).sort()).toEqual(Object.keys(en).sort());
   });
 
@@ -58,7 +63,9 @@ describe("UI translations", () => {
     await changeLanguage("zh", loader);
     expect(renderToStaticMarkup(<NavigationLabel />)).toBe("<span>搜索</span>");
     await changeLanguage("en", loader);
-    expect(renderToStaticMarkup(<NavigationLabel />)).toBe("<span>Search</span>");
+    expect(renderToStaticMarkup(<NavigationLabel />)).toBe(
+      "<span>Search</span>",
+    );
     await changeLanguage("zh", loader);
     expect(languages).toEqual(["en", "zh"]);
   });
@@ -72,14 +79,22 @@ describe("UI translations", () => {
     });
     expect(languages).toEqual(["zh", "en"]);
     expect(i18n.resolvedLanguage).toBe("en");
-    expect(renderToStaticMarkup(<NavigationLabel />)).toBe("<span>Search</span>");
+    expect(renderToStaticMarkup(<NavigationLabel />)).toBe(
+      "<span>Search</span>",
+    );
   });
 
   test("a slower previous language selection cannot overwrite the latest one", async () => {
     await initializeI18n("en", readMessages);
     const zh = await readMessages("zh");
     let finish!: (messages: Messages) => void;
-    const older = changeLanguage("zh", () => new Promise((resolve) => { finish = resolve; }));
+    const older = changeLanguage(
+      "zh",
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
     expect(await changeLanguage("en", readMessages)).toBe("en");
     finish(zh);
     expect(await older).toBeNull();
@@ -88,7 +103,11 @@ describe("UI translations", () => {
 
   test("a failed request can be retried without losing the active language", async () => {
     await initializeI18n("zh", readMessages);
-    await expect(changeLanguage("en", async () => { throw new Error("Offline"); })).rejects.toThrow("Offline");
+    await expect(
+      changeLanguage("en", async () => {
+        throw new Error("Offline");
+      }),
+    ).rejects.toThrow("Offline");
     expect(i18n.resolvedLanguage).toBe("zh");
     expect(await changeLanguage("en", readMessages)).toBe("en");
   });

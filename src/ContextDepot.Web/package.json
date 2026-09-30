@@ -9,7 +9,9 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "bun test tests"
+    "test": "bun test tests",
+    "format": "prettier --write src tests package.json index.html",
+    "format:check": "prettier --check src tests package.json index.html"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -39,6 +41,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "babel-plugin-react-compiler": "^1.0.0",
     "oxlint": "^1.81.0",
+    "prettier": "3.9.9",
     "typescript": "~6.0.2",
     "vite": "^8.3.0"
   }
