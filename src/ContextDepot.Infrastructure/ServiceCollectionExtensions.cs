@@ -84,6 +84,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<VectorCollectionInitializer>();
         services.AddScoped<VectorCoverageSnapshotProvider>();
         services.AddScoped<IAppearanceSettingsRepository, AppearanceSettingsRepository>();
+        services.AddScoped<ContextDepot.Application.Overview.IOverviewRepository, OverviewRepository>();
         services.AddScoped<IDepotRepository, DepotRepository>();
         services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
         services.AddScoped<IContextRepository, ContextRepository>();

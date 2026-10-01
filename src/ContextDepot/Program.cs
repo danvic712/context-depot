@@ -106,6 +106,7 @@ try
 
     app.UseExceptionHandler();
     app.UseMiddleware<DepotAccessKeyAuthenticationMiddleware>();
+    app.UseMiddleware<WebDepotContextMiddleware>();
     app.UseDefaultFiles();
     app.UseStaticFiles();
     app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));

@@ -44,6 +44,16 @@ public sealed class CurrentDepotAccessContext : ICurrentDepotContext, IWorkspace
         initialized = true;
     }
 
+    public void InitializeForWeb(Guid id, string name)
+    {
+        if (initialized) throw new InvalidOperationException(InfrastructureErrorCodes.DepotAccessContextAlreadyInitialized);
+        if (id == Guid.Empty) throw new ArgumentException(InfrastructureErrorCodes.WebDepotRequired, nameof(id));
+        depotId = id;
+        displayName = name;
+        HasUnrestrictedAccess = true;
+        initialized = true;
+    }
+
     public void AllowInternalAccess()
     {
         if (initialized)

@@ -64,6 +64,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISecretDetector, HighConfidenceSecretDetector>();
         services.AddSingleton<IProvenancePolicy, ProvenancePolicy>();
         services.AddScoped<ISourceSafetyService, SourceSafetyService>();
+        services.AddScoped<ContextDepot.Application.Overview.OverviewAppService>();
+        services.AddScoped<ContextDepot.Application.Overview.KnowledgeSearchAppService>();
         services.AddScoped<IWorkspaceAppService, WorkspaceAppService>();
         services.AddScoped<IContextAppService, ContextAppService>();
         services.AddScoped<IContextQueryAppService, ContextQueryAppService>();
