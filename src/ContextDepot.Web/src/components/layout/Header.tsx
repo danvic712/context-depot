@@ -1,6 +1,15 @@
 import { useTranslation } from "react-i18next";
-import { ChevronDownIcon } from "lucide-react";
-import { Brand } from "../Brand";
+import {
+  LanguagesIcon,
+  CaseSensitiveIcon,
+  ChevronDownIcon,
+  MonitorIcon,
+  MoonIcon,
+  SunIcon,
+  LoaderCircleIcon,
+  type LucideIcon,
+} from "lucide-react";
+import { Separator } from "../ui/separator";
 import { Button } from "../ui/button";
 import {
   DropdownMenu,
@@ -9,7 +18,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import type { Lang } from "@/lib/i18n";
@@ -17,92 +25,147 @@ import type { Theme } from "@/features/settings/browser-preferences";
 import "@/styles/header.css";
 
 interface Props {
-  theme: Theme | null;
-  lang: Lang | null;
-  onTheme: (value: Theme | null) => void;
-  onLanguage: (value: Lang | null) => void;
+  theme: Theme;
+  lang: Lang;
+  languagePending: boolean;
+  appearancePending?: boolean;
+  onTheme: (value: Theme) => void;
+  onLanguage: (value: Lang) => void;
 }
 
 function PreferenceMenu({
   label,
+  Icon,
   value,
   options,
-  scope,
   onChange,
+  pending = false,
+  disabled = false,
 }: {
   label: string;
+  Icon: LucideIcon;
   value: string;
-  options: readonly { value: string; label: string }[];
-  scope: string;
+  options: readonly {
+    value: string;
+    label: string;
+    Icon?: LucideIcon;
+    lang?: string;
+  }[];
   onChange: (value: string) => void;
+  pending?: boolean;
+  disabled?: boolean;
 }) {
+  const selected = options.find((option) => option.value === value);
+  const { t } = useTranslation();
+  const description = `${label}: ${pending ? t("loading") : (selected?.label ?? label)}`;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          aria-label={label}
-          title={options.find((option) => option.value === value)?.label}
+          className="preference-trigger cursor-pointer"
+          aria-label={description}
+          title={description}
+          disabled={pending || disabled}
+          aria-busy={pending}
         >
-          {label}
-          <ChevronDownIcon data-icon="inline-end" />
+          {pending ? (
+            <LoaderCircleIcon
+              className="animate-spin"
+              data-icon="inline-start"
+              aria-hidden="true"
+            />
+          ) : (
+            <Icon data-icon="inline-start" aria-hidden="true" />
+          )}
+          <span className="preference-value" lang={selected?.lang}>
+            {pending ? t("loading") : selected?.label}
+          </span>
+          <ChevronDownIcon
+            className="preference-chevron"
+            data-icon="inline-end"
+            aria-hidden="true"
+          />
+          {pending && (
+            <span className="sr-only" role="status">
+              {t("loading")}
+            </span>
+          )}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="preference-menu">
         <DropdownMenuGroup>
           <DropdownMenuLabel>{label}</DropdownMenuLabel>
+          <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
+            {options.map((option) => (
+              <DropdownMenuRadioItem
+                key={option.value}
+                value={option.value}
+                indicatorPosition="end"
+                className="preference-option cursor-pointer"
+              >
+                {option.Icon && <option.Icon aria-hidden="true" />}
+                <span lang={option.lang}>{option.label}</span>
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
         </DropdownMenuGroup>
-        <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
-          {options.map((option) => (
-            <DropdownMenuRadioItem key={option.value} value={option.value}>
-              {option.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-        <DropdownMenuSeparator />
-        <p className="preference-scope">{scope}</p>
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
 
-export function Header({ theme, lang, onTheme, onLanguage }: Props) {
+const themeIcons = {
+  system: MonitorIcon,
+  light: SunIcon,
+  dark: MoonIcon,
+};
+
+export function Header({
+  theme,
+  lang,
+  languagePending,
+  appearancePending = false,
+  onTheme,
+  onLanguage,
+}: Props) {
   const { t } = useTranslation();
   return (
     <header className="topbar">
       <div className="brand-lockup">
-        <Brand />
-        <div>
-          <strong>ContextDepot</strong>
-          <small>{t("tagline")}</small>
-        </div>
+        <strong>ContextDepot</strong>
+        <Separator orientation="vertical" className="brand-divider" />
+        <small>{t("tagline")}</small>
       </div>
       <div className="top-controls">
         <PreferenceMenu
           label={t("theme")}
-          value={theme ?? "default"}
-          scope={t("browserOnly")}
-          onChange={(value) =>
-            onTheme(value === "default" ? null : (value as Theme))
-          }
+          Icon={themeIcons[theme]}
+          value={theme}
+          disabled={appearancePending}
+          pending={appearancePending && !languagePending}
+          onChange={(value) => onTheme(value as Theme)}
           options={[
-            { value: "default", label: t("useDefault") },
-            { value: "system", label: t("system") },
-            { value: "light", label: t("light") },
-            { value: "dark", label: t("dark") },
+            { value: "system", label: t("system"), Icon: MonitorIcon },
+            { value: "light", label: t("light"), Icon: SunIcon },
+            { value: "dark", label: t("dark"), Icon: MoonIcon },
           ]}
         />
         <PreferenceMenu
           label={t("language")}
-          value={lang ?? "default"}
-          scope={t("browserOnly")}
-          onChange={(value) =>
-            onLanguage(value === "default" ? null : (value as Lang))
-          }
+          Icon={LanguagesIcon}
+          value={lang}
+          onChange={(value) => onLanguage(value as Lang)}
+          pending={languagePending}
+          disabled={appearancePending}
           options={[
-            { value: "default", label: t("useDefault") },
-            { value: "zh", label: "中文" },
-            { value: "en", label: "English" },
+            { value: "zh", label: "中文", lang: "zh-CN", Icon: LanguagesIcon },
+            {
+              value: "en",
+              label: "English",
+              lang: "en",
+              Icon: CaseSensitiveIcon,
+            },
           ]}
         />
       </div>

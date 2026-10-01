@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
-namespace ContextDepot.HealthChecks;
+namespace ContextDepot.Extensions;
 
 public static class ReadinessResponseWriter
 {

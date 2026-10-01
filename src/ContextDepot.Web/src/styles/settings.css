@@ -35,7 +35,7 @@
 }
 
 .settings .settings-section {
-  scroll-margin-top: 20px;
+  scroll-margin-top: calc(var(--header-height) + 16px);
 }
 
 .settings .two-columns {
@@ -99,7 +99,7 @@
 
 @media (max-width: 640px) {
   .settings .settings-section {
-    scroll-margin-top: 20px;
+    scroll-margin-top: calc(var(--header-height) + 16px);
   }
   .settings .section-nav a {
     padding: 12px 10px;

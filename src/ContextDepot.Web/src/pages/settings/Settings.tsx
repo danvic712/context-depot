@@ -15,7 +15,14 @@ import {
 } from "../../components/ui/field";
 
 export function Settings() {
-  const { theme, language, onTheme, onLanguage } = useAppContext();
+  const {
+    theme,
+    language,
+    languagePending,
+    appearancePending,
+    onTheme,
+    onLanguage,
+  } = useAppContext();
   const { t } = useTranslation();
   return (
     <>
@@ -49,40 +56,32 @@ export function Settings() {
               <AppSelect
                 id="theme-select"
                 label={t("theme")}
-                value={theme ?? "default"}
-                onChange={(value) =>
-                  onTheme(value === "default" ? null : (value as Theme))
-                }
+                value={theme}
+                disabled={appearancePending}
+                onChange={(value) => onTheme(value as Theme)}
                 options={[
-                  { value: "default", label: t("useDefault") },
                   { value: "system", label: t("system") },
                   { value: "light", label: t("light") },
                   { value: "dark", label: t("dark") },
                 ]}
               />
-              <FieldDescription>
-                {theme ? t("browser") : t("following")} · {t("deployment")}:{" "}
-                {t("unknown")}
-              </FieldDescription>
+              <FieldDescription>{t("deploymentDefault")}</FieldDescription>
             </Field>
             <Field>
               <FieldLabel htmlFor="lang-select">{t("language")}</FieldLabel>
               <AppSelect
                 id="lang-select"
                 label={t("language")}
-                value={language ?? "default"}
-                onChange={(value) =>
-                  onLanguage(value === "default" ? null : (value as Lang))
-                }
+                value={language}
+                onChange={(value) => onLanguage(value as Lang)}
+                disabled={appearancePending}
                 options={[
-                  { value: "default", label: t("useDefault") },
                   { value: "zh", label: "中文" },
                   { value: "en", label: "English" },
                 ]}
               />
               <FieldDescription>
-                {language ? t("browser") : t("following")} · {t("deployment")}:{" "}
-                {t("unknown")}
+                {languagePending ? t("loading") : t("deploymentDefault")}
               </FieldDescription>
             </Field>
           </FieldGroup>

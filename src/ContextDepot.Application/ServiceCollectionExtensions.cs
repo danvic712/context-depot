@@ -8,6 +8,10 @@ using ContextDepot.Application.Embeddings;
 using ContextDepot.Application.IndexRepair;
 using ContextDepot.Application.IndexRepair.Contracts;
 using ContextDepot.Application.Settings;
+using ContextDepot.Application.Settings.Contracts;
+using ContextDepot.Application.Settings.Dtos;
+using ContextDepot.Application.Settings.Validators;
+using FluentValidation;
 using ContextDepot.Application.Retrieval;
 using ContextDepot.Application.SemanticRetrieval;
 using ContextDepot.Application.Shared.Safety;
@@ -41,6 +45,9 @@ public static class ServiceCollectionExtensions
             .Bind(configuration.GetSection("ContextDepot:IndexRepair"), binder => binder.ErrorOnUnknownConfiguration = true)
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<IndexRepairOptions>, IndexRepairOptionsValidator>();
+        services.AddScoped<IAppearanceSettingsAppService, AppearanceSettingsAppService>();
+        services.AddScoped<IValidator<ThemeRequest>, ThemeRequestValidator>();
+        services.AddScoped<IValidator<LanguageRequest>, LanguageRequestValidator>();
         services.AddOptions<AppearanceOptions>()
             .Bind(configuration.GetSection("ContextDepot:Appearance"), binder => binder.ErrorOnUnknownConfiguration = true)
             .ValidateOnStart();

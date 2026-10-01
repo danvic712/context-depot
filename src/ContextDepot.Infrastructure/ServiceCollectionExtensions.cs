@@ -9,6 +9,7 @@ using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Application.Shared.Runtime.Contracts;
 using ContextDepot.Application.Workspaces.Contracts;
 using ContextDepot.Application.VectorIndex.Contracts;
+using ContextDepot.Application.Settings.Contracts;
 using ContextDepot.Infrastructure.Contracts;
 using ContextDepot.Infrastructure.RuntimeConfiguration;
 using ContextDepot.Infrastructure.CurrentDepot;
@@ -81,6 +82,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<PostgreSqlVectorStore>();
         services.AddSingleton<VectorCollectionInitializer>();
         services.AddScoped<VectorCoverageSnapshotProvider>();
+        services.AddScoped<IAppearanceSettingsRepository, AppearanceSettingsRepository>();
         services.AddScoped<IDepotRepository, DepotRepository>();
         services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
         services.AddScoped<IContextRepository, ContextRepository>();

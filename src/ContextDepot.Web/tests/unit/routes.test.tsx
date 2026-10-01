@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { Glob } from "bun";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { renderToStaticMarkup } from "react-dom/server";
+import { Header } from "../../src/components/layout/Header";
 import { appRoutes } from "../../src/routes";
 import { AppLoading } from "../../src/components/feedback/RouteFeedback";
 import { initializeI18n } from "../../src/lib/i18n";
@@ -220,5 +221,45 @@ describe("Sidebar navigation", () => {
     expect(html).toContain('aria-busy="true"');
     expect(html).toContain('role="status"');
     expect(html).toContain('data-slot="skeleton"');
+  });
+});
+
+describe("Header preferences", () => {
+  test("settings expose explicit browser preferences without deployment defaults", async () => {
+    await english();
+    const router = createMemoryRouter(appRoutes, {
+      initialEntries: ["/settings"],
+    });
+    try {
+      await ready(router);
+      const html = renderToStaticMarkup(<RouterProvider router={router} />);
+      expect(html).toContain('aria-label="Theme: System"');
+      expect(html).toContain('aria-label="Language: English"');
+      expect(html).not.toContain("Use deployment default");
+      expect(html).not.toContain("Following deployment default");
+    } finally {
+      router.dispose();
+    }
+  });
+
+  test("language loading announces status and prevents duplicate selection", async () => {
+    await english();
+    const html = renderToStaticMarkup(
+      <Header
+        theme="dark"
+        lang="en"
+        languagePending
+        onTheme={() => {}}
+        onLanguage={() => {}}
+      />,
+    );
+    const button = html.match(
+      /<button[^>]*aria-label="Language: Loading"[^>]*>/,
+    )?.[0];
+    expect(button).toBeDefined();
+    expect(button).toContain('disabled=""');
+    expect(button).toContain('aria-busy="true"');
+    expect(html).toContain('role="status"');
+    expect(html).toContain('aria-label="Theme: Dark"');
   });
 });

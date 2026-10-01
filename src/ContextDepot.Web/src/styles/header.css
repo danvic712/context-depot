@@ -1,32 +1,40 @@
 .topbar {
-  height: 96px;
+  height: var(--header-height);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  flex-shrink: 0;
+  background: var(--canvas);
+  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 clamp(24px, 4.5vw, 74px);
-  gap: 24px;
+  padding: 0 var(--content-inset);
+  gap: 12px;
 }
 
 .brand-lockup {
   display: flex;
   align-items: center;
-  gap: 16px;
-}
-
-.brand-lockup .brand-mark {
-  transform: scale(1.12);
+  gap: 20px;
+  min-width: 0;
 }
 
 .brand-lockup strong {
-  display: block;
-  font-size: 18px;
+  flex-shrink: 0;
+  font-size: 16px;
   letter-spacing: -0.03em;
 }
 
+.brand-lockup .brand-divider {
+  height: 24px;
+}
+
 .brand-lockup small {
-  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--muted);
-  margin-top: 3px;
   font-size: 12px;
 }
 
@@ -34,52 +42,107 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
-.top-controls [data-slot="button"] {
-  min-width: 100px;
+.top-controls .preference-trigger {
+  border-radius: 8px;
+  box-shadow: none;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease,
+    transform 150ms ease;
+}
+
+.preference-trigger:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.preference-chevron {
+  transition: transform 180ms ease;
+}
+
+.preference-trigger[data-state="open"] .preference-chevron {
+  transform: rotate(180deg);
+}
+
+.preference-menu {
+  width: 180px;
+  max-width: calc(100vw - 24px);
+  border-radius: 8px;
+}
+
+.preference-option {
+  min-height: 36px;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
 }
 
 @media (max-width: 900px) {
-  .topbar {
-    height: 82px;
+  .brand-lockup small,
+  .brand-lockup .brand-divider {
+    display: none;
   }
 }
 
 @media (max-width: 640px) {
   .topbar {
-    height: auto;
-    min-height: 76px;
-    flex-wrap: wrap;
-    gap: 12px;
-    padding: 14px 20px;
+    gap: 8px;
   }
-  .brand-lockup {
-    gap: 9px;
-  }
-  .brand-lockup .brand-mark {
-    transform: scale(0.85);
-  }
+
   .brand-lockup strong {
     font-size: 15px;
   }
-  .brand-lockup small {
-    font-size: 10px;
-    max-width: 160px;
+
+  .top-controls .preference-trigger {
+    width: 36px;
+    padding: 0;
   }
-  .top-controls [data-slot="button"] {
-    min-width: 70px;
+
+  .preference-value,
+  .preference-chevron {
+    display: none;
   }
 }
 
-.preference-menu {
-  max-width: min(280px, calc(100vw - 24px));
+.preference-menu[data-state="open"] {
+  animation: preference-enter 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
-.preference-scope {
-  max-width: 250px;
-  margin: 0;
-  padding: 8px;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--muted);
+
+.preference-menu[data-state="closed"] {
+  animation: preference-exit 120ms ease-in;
+}
+
+@keyframes preference-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes preference-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-2px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .preference-menu,
+  .top-controls .preference-trigger,
+  .preference-chevron,
+  .preference-option {
+    animation: none;
+    transition: none;
+  }
 }

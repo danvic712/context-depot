@@ -2,6 +2,8 @@ namespace ContextDepot.Application.Shared.Exceptions;
 
 public static class ApplicationErrorCodes
 {
+    public const string InvalidAppearanceTheme = "InvalidAppearanceTheme";
+    public const string InvalidAppearanceLanguage = "InvalidAppearanceLanguage";
     public const string InternalError = "InternalError";
     public const string ContextNotFound = "ContextNotFound";
     public const string ContextConcurrencyConflict = "ContextConcurrencyConflict";

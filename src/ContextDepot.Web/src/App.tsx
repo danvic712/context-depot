@@ -1,5 +1,4 @@
-import { toast } from "sonner";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import {
   ScrollRestoration,
   Outlet,
@@ -13,8 +12,9 @@ import {
 } from "react-router";
 import { sampleKnowledge } from "./features/knowledge/sample-data";
 import { useTranslation } from "react-i18next";
-import { useTheme } from "next-themes";
-import { changeLanguage, type Lang } from "@/lib/i18n";
+import type { Lang } from "@/lib/i18n";
+import { useAppearanceSettings } from "./hooks/use-appearance-settings";
+import { Alert, AlertDescription } from "./components/ui/alert";
 import { Sidebar } from "./components/layout/Sidebar";
 import { Header } from "./components/layout/Header";
 import { AppSelect } from "./components/ui/AppSelect";
@@ -23,15 +23,19 @@ import { RouteLoading } from "./components/feedback/RouteFeedback";
 import type { AppContext, PageHandle } from "./hooks/use-app-context";
 import type { PreviewState } from "./components/feedback/StatePreview";
 import { normalizeKnowledgeParams } from "./features/knowledge/query-params";
-import {
-  load,
-  save,
-  type Theme,
-} from "./features/settings/browser-preferences";
 
 export default function App() {
   const { t, i18n } = useTranslation();
-  const { setTheme: applyTheme } = useTheme();
+  const {
+    theme,
+    language: lang,
+    languagePending,
+    appearancePending,
+    appearanceError,
+    refreshAppearance,
+    onTheme: changeTheme,
+    onLanguage: changeLang,
+  } = useAppearanceSettings();
   const location = useLocation();
   const routerNavigate = useNavigate();
   const [rawParams, setParams] = useSearchParams();
@@ -57,13 +61,6 @@ export default function App() {
       });
     }
   }, [params, rawParams, setParams, location.state]);
-  const [theme, setTheme] = useState<Theme | null>(() =>
-    load("contextdepot.theme", ["system", "light", "dark"]),
-  );
-  const [lang, setLang] = useState<Lang | null>(() => {
-    const saved = load("contextdepot.language", ["en", "zh"]);
-    return saved === null ? null : i18n.resolvedLanguage === "zh" ? "zh" : "en";
-  });
   const preview = params.get("preview") === "1";
   const previewState = (
     ["loading", "empty", "error", "permission", "degraded"].includes(
@@ -157,34 +154,6 @@ export default function App() {
       }
     navigate(`/search${next.size ? `?${next.toString()}` : ""}`);
   }
-  function changeTheme(value: Theme | null) {
-    setTheme(value);
-    applyTheme(value ?? "system");
-    save("contextdepot.theme", value);
-  }
-  function changeLang(value: Lang | null) {
-    void changeLanguage(value ?? "en")
-      .then((resolved) => {
-        if (resolved === null) return;
-        const preference = value === null ? null : resolved;
-        setLang(preference);
-        save("contextdepot.language", preference);
-      })
-      .catch(() => {
-        toast.error(t("languageLoadError"));
-      });
-  }
-  useEffect(() => {
-    const syncPreference = (event: StorageEvent) => {
-      if (event.key === "contextdepot.theme" || event.key === null) {
-        setTheme(
-          load<Theme>("contextdepot.theme", ["system", "light", "dark"]),
-        );
-      }
-    };
-    addEventListener("storage", syncPreference);
-    return () => removeEventListener("storage", syncPreference);
-  }, []);
   useEffect(() => {
     document.documentElement.lang = activeLang === "zh" ? "zh-CN" : "en";
     document.title = `ContextDepot · ${t(handle.title)}`;
@@ -245,6 +214,8 @@ export default function App() {
     onBack: backFromDetail,
     theme,
     language: lang,
+    languagePending,
+    appearancePending,
     onTheme: changeTheme,
     onLanguage: changeLang,
   };
@@ -256,9 +227,25 @@ export default function App() {
         <Header
           theme={theme}
           lang={lang}
+          languagePending={languagePending}
+          appearancePending={appearancePending}
           onTheme={changeTheme}
           onLanguage={changeLang}
         />
+        {appearanceError && (
+          <Alert role="alert" className="appearance-error">
+            <AlertDescription>
+              {t("appearanceLoadError")}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void refreshAppearance()}
+              >
+                {t("retry")}
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
         <div className={`preview-control ${preview ? "is-preview" : ""}`}>
           <span>{preview ? t("sampleHint") : ""}</span>
           {preview && handle.previewControls && (

@@ -7,7 +7,6 @@ using ContextDepot.BackgroundServices;
 using ContextDepot.Extensions;
 using ContextDepot.Infrastructure;
 using ContextDepot.Infrastructure.Embeddings;
-using ContextDepot.HealthChecks;
 using ContextDepot.Infrastructure.DataProtection;
 using ContextDepot.MCP;
 using ContextDepot.MCP.Tools;
@@ -68,6 +67,14 @@ try
 
     builder.Host.UseSerilog((context, logger) => logger
         .ReadFrom.Configuration(context.Configuration));
+    builder.Services.AddProblemDetails();
+    builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+    builder.Services.AddControllers()
+        .AddJsonOptions(options =>
+        {
+            options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+            options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false));
+        });
     builder.Services.AddHealthChecks();
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddSingleton<MCPToolExecutor>();
@@ -97,6 +104,7 @@ try
         .GetRequiredService<ContextDepotStartupInitializer>()
         .InitializeAsync(CancellationToken.None);
 
+    app.UseExceptionHandler();
     app.UseMiddleware<DepotAccessKeyAuthenticationMiddleware>();
     app.UseDefaultFiles();
     app.UseStaticFiles();
@@ -106,6 +114,7 @@ try
         ResponseWriter = ReadinessResponseWriter.WriteAsync
     });
     app.MapMcp("/mcp");
+    app.MapControllers();
     app.MapContextDepot();
 
     await app.RunAsync();

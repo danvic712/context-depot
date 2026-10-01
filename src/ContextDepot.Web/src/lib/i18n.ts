@@ -52,6 +52,10 @@ async function resolveLanguage(language: Lang, loader: TranslationLoader) {
   }
 }
 
+export async function prepareLanguage(language: Lang) {
+  await ensureLanguage(language, defaultLoader);
+}
+
 export async function initializeI18n(
   language: Lang = load("contextdepot.language", ["en", "zh"]) ?? "en",
   loader: TranslationLoader = defaultLoader,

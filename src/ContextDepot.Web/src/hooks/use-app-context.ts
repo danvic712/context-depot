@@ -30,10 +30,12 @@ export interface AppContext {
   view: string;
   item?: SampleKnowledge;
   onBack: () => void;
-  theme: Theme | null;
-  language: Lang | null;
-  onTheme: (value: Theme | null) => void;
-  onLanguage: (value: Lang | null) => void;
+  theme: Theme;
+  language: Lang;
+  languagePending: boolean;
+  appearancePending: boolean;
+  onTheme: (value: Theme) => void;
+  onLanguage: (value: Lang) => void;
 }
 
 export function useAppContext() {
