@@ -22,7 +22,7 @@ public sealed class ContextRepository(ContextDepotDbContext db) : IContextReposi
     {
         if (string.IsNullOrWhiteSpace(candidate.Key))
         {
-            throw new ArgumentException(ApplicationErrorMessages.Get(ApplicationErrorCodes.InvalidStateKey), nameof(candidate));
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidStateKey);
         }
 
         for (var attempt = 0; attempt < 2; attempt++)
@@ -34,7 +34,7 @@ public sealed class ContextRepository(ContextDepotDbContext db) : IContextReposi
             }
         }
 
-        throw new InvalidOperationException(ApplicationErrorMessages.Get(ApplicationErrorCodes.InternalError));
+        throw new InvalidOperationException(ApplicationErrorCodes.InternalError);
     }
 
     private async Task<ContextPersistenceResult> SaveKeyedAttemptAsync(ContextItem candidate, DateTimeOffset now,

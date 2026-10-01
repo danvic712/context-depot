@@ -1,4 +1,5 @@
 {
   "VectorSearchFailed": "语义检索暂时不可用，系统将保留可用的关键词结果并稍后重试。",
-  "InvalidSearchQuery": "检索条件无效，请检查查询内容和范围后重试。"
+  "InvalidSearchQuery": "检索条件无效，请检查查询内容和范围后重试。",
+  "RetrievalConfigurationInvalid": "检索配置超出支持范围，请检查检索参数。"
 }

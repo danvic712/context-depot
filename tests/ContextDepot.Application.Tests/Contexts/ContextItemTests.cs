@@ -1,5 +1,6 @@
 using ContextDepot.Domain.Contexts;
 using ContextDepot.Domain.Contexts.Enums;
+using ContextDepot.Domain.Exceptions;
 
 namespace ContextDepot.Application.Tests.Contexts;
 
@@ -11,8 +12,10 @@ public sealed class ContextItemTests
         var context = CreateContext();
         var now = DateTimeOffset.UtcNow;
 
-        Assert.Throws<ArgumentException>(() => context.SetValidity(now, now, null));
-        Assert.Throws<ArgumentException>(() => context.SetValidity(now.AddMinutes(1), now, null));
+        Assert.Equal(DomainErrorCodes.InvalidContextValidity,
+            Assert.Throws<ContextDepotBusinessException>(() => context.SetValidity(now, now, null)).ErrorCode);
+        Assert.Equal(DomainErrorCodes.InvalidContextValidity,
+            Assert.Throws<ContextDepotBusinessException>(() => context.SetValidity(now.AddMinutes(1), now, null)).ErrorCode);
         Assert.Null(context.ValidFrom);
         Assert.Null(context.ValidUntil);
 
@@ -26,8 +29,10 @@ public sealed class ContextItemTests
     {
         var context = CreateContext();
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => context.SetQuality(-1, null));
-        Assert.Throws<ArgumentOutOfRangeException>(() => context.SetQuality(50, 1.1m));
+        Assert.Equal(DomainErrorCodes.InvalidContextQuality,
+            Assert.Throws<ContextDepotBusinessException>(() => context.SetQuality(-1, null)).ErrorCode);
+        Assert.Equal(DomainErrorCodes.InvalidContextQuality,
+            Assert.Throws<ContextDepotBusinessException>(() => context.SetQuality(50, 1.1m)).ErrorCode);
         Assert.Equal((short)50, context.Importance);
         Assert.Null(context.Confidence);
     }

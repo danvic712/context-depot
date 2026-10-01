@@ -1,3 +1,4 @@
 {
-  "IndexRepairRequestInvalid": "索引修复参数无效，请检查批大小和最大批次数。"
+  "IndexRepairRequestInvalid": "索引修复参数无效，请检查批大小和最大批次数。",
+  "IndexRepairConfigurationInvalid": "索引修复配置超出支持范围，请检查轮询间隔和批次参数。"
 }

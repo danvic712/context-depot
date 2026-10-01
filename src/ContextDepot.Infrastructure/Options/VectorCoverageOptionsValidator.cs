@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using ContextDepot.Infrastructure.Exceptions;
 
 namespace ContextDepot.Infrastructure.Options;
 
@@ -9,6 +10,6 @@ public sealed class VectorCoverageOptionsValidator : IValidateOptions<VectorCove
         ArgumentNullException.ThrowIfNull(options);
         return options.CacheDurationSeconds is >= 1 and <= 300
             ? ValidateOptionsResult.Success
-            : ValidateOptionsResult.Fail("Vector coverage cache duration must be between 1 and 300 seconds.");
+            : ValidateOptionsResult.Fail(InfrastructureErrorCodes.VectorCoverageSettingsInvalid);
     }
 }

@@ -1,3 +1,5 @@
+using ContextDepot.Application.Shared.Exceptions;
+
 namespace ContextDepot.Application.Embeddings;
 
 public sealed record EmbeddingProfileKey
@@ -5,10 +7,10 @@ public sealed record EmbeddingProfileKey
     public EmbeddingProfileKey(string provider, string model, int dimensions)
     {
         Provider = string.IsNullOrWhiteSpace(provider)
-            ? throw new ArgumentException("The embedding provider is required.", nameof(provider))
+            ? throw new ArgumentException(ApplicationErrorCodes.EmbeddingConfigurationInvalid, nameof(provider))
             : provider.Trim();
         Model = string.IsNullOrWhiteSpace(model)
-            ? throw new ArgumentException("The embedding model is required.", nameof(model))
+            ? throw new ArgumentException(ApplicationErrorCodes.EmbeddingConfigurationInvalid, nameof(model))
             : model.Trim();
         Dimensions = dimensions > 0
             ? dimensions

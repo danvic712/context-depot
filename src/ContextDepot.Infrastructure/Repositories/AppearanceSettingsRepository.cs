@@ -1,3 +1,4 @@
+using ContextDepot.Infrastructure.Exceptions;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ContextDepot.Application.Settings.Contracts;
@@ -44,7 +45,7 @@ public sealed class AppearanceSettingsRepository(
                 .SetProperty(setting => setting.UpdatedAt, now), cancellationToken);
         if (affected != 1)
         {
-            throw new InvalidOperationException("Required appearance setting is missing.");
+            throw new InvalidOperationException(InfrastructureErrorCodes.AppearanceSettingMissing);
         }
 
         await snapshotLoader.RefreshAsync(cancellationToken);
@@ -53,5 +54,5 @@ public sealed class AppearanceSettingsRepository(
     private static T Read<T>(IReadOnlyDictionary<string, string> records, string key) where T : struct, Enum =>
         records.TryGetValue(key, out var value)
             ? JsonSerializer.Deserialize<T>(value, JsonOptions)
-            : throw new InvalidOperationException("Required appearance setting is missing.");
+            : throw new InvalidOperationException(InfrastructureErrorCodes.AppearanceSettingMissing);
 }

@@ -1,3 +1,4 @@
+using ContextDepot.Infrastructure.Exceptions;
 using ContextDepot.Application.Embeddings;
 using ContextDepot.Application.VectorIndex.Contracts;
 using ContextDepot.Application.VectorIndex.Dtos;
@@ -21,7 +22,7 @@ public sealed class VectorDataVectorIndexRepository : IVectorIndexRepository
         ArgumentNullException.ThrowIfNull(vectorStore);
         ArgumentNullException.ThrowIfNull(snapshot);
         var embedding = snapshot.Value.Embedding
-            ?? throw new InvalidOperationException("Vector index operations require a configured embedding inference route.");
+            ?? throw new InvalidOperationException(InfrastructureErrorCodes.EmbeddingRouteRequired);
         _contextCollection = vectorStore.GetCollection<Guid, ContextVectorRecord>(
             VectorCollectionNamePolicy.CreateContextCollectionName(embedding.ProfileFingerprint),
             VectorCollectionDefinitions.CreateContext(embedding.Dimensions));

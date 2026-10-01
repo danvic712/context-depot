@@ -1,3 +1,4 @@
+using ContextDepot.Infrastructure.Exceptions;
 using ContextDepot.Application.Embeddings;
 using ContextDepot.Application.Bootstrap.Contracts;
 using ContextDepot.Application.Contexts.Contracts;
@@ -43,13 +44,13 @@ public static class ServiceCollectionExtensions
 
         if (configuration is not IConfigurationBuilder configurationBuilder)
         {
-            throw new InvalidOperationException("Database application settings require a mutable configuration builder.");
+            throw new InvalidOperationException(InfrastructureErrorCodes.ApplicationSettingsBuilderRequired);
         }
 
         var settingsConfigurationSource = new DatabaseApplicationSettingsConfigurationSource();
         configurationBuilder.Add(settingsConfigurationSource);
         var settingsConfigurationProvider = settingsConfigurationSource.Provider
-            ?? throw new InvalidOperationException("The database application settings provider was not initialized.");
+            ?? throw new InvalidOperationException(InfrastructureErrorCodes.ApplicationSettingsProviderNotInitialized);
         services.AddSingleton(settingsConfigurationProvider);
         services.AddSingleton<DatabaseApplicationSettingsSnapshotBuilder>();
         services.AddSingleton<DatabaseApplicationSettingsSnapshotLoader>();
@@ -71,7 +72,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IValidateOptions<VectorCoverageOptions>, VectorCoverageOptionsValidator>();
         services.AddOptions<PostgreSqlVectorStoreOptions>()
             .Bind(configuration.GetSection("ContextDepot:VectorStore"))
-            .Validate(options => !string.IsNullOrWhiteSpace(options.Schema), "The vector store schema is required.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Schema), InfrastructureErrorCodes.VectorStoreSchemaRequired)
             .ValidateOnStart();
         services.AddSingleton<NpgsqlDataSource>(_ =>
         {
@@ -106,7 +107,7 @@ public static class ServiceCollectionExtensions
 
         services.AddOptions<MarkdownStoreOptions>()
             .Bind(configuration.GetSection("ContextDepot"))
-            .Validate(options => !string.IsNullOrWhiteSpace(options.Root), ApplicationErrorMessages.Get(ApplicationErrorCodes.MarkdownRootUnavailable))
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Root), ApplicationErrorCodes.MarkdownRootUnavailable)
             .ValidateOnStart();
         services.AddSingleton<FileSystemMarkdownStore>();
         services.AddSingleton<IMarkdownStore>(sp => sp.GetRequiredService<FileSystemMarkdownStore>());

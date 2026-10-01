@@ -1,3 +1,5 @@
+using ContextDepot.Domain.Exceptions;
+
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -12,7 +14,7 @@ public sealed class LowerCaseEnumConverter<TEnum> : JsonConverter<TEnum> where T
             !Enum.TryParse<TEnum>(text, true, out var value) ||
             !string.Equals(Enum.GetName(value), text, StringComparison.OrdinalIgnoreCase))
         {
-            throw new JsonException($"Invalid {typeof(TEnum).Name} value.");
+            throw new JsonException(DomainErrorCodes.InvalidEnumValue);
         }
 
         return value;
@@ -23,7 +25,7 @@ public sealed class LowerCaseEnumConverter<TEnum> : JsonConverter<TEnum> where T
         var text = Enum.GetName(value);
         if (text is null)
         {
-            throw new JsonException($"Invalid {typeof(TEnum).Name} value.");
+            throw new JsonException(DomainErrorCodes.InvalidEnumValue);
         }
 
         writer.WriteStringValue(char.ToLowerInvariant(text[0]) + text[1..]);

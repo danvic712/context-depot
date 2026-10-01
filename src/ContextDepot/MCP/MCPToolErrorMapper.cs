@@ -1,4 +1,5 @@
 using ContextDepot.Application.Shared.Exceptions;
+using ContextDepot.Domain.Exceptions;
 using Microsoft.EntityFrameworkCore;
 using ModelContextProtocol;
 using System.Data.Common;
@@ -13,7 +14,7 @@ internal static class MCPToolErrorMapper
         var correlationId = Activity.Current?.Id ?? Guid.CreateVersion7().ToString("N");
         switch (exception)
         {
-            case ContextDepotApplicationException applicationException:
+            case ContextDepotBusinessException applicationException:
                 logger.LogWarning(
                     "MCP request failed with application error {ErrorCode}; correlation_id={CorrelationId}",
                     applicationException.ErrorCode, correlationId);

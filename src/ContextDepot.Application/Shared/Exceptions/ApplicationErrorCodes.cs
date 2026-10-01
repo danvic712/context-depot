@@ -1,9 +1,19 @@
+using ContextDepot.Domain.Exceptions;
+
 namespace ContextDepot.Application.Shared.Exceptions;
 
 public static class ApplicationErrorCodes
 {
+    public const string InvalidRequest = "InvalidRequest";
+    public const string Unauthorized = "Unauthorized";
+    public const string WebDepotUnavailable = "web.depot_unavailable";
+    public const string WorkspacePathConflict = "workspace.path_conflict";
+    public const string DataProtectionKeyRingInvalid = "DataProtectionKeyRingInvalid";
+    public const string RetrievalConfigurationInvalid = "RetrievalConfigurationInvalid";
+    public const string IndexRepairConfigurationInvalid = "IndexRepairConfigurationInvalid";
     public const string InvalidAppearanceTheme = "InvalidAppearanceTheme";
     public const string InvalidAppearanceLanguage = "InvalidAppearanceLanguage";
+    public const string InvalidResourceQuery = "InvalidResourceQuery";
     public const string InternalError = "InternalError";
     public const string ContextNotFound = "ContextNotFound";
     public const string ContextConcurrencyConflict = "ContextConcurrencyConflict";
@@ -13,8 +23,8 @@ public static class ApplicationErrorCodes
     public const string InvalidContextKind = "InvalidContextKind";
     public const string InvalidContextKey = "InvalidContextKey";
     public const string InvalidContextMetadata = "InvalidContextMetadata";
-    public const string InvalidContextQuality = "InvalidContextQuality";
-    public const string InvalidContextValidity = "InvalidContextValidity";
+    public const string InvalidContextQuality = DomainErrorCodes.InvalidContextQuality;
+    public const string InvalidContextValidity = DomainErrorCodes.InvalidContextValidity;
     public const string InvalidStateKey = "InvalidStateKey";
     public const string InvalidSupersedeTarget = "InvalidSupersedeTarget";
     public const string InvalidVerificationStatus = "InvalidVerificationStatus";

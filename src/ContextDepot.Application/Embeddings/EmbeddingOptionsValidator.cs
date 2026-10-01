@@ -11,12 +11,12 @@ public sealed class EmbeddingOptionsValidator : IValidateOptions<EmbeddingOption
         var failures = new List<string>();
         if (string.IsNullOrWhiteSpace(options.Provider))
         {
-            failures.Add(ApplicationErrorMessages.Get(ApplicationErrorCodes.EmbeddingConfigurationInvalid));
+            failures.Add(ApplicationErrorCodes.EmbeddingConfigurationInvalid);
         }
 
         if (string.IsNullOrWhiteSpace(options.Model) || options.Dimensions <= 0)
         {
-            failures.Add(ApplicationErrorMessages.Get(ApplicationErrorCodes.EmbeddingConfigurationInvalid));
+            failures.Add(ApplicationErrorCodes.EmbeddingConfigurationInvalid);
         }
 
         return failures.Count == 0

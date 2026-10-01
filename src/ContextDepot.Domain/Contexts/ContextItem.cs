@@ -1,3 +1,5 @@
+using ContextDepot.Domain.Exceptions;
+
 using ContextDepot.Domain.Workspaces;
 using ContextDepot.Domain.Contexts.Enums;
 
@@ -116,7 +118,7 @@ public sealed class ContextItem
     {
         if (validFrom is not null && validUntil is not null && validFrom >= validUntil)
         {
-            throw new ArgumentException("The valid-from time must be earlier than the valid-until time.", nameof(validUntil));
+            throw new ContextDepotBusinessException(DomainErrorCodes.InvalidContextValidity);
         }
 
         ValidFrom = validFrom;
@@ -128,12 +130,12 @@ public sealed class ContextItem
     {
         if (importance is < 0 or > 100)
         {
-            throw new ArgumentOutOfRangeException(nameof(importance));
+            throw new ContextDepotBusinessException(DomainErrorCodes.InvalidContextQuality);
         }
 
         if (confidence is < 0 or > 1)
         {
-            throw new ArgumentOutOfRangeException(nameof(confidence));
+            throw new ContextDepotBusinessException(DomainErrorCodes.InvalidContextQuality);
         }
 
         Importance = importance;

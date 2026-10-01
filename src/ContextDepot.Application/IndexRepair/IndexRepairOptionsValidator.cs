@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using ContextDepot.Application.Shared.Exceptions;
 
 namespace ContextDepot.Application.IndexRepair;
 
@@ -11,6 +12,6 @@ public sealed class IndexRepairOptionsValidator : IValidateOptions<IndexRepairOp
                options.BatchSize is >= 1 and <= 256 &&
                options.MaxBatchesPerCycle is >= 1 and <= 100
             ? ValidateOptionsResult.Success
-            : ValidateOptionsResult.Fail("Index repair settings are outside their supported ranges.");
+            : ValidateOptionsResult.Fail(ApplicationErrorCodes.IndexRepairConfigurationInvalid);
     }
 }

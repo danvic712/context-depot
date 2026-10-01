@@ -1,3 +1,4 @@
+using ContextDepot.Infrastructure.Exceptions;
 using Microsoft.Extensions.VectorData;
 using System.Collections;
 using System.Linq.Expressions;
@@ -127,18 +128,18 @@ internal static class PostgreSqlVectorFilterTranslator
 
     private static VectorStoreProperty FindProperty(string name, IReadOnlyList<VectorStoreProperty> properties) =>
         properties.FirstOrDefault(property => string.Equals(property.Name, name, StringComparison.Ordinal))
-        ?? throw new NotSupportedException($"The vector filter references unknown property '{name}'.");
+        ?? throw new NotSupportedException(InfrastructureErrorCodes.VectorFilterPropertyUnknown) { Data = { ["property"] = name } };
 
     private static void EnsureFilterable(VectorStoreProperty property)
     {
         if (property is not VectorStoreKeyProperty and not VectorStoreDataProperty)
         {
-            throw new NotSupportedException($"The vector filter property '{property.Name}' is not filterable.");
+            throw new NotSupportedException(InfrastructureErrorCodes.VectorFilterPropertyNotFilterable) { Data = { ["property"] = property.Name } };
         }
 
         if (property.Type != typeof(Guid) && property.Type != typeof(string))
         {
-            throw new NotSupportedException($"The vector filter property '{property.Name}' has an unsupported type.");
+            throw new NotSupportedException(InfrastructureErrorCodes.VectorFilterPropertyTypeUnsupported) { Data = { ["property"] = property.Name, ["type"] = property.Type } };
         }
     }
 

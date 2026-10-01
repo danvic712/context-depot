@@ -1,3 +1,6 @@
 {
-  "InternalError": "We couldn't complete this action. Please try again later."
+  "InternalError": "We couldn't complete this action. Please try again later.",
+  "InvalidResourceQuery": "The collection limit or sort order is invalid.",
+  "InvalidRequest": "The request is invalid. Check its fields and try again.",
+  "Unauthorized": "A valid access key is required. Check the X-ContextDepot-Key header."
 }

@@ -1,3 +1,4 @@
+using ContextDepot.Infrastructure.Exceptions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.VectorData;
 using Npgsql;
@@ -32,7 +33,7 @@ public sealed class PostgreSqlVectorStore(
         string name,
         VectorStoreCollectionDefinition definition)
     {
-        throw new NotSupportedException("Dynamic vector records are not supported by the PostgreSQL provider.");
+        throw new NotSupportedException(InfrastructureErrorCodes.DynamicVectorRecordsUnsupported);
     }
 
     public override async IAsyncEnumerable<string> ListCollectionNamesAsync(

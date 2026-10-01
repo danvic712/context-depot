@@ -1,3 +1,6 @@
 {
-  "InternalError": "暂时无法完成这项操作，请稍后重试。"
+  "InternalError": "暂时无法完成这项操作，请稍后重试。",
+  "InvalidResourceQuery": "列表数量或排序方式无效。",
+  "InvalidRequest": "请求格式不正确，请检查填写的字段后重试。",
+  "Unauthorized": "需要有效的访问密钥，请检查 X-ContextDepot-Key 请求头。"
 }

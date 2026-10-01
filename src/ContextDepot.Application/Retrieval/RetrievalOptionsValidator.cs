@@ -23,7 +23,7 @@ public sealed class RetrievalOptionsValidator : IValidateOptions<RetrievalOption
 
         return valid
             ? ValidateOptionsResult.Success
-            : ValidateOptionsResult.Fail(ApplicationErrorMessages.Get(ApplicationErrorCodes.EmbeddingConfigurationInvalid));
+            : ValidateOptionsResult.Fail(ApplicationErrorCodes.RetrievalConfigurationInvalid);
     }
 
     private static bool IsBetweenZeroAndOne(double value) =>

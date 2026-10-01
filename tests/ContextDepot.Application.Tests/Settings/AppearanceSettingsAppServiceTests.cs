@@ -4,7 +4,6 @@ using ContextDepot.Application.Settings.Dtos;
 using ContextDepot.Application.Settings.Enums;
 using ContextDepot.Application.Settings.Validators;
 using ContextDepot.Application.Shared.Exceptions;
-using FluentValidation;
 using Moq;
 
 namespace ContextDepot.Application.Tests.Settings;
@@ -44,9 +43,11 @@ public sealed class AppearanceSettingsAppServiceTests
     public async Task InvalidThemeDoesNotWriteAsync(Theme? theme)
     {
         var repository = new Mock<IAppearanceSettingsRepository>(MockBehavior.Strict);
-        var error = await Assert.ThrowsAsync<ValidationException>(() =>
+        var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() =>
             CreateService(repository.Object).SetThemeAsync(new ThemeRequest(theme), CancellationToken.None));
-        Assert.Equal(ApplicationErrorCodes.InvalidAppearanceTheme, Assert.Single(error.Errors).ErrorCode);
+        Assert.Equal(ApplicationErrorCodes.InvalidAppearanceTheme, error.ErrorCode);
+        Assert.Equal([ApplicationErrorCodes.InvalidAppearanceTheme], error.FieldErrorCodes!["Theme"]);
+        Assert.Equal(error.ErrorCode, error.Message);
         repository.VerifyNoOtherCalls();
     }
 
@@ -57,9 +58,11 @@ public sealed class AppearanceSettingsAppServiceTests
     public async Task InvalidLanguageDoesNotWriteAsync(Language? language)
     {
         var repository = new Mock<IAppearanceSettingsRepository>(MockBehavior.Strict);
-        var error = await Assert.ThrowsAsync<ValidationException>(() =>
+        var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() =>
             CreateService(repository.Object).SetLanguageAsync(new LanguageRequest(language), CancellationToken.None));
-        Assert.Equal(ApplicationErrorCodes.InvalidAppearanceLanguage, Assert.Single(error.Errors).ErrorCode);
+        Assert.Equal(ApplicationErrorCodes.InvalidAppearanceLanguage, error.ErrorCode);
+        Assert.Equal([ApplicationErrorCodes.InvalidAppearanceLanguage], error.FieldErrorCodes!["Language"]);
+        Assert.Equal(error.ErrorCode, error.Message);
         repository.VerifyNoOtherCalls();
     }
 

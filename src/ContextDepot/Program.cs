@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using ContextDepot;
 using ContextDepot.Application;
 using ContextDepot.Application.DataProtection;
+using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.BackgroundServices;
 using ContextDepot.Extensions;
 using ContextDepot.Infrastructure;
@@ -36,14 +37,14 @@ try
         if (builder.Environment.IsProduction())
         {
             throw new InvalidOperationException(
-                "DataProtection:KeyRingPath must point to persistent shared storage in production.");
+                ApplicationErrorCodes.DataProtectionKeyRingInvalid);
         }
 
         var localApplicationData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         if (string.IsNullOrWhiteSpace(localApplicationData))
         {
             throw new InvalidOperationException(
-                "DataProtection:KeyRingPath must be configured when no local application-data directory is available.");
+                ApplicationErrorCodes.DataProtectionKeyRingInvalid);
         }
 
         keyRingPath = Path.Combine(
@@ -55,7 +56,7 @@ try
     if (builder.Environment.IsProduction() && !Path.IsPathRooted(keyRingPath))
     {
         throw new InvalidOperationException(
-            "DataProtection:KeyRingPath must be an absolute path to persistent shared storage in production.");
+            ApplicationErrorCodes.DataProtectionKeyRingInvalid);
     }
 
     var fullKeyRingPath = Path.GetFullPath(keyRingPath, builder.Environment.ContentRootPath);
@@ -67,8 +68,7 @@ try
 
     builder.Host.UseSerilog((context, logger) => logger
         .ReadFrom.Configuration(context.Configuration));
-    builder.Services.AddProblemDetails();
-    builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+    builder.Services.AddContextDepotErrorHandling();
     builder.Services.AddControllers()
         .AddJsonOptions(options =>
         {

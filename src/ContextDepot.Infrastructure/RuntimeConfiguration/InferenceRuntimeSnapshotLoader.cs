@@ -1,3 +1,4 @@
+using ContextDepot.Infrastructure.Exceptions;
 using ContextDepot.Application.DataProtection;
 using ContextDepot.Application.DataProtection.Enums;
 using ContextDepot.Domain.Inferences;
@@ -23,7 +24,7 @@ public sealed class InferenceRuntimeSnapshotLoader(
 
         if (embeddingRoutes.Length != 1)
         {
-            throw new InvalidOperationException("The database must contain exactly one embedding inference route.");
+            throw new InvalidOperationException(InfrastructureErrorCodes.EmbeddingRouteCountInvalid);
         }
 
         return BuildSnapshot(embeddingRoutes[0]);

@@ -1,3 +1,4 @@
+using ContextDepot.Infrastructure.Exceptions;
 using ContextDepot.Application.Shared.Runtime.Contracts;
 
 namespace ContextDepot.Infrastructure.CurrentDepot;
@@ -31,7 +32,7 @@ public sealed class CurrentDepotAccessContext : ICurrentDepotContext, IWorkspace
         ArgumentNullException.ThrowIfNull(identity);
         if (initialized)
         {
-            throw new InvalidOperationException("The current depot access context has already been initialized.");
+            throw new InvalidOperationException(InfrastructureErrorCodes.DepotAccessContextAlreadyInitialized);
         }
 
         depotAccessKeyId = identity.DepotAccessKeyId;
@@ -47,7 +48,7 @@ public sealed class CurrentDepotAccessContext : ICurrentDepotContext, IWorkspace
     {
         if (initialized)
         {
-            throw new InvalidOperationException("The current depot access context has already been initialized.");
+            throw new InvalidOperationException(InfrastructureErrorCodes.DepotAccessContextAlreadyInitialized);
         }
 
         HasUnrestrictedAccess = true;

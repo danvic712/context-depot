@@ -1,3 +1,4 @@
+using ContextDepot.Infrastructure.Exceptions;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -22,7 +23,7 @@ public static class EmbeddingProfileFingerprint
         if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var endpoint) ||
             endpoint.Scheme is not ("http" or "https"))
         {
-            throw new ArgumentException("The inference provider URL must use HTTP or HTTPS.", nameof(baseUrl));
+            throw new ArgumentException(InfrastructureErrorCodes.InferenceProviderUrlInvalid, nameof(baseUrl));
         }
 
         var canonicalProfile = string.Join('\n',

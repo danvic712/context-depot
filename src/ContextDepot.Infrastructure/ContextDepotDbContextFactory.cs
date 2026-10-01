@@ -13,7 +13,7 @@ public sealed class ContextDepotDbContextFactory : IDesignTimeDbContextFactory<C
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             throw new InvalidOperationException(
-                ApplicationErrorMessages.Get(ApplicationErrorCodes.DesignTimeConfigurationMissing));
+                ApplicationErrorCodes.DesignTimeConfigurationMissing);
         }
 
         var options = new DbContextOptionsBuilder<ContextDepotDbContext>()

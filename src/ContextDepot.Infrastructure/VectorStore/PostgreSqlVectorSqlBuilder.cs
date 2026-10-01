@@ -1,3 +1,4 @@
+using ContextDepot.Infrastructure.Exceptions;
 using Microsoft.Extensions.VectorData;
 using System.Globalization;
 using System.Text;
@@ -153,7 +154,7 @@ internal static class PostgreSqlVectorSqlBuilder
     {
         if (string.IsNullOrWhiteSpace(identifier) || identifier.Contains('\0'))
         {
-            throw new ArgumentException("The PostgreSQL identifier is invalid.", nameof(identifier));
+            throw new ArgumentException(InfrastructureErrorCodes.PostgreSqlIdentifierInvalid, nameof(identifier));
         }
 
         return $"\"{identifier.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
@@ -175,7 +176,7 @@ internal static class PostgreSqlVectorSqlBuilder
     {
         if (definition.Properties is null || definition.Properties.Count == 0)
         {
-            throw new InvalidOperationException("A vector collection definition must contain at least one property.");
+            throw new InvalidOperationException(InfrastructureErrorCodes.VectorCollectionPropertiesRequired);
         }
 
         var properties = definition.Properties.ToArray();
@@ -202,7 +203,7 @@ internal static class PostgreSqlVectorSqlBuilder
         VectorStoreKeyProperty or VectorStoreDataProperty when property.Type == typeof(Guid) => "uuid",
         VectorStoreKeyProperty or VectorStoreDataProperty when property.Type == typeof(string) => "text",
         VectorStoreVectorProperty vector => $"vector({vector.Dimensions.ToString(CultureInfo.InvariantCulture)})",
-        _ => throw new NotSupportedException($"The vector property type '{property.Type}' is not supported by the PostgreSQL provider.")
+        _ => throw new NotSupportedException(InfrastructureErrorCodes.VectorPropertyTypeUnsupported) { Data = { ["type"] = property.Type } }
     };
 
     private static string ToSnakeCase(string name)

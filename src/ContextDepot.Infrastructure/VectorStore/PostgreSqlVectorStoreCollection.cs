@@ -1,3 +1,4 @@
+using ContextDepot.Infrastructure.Exceptions;
 using Microsoft.Extensions.VectorData;
 using Npgsql;
 using Pgvector;
@@ -33,14 +34,14 @@ public sealed class PostgreSqlVectorStoreCollection<TKey, TRecord> : VectorStore
         _name = name ?? throw new ArgumentNullException(nameof(name));
         _definition = definition ?? throw new ArgumentNullException(nameof(definition));
         _properties = definition.Properties?.ToArray()
-            ?? throw new ArgumentException("The collection definition must declare properties.", nameof(definition));
+            ?? throw new ArgumentException(InfrastructureErrorCodes.VectorCollectionPropertiesRequired, nameof(definition));
         _keyProperty = PostgreSqlVectorSqlBuilder.GetKeyProperty(_properties);
         _vectorProperty = PostgreSqlVectorSqlBuilder.GetVectorProperty(_properties);
         _selectedProperties = _properties;
         _recordProperties = _properties.ToDictionary(
             property => property.Name,
             property => typeof(TRecord).GetProperty(property.Name, BindingFlags.Public | BindingFlags.Instance)
-                ?? throw new InvalidOperationException($"The record type '{typeof(TRecord).Name}' does not contain property '{property.Name}'."),
+                ?? throw new InvalidOperationException(InfrastructureErrorCodes.VectorRecordPropertyMissing) { Data = { ["recordType"] = typeof(TRecord).Name, ["property"] = property.Name } },
             StringComparer.Ordinal);
 
         _ = PostgreSqlVectorSqlBuilder.QuoteQualifiedName(_schema, _name);
@@ -146,7 +147,7 @@ public sealed class PostgreSqlVectorStoreCollection<TKey, TRecord> : VectorStore
         ArgumentOutOfRangeException.ThrowIfNegative(options?.Skip ?? 0);
         if (options?.OrderBy is not null)
         {
-            throw new NotSupportedException("Ordered filtered record retrieval is not supported by the PostgreSQL provider.");
+            throw new NotSupportedException(InfrastructureErrorCodes.OrderedVectorRetrievalUnsupported);
         }
 
         var translation = PostgreSqlVectorFilterTranslator.Translate(filter, _properties);
@@ -256,9 +257,8 @@ public sealed class PostgreSqlVectorStoreCollection<TKey, TRecord> : VectorStore
         var queryVector = ResolveQueryVector(vector);
         if (queryVector.Length != _vectorProperty.Dimensions)
         {
-            throw new ArgumentException(
-                $"The query vector has {queryVector.Length} dimensions, but the collection requires {_vectorProperty.Dimensions}.",
-                nameof(vector));
+            throw new ArgumentException(InfrastructureErrorCodes.QueryVectorDimensionsInvalid, nameof(vector))
+            { Data = { ["actualDimensions"] = queryVector.Length, ["expectedDimensions"] = _vectorProperty.Dimensions } };
         }
 
         var translation = PostgreSqlVectorFilterTranslator.Translate(options?.Filter, _properties);
@@ -336,7 +336,7 @@ public sealed class PostgreSqlVectorStoreCollection<TKey, TRecord> : VectorStore
             }
             else
             {
-                throw new NotSupportedException($"The record property '{property.Name}' is not supported by the PostgreSQL provider.");
+                throw new NotSupportedException(InfrastructureErrorCodes.VectorRecordPropertyUnsupported) { Data = { ["property"] = property.Name } };
             }
 
             target.SetValue(record, value);
@@ -354,14 +354,13 @@ public sealed class PostgreSqlVectorStoreCollection<TKey, TRecord> : VectorStore
             {
                 if (value is not ReadOnlyMemory<float> memory)
                 {
-                    throw new NotSupportedException($"The vector property '{property.Name}' must be ReadOnlyMemory<float>.");
+                    throw new NotSupportedException(InfrastructureErrorCodes.VectorPropertyTypeUnsupported) { Data = { ["property"] = property.Name } };
                 }
 
                 if (memory.Length != vectorProperty.Dimensions)
                 {
-                    throw new ArgumentException(
-                        $"The vector property '{property.Name}' has {memory.Length} dimensions, but the collection requires {vectorProperty.Dimensions}.",
-                        property.Name);
+                    throw new ArgumentException(InfrastructureErrorCodes.VectorRecordDimensionsInvalid, property.Name)
+                    { Data = { ["actualDimensions"] = memory.Length, ["expectedDimensions"] = vectorProperty.Dimensions } };
                 }
 
                 command.Parameters.AddWithValue(PostgreSqlVectorSqlBuilder.GetParameterName(property), new Vector(memory));
@@ -388,7 +387,7 @@ public sealed class PostgreSqlVectorStoreCollection<TKey, TRecord> : VectorStore
             return value;
         }
 
-        throw new NotSupportedException($"The key type '{typeof(TKey).Name}' is not supported by the PostgreSQL provider.");
+        throw new NotSupportedException(InfrastructureErrorCodes.VectorKeyTypeUnsupported) { Data = { ["type"] = typeof(TKey).Name } };
     }
 
     private static ReadOnlyMemory<float> ResolveQueryVector<TInput>(TInput input)
@@ -415,6 +414,6 @@ public sealed class PostgreSqlVectorStoreCollection<TKey, TRecord> : VectorStore
             return embedding;
         }
 
-        throw new NotSupportedException($"The query vector type '{typeof(TInput).Name}' is not supported by the PostgreSQL provider.");
+        throw new NotSupportedException(InfrastructureErrorCodes.QueryVectorTypeUnsupported) { Data = { ["type"] = typeof(TInput).Name } };
     }
 }

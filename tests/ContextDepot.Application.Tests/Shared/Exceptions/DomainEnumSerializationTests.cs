@@ -1,5 +1,6 @@
 using System.Text.Json;
 using ContextDepot.Domain.Contexts.Enums;
+using ContextDepot.Domain.Exceptions;
 
 namespace ContextDepot.Application.Tests.Shared.Exceptions;
 
@@ -11,7 +12,7 @@ public sealed class DomainEnumSerializationTests
         var exception = Assert.Throws<JsonException>(() =>
             JsonSerializer.Deserialize<ContextKind>("\"not-a-kind\""));
 
-        Assert.Equal("Invalid ContextKind value.", exception.Message);
+        Assert.Equal(DomainErrorCodes.InvalidEnumValue, exception.Message);
     }
 
     [Theory]

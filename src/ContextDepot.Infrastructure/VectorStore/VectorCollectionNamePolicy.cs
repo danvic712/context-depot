@@ -1,3 +1,4 @@
+using ContextDepot.Infrastructure.Exceptions;
 namespace ContextDepot.Infrastructure.VectorStore;
 
 public static class VectorCollectionNamePolicy
@@ -7,7 +8,7 @@ public static class VectorCollectionNamePolicy
         ArgumentException.ThrowIfNullOrWhiteSpace(profileFingerprint);
         if (profileFingerprint.Length != 64 || !profileFingerprint.All(Uri.IsHexDigit))
         {
-            throw new ArgumentException("The embedding profile fingerprint must be a SHA-256 hex string.", nameof(profileFingerprint));
+            throw new ArgumentException(InfrastructureErrorCodes.EmbeddingProfileFingerprintInvalid, nameof(profileFingerprint));
         }
 
         return profileFingerprint[..16].ToLowerInvariant();

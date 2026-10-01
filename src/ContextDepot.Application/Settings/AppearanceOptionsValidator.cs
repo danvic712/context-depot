@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.Extensions.Options;
+using ContextDepot.Application.Shared.Exceptions;
 
 namespace ContextDepot.Application.Settings;
 
@@ -13,18 +14,18 @@ public sealed class AppearanceOptionsValidator : IValidateOptions<AppearanceOpti
         {
             if (string.IsNullOrWhiteSpace(options.Language))
             {
-                return ValidateOptionsResult.Fail("Appearance language is required.");
+                return ValidateOptionsResult.Fail(ApplicationErrorCodes.InvalidAppearanceLanguage);
             }
 
             _ = CultureInfo.GetCultureInfo(options.Language);
         }
         catch (CultureNotFoundException)
         {
-            return ValidateOptionsResult.Fail("Appearance language must be a valid culture name.");
+            return ValidateOptionsResult.Fail(ApplicationErrorCodes.InvalidAppearanceLanguage);
         }
 
         return options.Theme is "system" or "light" or "dark"
             ? ValidateOptionsResult.Success
-            : ValidateOptionsResult.Fail("Appearance theme must be system, light or dark.");
+            : ValidateOptionsResult.Fail(ApplicationErrorCodes.InvalidAppearanceTheme);
     }
 }

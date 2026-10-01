@@ -1,3 +1,4 @@
 {
-  "IndexRepairRequestInvalid": "The index repair request is invalid. Check the batch size and maximum batch count."
+  "IndexRepairRequestInvalid": "The index repair request is invalid. Check the batch size and maximum batch count.",
+  "IndexRepairConfigurationInvalid": "Index repair settings are outside their supported ranges."
 }

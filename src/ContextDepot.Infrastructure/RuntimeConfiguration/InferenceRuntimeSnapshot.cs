@@ -1,3 +1,4 @@
+using ContextDepot.Infrastructure.Exceptions;
 namespace ContextDepot.Infrastructure.RuntimeConfiguration;
 
 public sealed record EmbeddingRouteRuntimeSnapshot(
@@ -24,7 +25,7 @@ public sealed class InferenceRuntimeSnapshotAccessor
 
     public InferenceRuntimeSnapshot Current =>
         Volatile.Read(ref current)
-        ?? throw new InvalidOperationException("The inference runtime snapshot has not been loaded.");
+        ?? throw new InvalidOperationException(InfrastructureErrorCodes.InferenceRuntimeSnapshotNotLoaded);
 
     public void Publish(InferenceRuntimeSnapshot snapshot)
     {

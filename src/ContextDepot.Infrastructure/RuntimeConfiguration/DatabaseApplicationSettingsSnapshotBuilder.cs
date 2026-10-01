@@ -1,3 +1,4 @@
+using ContextDepot.Infrastructure.Exceptions;
 using ContextDepot.Application.Retrieval;
 using System.Text.Json;
 using ContextDepot.Application.Embeddings;
@@ -38,12 +39,12 @@ public sealed class DatabaseApplicationSettingsSnapshotBuilder
         {
             if (!SupportedKeys.TryGetValue(record.Key, out var canonicalKey))
             {
-                throw new InvalidOperationException($"Unsupported application setting key '{record.Key}'.");
+                throw new InvalidOperationException(InfrastructureErrorCodes.ApplicationSettingKeyUnsupported) { Data = { ["key"] = record.Key } };
             }
 
             if (!values.TryAdd(canonicalKey, ConvertJsonScalar(record.Key, record.ValueJson)))
             {
-                throw new InvalidOperationException($"Application setting key '{record.Key}' is duplicated.");
+                throw new InvalidOperationException(InfrastructureErrorCodes.ApplicationSettingKeyDuplicated) { Data = { ["key"] = record.Key } };
             }
         }
 
@@ -53,8 +54,7 @@ public sealed class DatabaseApplicationSettingsSnapshotBuilder
             .ToArray();
         if (missingKeys.Length > 0)
         {
-            throw new InvalidOperationException(
-                $"Required application settings are missing: {string.Join(", ", missingKeys)}.");
+            throw new InvalidOperationException(InfrastructureErrorCodes.ApplicationSettingsMissing) { Data = { ["keys"] = missingKeys } };
         }
 
         ValidateOptions(values);
@@ -72,12 +72,12 @@ public sealed class DatabaseApplicationSettingsSnapshotBuilder
                 JsonValueKind.Number => document.RootElement.GetRawText(),
                 JsonValueKind.True => bool.TrueString.ToLowerInvariant(),
                 JsonValueKind.False => bool.FalseString.ToLowerInvariant(),
-                _ => throw new InvalidOperationException($"Application setting '{key}' must be a JSON string, number or boolean.")
+                _ => throw new InvalidOperationException(InfrastructureErrorCodes.ApplicationSettingValueInvalid) { Data = { ["key"] = key } }
             };
         }
         catch (JsonException exception)
         {
-            throw new InvalidOperationException($"Application setting '{key}' contains invalid JSON.", exception);
+            throw new InvalidOperationException(InfrastructureErrorCodes.ApplicationSettingJsonInvalid, exception) { Data = { ["key"] = key } };
         }
     }
 
@@ -90,25 +90,25 @@ public sealed class DatabaseApplicationSettingsSnapshotBuilder
         var retrieval = Bind<RetrievalOptions>(configuration, "ContextDepot:Retrieval");
         if (!new RetrievalOptionsValidator().Validate(null, retrieval).Succeeded)
         {
-            throw new InvalidOperationException("Database retrieval settings failed validation.");
+            throw new InvalidOperationException(InfrastructureErrorCodes.RetrievalSettingsInvalid);
         }
 
         var indexRepair = Bind<IndexRepairOptions>(configuration, "ContextDepot:IndexRepair");
         if (!new IndexRepairOptionsValidator().Validate(null, indexRepair).Succeeded)
         {
-            throw new InvalidOperationException("Database index repair settings failed validation.");
+            throw new InvalidOperationException(InfrastructureErrorCodes.IndexRepairSettingsInvalid);
         }
 
         var vectorCoverage = Bind<VectorCoverageOptions>(configuration, "ContextDepot:VectorCoverage");
         if (!new VectorCoverageOptionsValidator().Validate(null, vectorCoverage).Succeeded)
         {
-            throw new InvalidOperationException("Database vector coverage settings failed validation.");
+            throw new InvalidOperationException(InfrastructureErrorCodes.VectorCoverageSettingsInvalid);
         }
 
         var appearance = Bind<AppearanceOptions>(configuration, "ContextDepot:Appearance");
         if (!new AppearanceOptionsValidator().Validate(null, appearance).Succeeded)
         {
-            throw new InvalidOperationException("Database appearance settings failed validation.");
+            throw new InvalidOperationException(InfrastructureErrorCodes.AppearanceSettingsInvalid);
         }
     }
 
