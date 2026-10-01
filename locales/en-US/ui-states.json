@@ -1,7 +1,7 @@
 {
   "preview": "Preview sample data",
   "previewOff": "Exit preview",
-  "sampleHint": "Prototype with sample content. No server data or write actions are connected.",
+  "sampleHint": "Showing sample data. Preview does not read or modify knowledge resources.",
   "previewState": "Preview state",
   "success": "Sample content",
   "loading": "Loading",
@@ -19,5 +19,17 @@
   "reload": "Reload page",
   "notifications": "Notifications",
   "languageLoadError": "Unable to load the selected language. Your current language is unchanged. Please try again.",
-  "dismissNotification": "Dismiss notification"
+  "dismissNotification": "Dismiss notification",
+  "requestNetworkWhy": "Could not reach the service. Check your connection or service status and try again.",
+  "requestTimeoutWhy": "The request took too long. Please try again shortly.",
+  "requestForbiddenWhy": "The service does not allow access to this content. Check your access configuration.",
+  "requestNotFoundWhy": "This content may have been removed or become inaccessible. Choose another item.",
+  "requestUnavailableWhy": "The service is temporarily unavailable. Please try again shortly.",
+  "requestInvalidResponseWhy": "The returned data could not be displayed. Try again or check the service version.",
+  "requestInvalidQueryWhy": "Adjust your query or filters and try again.",
+  "requestUnknownWhy": "The request could not be completed. Please try again.",
+  "requestStale": "The last loaded content is still available.",
+  "requestRetrying": "Retrying",
+  "requestAppearanceError": "Display settings could not be loaded",
+  "requestAppearanceWhy": "Your current theme and language are still in use. Retry to load your saved settings."
 }

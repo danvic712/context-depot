@@ -14,7 +14,7 @@ import { sampleKnowledge } from "./features/knowledge/sample-data";
 import { useTranslation } from "react-i18next";
 import type { Lang } from "@/lib/i18n";
 import { useAppearanceSettings } from "./hooks/use-appearance-settings";
-import { Alert, AlertDescription } from "./components/ui/alert";
+import { RequestFeedback } from "./components/feedback/RequestFeedback";
 import { Sidebar } from "./components/layout/Sidebar";
 import { Header } from "./components/layout/Header";
 import { AppSelect } from "./components/ui/AppSelect";
@@ -32,6 +32,7 @@ export default function App() {
     languagePending,
     appearancePending,
     appearanceError,
+    appearanceRefreshPending,
     refreshAppearance,
     onTheme: changeTheme,
     onLanguage: changeLang,
@@ -233,18 +234,14 @@ export default function App() {
           onLanguage={changeLang}
         />
         {appearanceError && (
-          <Alert role="alert" className="appearance-error">
-            <AlertDescription>
-              {t("appearanceLoadError")}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void refreshAppearance()}
-              >
-                {t("retry")}
-              </Button>
-            </AlertDescription>
-          </Alert>
+          <RequestFeedback
+            className="appearance-error"
+            title={t("requestAppearanceError")}
+            description={t("requestAppearanceWhy")}
+            onRetry={refreshAppearance}
+            pending={appearanceRefreshPending}
+            compact
+          />
         )}
         <div className={`preview-control ${preview ? "is-preview" : ""}`}>
           <span>{preview ? t("sampleHint") : ""}</span>

@@ -1,7 +1,7 @@
 {
   "preview": "预览示例数据",
   "previewOff": "退出预览",
-  "sampleHint": "原型使用示例内容，尚未接入服务端数据或写入操作。",
+  "sampleHint": "当前显示示例数据，预览不会读取或修改知识资源。",
   "previewState": "预览状态",
   "success": "示例内容",
   "loading": "加载中",
@@ -19,5 +19,17 @@
   "reload": "刷新页面",
   "notifications": "操作通知",
   "languageLoadError": "无法加载所选语言，已保留当前语言。请重试。",
-  "dismissNotification": "关闭通知"
+  "dismissNotification": "关闭通知",
+  "requestNetworkWhy": "未能连接到服务，请检查网络或服务状态后重试。",
+  "requestTimeoutWhy": "请求耗时过长，请稍后重试。",
+  "requestForbiddenWhy": "当前服务不允许读取这部分内容，请检查访问配置。",
+  "requestNotFoundWhy": "内容可能已被移除或已无法访问，请选择其他知识。",
+  "requestUnavailableWhy": "服务暂时不可用，请稍后重试。",
+  "requestInvalidResponseWhy": "返回的数据暂时无法显示，请重试或检查服务版本。",
+  "requestInvalidQueryWhy": "请调整关键词或筛选条件后再试。",
+  "requestUnknownWhy": "暂时无法完成请求，请重试。",
+  "requestStale": "已保留上次加载的内容。",
+  "requestRetrying": "正在重试",
+  "requestAppearanceError": "显示设置暂时无法加载",
+  "requestAppearanceWhy": "暂时沿用当前主题和语言，你可以重试以获取已保存的设置。"
 }

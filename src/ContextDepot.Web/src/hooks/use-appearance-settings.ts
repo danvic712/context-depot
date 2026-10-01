@@ -32,11 +32,16 @@ export function useAppearanceSettings() {
     !getInitialAppearance().available,
   );
   const saving = useRef(false);
+  const refreshing = useRef(false);
+  const [appearanceRefreshPending, setAppearanceRefreshPending] =
+    useState(false);
   const revision = useRef(0);
 
   const refreshAppearance = useCallback(
     async (signal?: AbortSignal) => {
-      if (saving.current) return;
+      if (saving.current || refreshing.current) return;
+      refreshing.current = true;
+      setAppearanceRefreshPending(true);
       const request = ++revision.current;
       try {
         const settings = await getAppearance(signal);
@@ -67,6 +72,9 @@ export function useAppearanceSettings() {
           request === revision.current
         )
           setAppearanceError(true);
+      } finally {
+        refreshing.current = false;
+        setAppearanceRefreshPending(false);
       }
     },
     [applyTheme, i18n],
@@ -144,6 +152,7 @@ export function useAppearanceSettings() {
     languagePending: pending === "language",
     appearancePending: pending !== null,
     appearanceError,
+    appearanceRefreshPending,
     onTheme,
     onLanguage,
     refreshAppearance,

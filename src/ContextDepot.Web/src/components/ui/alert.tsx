@@ -8,6 +8,10 @@ const alertVariants = cva(
     variants: {
       variant: {
         default: "bg-card text-card-foreground",
+        "soft-error":
+          "border-destructive/20 bg-destructive/5 text-foreground [&>svg]:text-destructive",
+        "soft-info":
+          "border-primary/20 bg-primary/5 text-foreground [&>svg]:text-primary",
         destructive:
           "bg-card text-destructive *:data-[slot=alert-description]:text-destructive/90 [&>svg]:text-current",
       },
@@ -62,4 +66,14 @@ function AlertDescription({
   );
 }
 
-export { Alert, AlertTitle, AlertDescription };
+function AlertAction({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="alert-action"
+      className={cn("flex items-center gap-2", className)}
+      {...props}
+    />
+  );
+}
+
+export { Alert, AlertTitle, AlertDescription, AlertAction };
