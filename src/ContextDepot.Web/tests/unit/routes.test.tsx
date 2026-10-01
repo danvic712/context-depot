@@ -1,11 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { Glob } from "bun";
-import { createMemoryRouter, RouterProvider } from "react-router";
+import { createMemoryRouter, Outlet, RouterProvider } from "react-router";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Header } from "../../src/components/layout/Header";
 import { appRoutes } from "../../src/routes";
 import { AppLoading } from "../../src/components/feedback/RouteFeedback";
 import { initializeI18n } from "../../src/lib/i18n";
+import { KnowledgeEmptyState } from "../../src/features/home/KnowledgeEmptyState";
+import { previewWorkspaces } from "../../src/features/home/preview-data";
 
 async function ready(router: ReturnType<typeof createMemoryRouter>) {
   if (router.state.initialized && router.state.navigation.state === "idle")
@@ -91,6 +93,108 @@ function menu(html: string) {
     )?.[1] ?? ""
   );
 }
+
+describe("Home collection states", () => {
+  test("initial loading announces progress and shows placeholders before empty content", async () => {
+    await english();
+    for (const path of ["/", "/?preview=1&state=loading"]) {
+      const router = createMemoryRouter(appRoutes, { initialEntries: [path] });
+      try {
+        await ready(router);
+        const html = renderToStaticMarkup(<RouterProvider router={router} />);
+        expect(html).toContain('role="status">Loading');
+        expect(html.match(/aria-busy="true"/g)).toHaveLength(2);
+        expect(html.match(/home-space-skeleton/g)).toHaveLength(4);
+        expect(html).not.toContain("Create your first space");
+        expect(html).not.toContain("Start with your first piece of knowledge.");
+        expect(html).not.toContain("Continue with the knowledge you’ve saved.");
+        expect(html).not.toContain("home-create-tile");
+        expect(html).toContain('role="search"');
+      } finally {
+        router.dispose();
+      }
+    }
+  });
+
+  test("empty preview explains both collections and keeps the create entry", async () => {
+    await english();
+    const router = createMemoryRouter(appRoutes, {
+      initialEntries: ["/?preview=1&state=empty"],
+    });
+    try {
+      await ready(router);
+      const html = renderToStaticMarkup(<RouterProvider router={router} />);
+      expect(html).toContain("Create your first space");
+      expect(html).toContain("home-create-action");
+      expect(html).toContain("Create a space above");
+      expect(html).toContain("A home for knowledge worth keeping.");
+      expect(html).not.toContain("Most recently updated");
+      expect(html).toContain("Start with your first piece of knowledge.");
+      expect(html).toContain("Save a piece of context");
+      expect(html).toContain("Save a Markdown document");
+      expect(html).not.toContain("home-space-skeleton");
+      expect(html).not.toContain('href="/spaces/projects?preview=1"');
+    } finally {
+      router.dispose();
+    }
+  });
+
+  test("knowledge onboarding uses an existing space and waits for space availability", async () => {
+    await english();
+    for (const spaces of [previewWorkspaces, [], undefined]) {
+      const router = createMemoryRouter([
+        {
+          Component: () => (
+            <Outlet context={{ linkTo: (path: string) => path }} />
+          ),
+          children: [
+            {
+              index: true,
+              Component: () => <KnowledgeEmptyState spaces={spaces} />,
+            },
+          ],
+        },
+      ]);
+      try {
+        await ready(router);
+        const html = renderToStaticMarkup(<RouterProvider router={router} />);
+        if (spaces?.length) {
+          expect(html).toContain('href="/spaces/projects"');
+          expect(html).toContain(
+            "Ask your agent to save knowledge to Projects (projects)",
+          );
+          expect(html).not.toContain("Create a space above");
+        } else {
+          expect(html).not.toContain("Open space");
+          expect(html).toContain(
+            spaces
+              ? "Create a space above"
+              : "Connect an MCP client and save knowledge",
+          );
+        }
+      } finally {
+        router.dispose();
+      }
+    }
+  });
+
+  test("preview failure does not misrepresent unavailable collections as empty", async () => {
+    await english();
+    const router = createMemoryRouter(appRoutes, {
+      initialEntries: ["/?preview=1&state=error"],
+    });
+    try {
+      await ready(router);
+      const html = renderToStaticMarkup(<RouterProvider router={router} />);
+      expect(html).not.toContain("Create your first space");
+      expect(html).not.toContain("Start with your first piece of knowledge.");
+      expect(html).not.toContain("home-space-skeleton");
+      expect(html).toContain("Retry");
+    } finally {
+      router.dispose();
+    }
+  });
+});
 
 function selected(html: string, path: string) {
   const links = [...menu(html).matchAll(/<a\b([^>]+)>/g)];
@@ -216,11 +320,58 @@ describe("Sidebar navigation", () => {
   });
 
   test("startup skeleton provides navigation and page placeholders", () => {
-    const html = renderToStaticMarkup(<AppLoading />);
+    const html = renderToStaticMarkup(<AppLoading pathname="/" />);
     expect(html).toContain('class="rail"');
     expect(html).toContain('aria-busy="true"');
     expect(html).toContain('role="status"');
     expect(html).toContain('data-slot="skeleton"');
+    expect(html).toContain('class="frame frame-home"');
+    expect(html).toContain('class="page home"');
+    expect(html).toContain('class="home-hero"');
+    expect(html).toContain('class="home-dashboard"');
+    expect(html).toContain('class="home-guide-content"');
+    expect(html.match(/home-space-skeleton/g)).toHaveLength(4);
+    expect(html).not.toContain("<button");
+  });
+
+  test("startup on another route does not show the home layout", () => {
+    const html = renderToStaticMarkup(<AppLoading pathname="/settings" />);
+    expect(html).not.toContain("home-dashboard");
+    expect(html).toContain('role="status"');
+  });
+
+  test("navigation to home uses the home skeleton before the destination loads", async () => {
+    await english();
+    let release!: () => void;
+    const deferred = new Promise<null>((resolve) => {
+      release = () => resolve(null);
+    });
+    const routes = appRoutes.map((route) => ({
+      ...route,
+      children: route.children?.map((child) =>
+        child.id === "home" ? { ...child, loader: () => deferred } : child,
+      ),
+    }));
+    const router = createMemoryRouter(routes, {
+      initialEntries: ["/search?preview=1&q=notes"],
+    });
+    try {
+      await ready(router);
+      const navigation = router.navigate("/?preview=1");
+      const html = renderToStaticMarkup(<RouterProvider router={router} />);
+      expect(html).toContain('class="page home"');
+      expect(html).toContain('class="home-skeleton"');
+      expect(html).toContain('aria-label="Loading"');
+      expect(html).not.toContain("Working notes.md");
+      release();
+      await navigation;
+      const loaded = renderToStaticMarkup(<RouterProvider router={router} />);
+      expect(loaded).not.toContain('class="home-skeleton"');
+      expect(loaded).toContain('class="home-dashboard"');
+    } finally {
+      release();
+      router.dispose();
+    }
   });
 });
 

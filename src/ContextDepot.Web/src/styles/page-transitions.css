@@ -1,0 +1,45 @@
+.shell-ready {
+  animation: app-reveal 220ms ease-out;
+}
+.startup-loading .frame,
+.startup-loading .rail {
+  animation: loading-reveal 120ms ease-out 120ms both;
+}
+.frame > .page > .route-content {
+  animation: page-enter 180ms ease-out;
+}
+.frame > .page.home > .route-content {
+  animation: none;
+}
+@keyframes app-reveal {
+  from {
+    opacity: 0.65;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes loading-reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes page-enter {
+  from {
+    opacity: 0.65;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell-ready,
+  .startup-loading .frame,
+  .startup-loading .rail,
+  .frame > .page > .route-content {
+    animation: none;
+  }
+}

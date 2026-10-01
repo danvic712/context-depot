@@ -7,8 +7,9 @@
   "timeline": "时间线",
   "settings": "设置",
   "unknown": "未知",
-  "tagline": "同一份上下文，继续深入思考。",
+  "tagline": "为下一次工作，留下知识。",
   "clear": "清除",
   "timelineWhy": "具备近期知识查询能力后，时间线才会开放。",
-  "back": "返回"
+  "back": "返回",
+  "footerTagline": "保存 · 整理 · 复用"
 }

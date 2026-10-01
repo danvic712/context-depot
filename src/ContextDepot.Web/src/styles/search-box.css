@@ -10,7 +10,7 @@
   min-width: 0;
 }
 
-.search-input-group [data-slot="input-group-addon"] svg {
+.search-input-group [data-slot="input-group-addon"] > svg {
   color: var(--primary);
 }
 

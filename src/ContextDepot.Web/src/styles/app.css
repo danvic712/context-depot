@@ -225,30 +225,19 @@ footer {
   }
 }
 
-.loading-header {
-  height: var(--header-height);
-  display: flex;
-  align-items: center;
-  padding: 0 var(--content-inset);
-  border-bottom: 1px solid var(--border);
+.loading-preference {
+  width: 100px;
+  height: 36px;
 }
 
-.route-content {
-  animation: route-enter 0.18s ease-out;
-}
-
-@keyframes route-enter {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
+@media (max-width: 900px) {
+  .loading-tagline {
+    display: none;
   }
 }
-
 @media (max-width: 640px) {
-  .loading-header {
-    padding: 0 var(--content-inset);
+  .loading-preference {
+    width: 36px;
   }
 }
 

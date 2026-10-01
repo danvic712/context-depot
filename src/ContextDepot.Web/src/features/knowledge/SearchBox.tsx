@@ -13,7 +13,9 @@ import {
 export function SearchBox({
   value,
   onSearch,
+  home = false,
 }: {
+  home?: boolean;
   value: string;
   onSearch: (q: string) => void;
 }) {
@@ -21,6 +23,10 @@ export function SearchBox({
   const { t } = useTranslation();
   function submit(e: FormEvent) {
     e.preventDefault();
+    if (home && !input.trim()) {
+      document.getElementById("knowledge-search")?.focus();
+      return;
+    }
     onSearch(input.trim());
   }
   return (
@@ -38,15 +44,16 @@ export function SearchBox({
               placeholder={t("searchPlaceholder")}
             />
             <InputGroupAddon align="inline-start">
-              <SearchIcon />
+              <SearchIcon aria-hidden="true" />
             </InputGroupAddon>
             <InputGroupAddon align="inline-end">
+              {home && <kbd className="home-search-shortcut">⌘ / Ctrl K</kbd>}
               {input && (
                 <InputGroupButton
                   type="button"
                   onClick={() => {
                     setInput("");
-                    onSearch("");
+                    if (!home) onSearch("");
                   }}
                 >
                   {t("clear")}
@@ -54,7 +61,7 @@ export function SearchBox({
               )}
               <InputGroupButton type="submit" variant="default" size="sm">
                 {t("searchButton")}
-                <ArrowRightIcon data-icon="inline-end" />
+                <ArrowRightIcon data-icon="inline-end" aria-hidden="true" />
               </InputGroupButton>
             </InputGroupAddon>
           </InputGroup>

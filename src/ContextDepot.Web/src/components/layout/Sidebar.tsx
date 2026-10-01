@@ -9,9 +9,16 @@ import {
 } from "react-router";
 import type { NavigationItem, PageHandle } from "@/hooks/use-app-context";
 import { cn } from "@/lib/utils";
+import { lazy, Suspense } from "react";
 import { Brand } from "../Brand";
 import { Skeleton } from "../ui/skeleton";
 import "@/styles/sidebar.css";
+
+const ReadinessStatus = lazy(() =>
+  import("@/features/home/ReadinessStatus").then((module) => ({
+    default: module.ReadinessStatus,
+  })),
+);
 
 const items = [
   { item: "home", path: "/", Icon: HouseIcon },
@@ -22,9 +29,10 @@ const items = [
 
 interface Props {
   linkTo: (path: string) => To;
+  onSearch?: () => void;
 }
 
-export function Sidebar({ linkTo }: Props) {
+export function Sidebar({ linkTo, onSearch }: Props) {
   const { t } = useTranslation();
   const handle = useMatches().at(-1)?.handle as PageHandle;
   const { state } = useLocation();
@@ -58,6 +66,21 @@ export function Sidebar({ linkTo }: Props) {
             <Link
               key={item}
               to={linkTo(path)}
+              onClick={
+                item === "search" && onSearch
+                  ? (event) => {
+                      if (
+                        !event.metaKey &&
+                        !event.ctrlKey &&
+                        !event.shiftKey &&
+                        !event.altKey
+                      ) {
+                        event.preventDefault();
+                        onSearch();
+                      }
+                    }
+                  : undefined
+              }
               aria-current={active === item ? "page" : undefined}
               className={cn(
                 "rail-link",
@@ -77,10 +100,11 @@ export function Sidebar({ linkTo }: Props) {
           );
         })}
       </nav>
-      <div className="rail-status">
-        <span className="status-dot" aria-hidden="true" />
-        {t("unknown")}
-      </div>
+      <Suspense
+        fallback={<div className="rail-status">{t("homeUnknown")}</div>}
+      >
+        <ReadinessStatus />
+      </Suspense>
     </aside>
   );
 }

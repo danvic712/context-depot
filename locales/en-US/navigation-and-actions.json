@@ -7,8 +7,9 @@
   "timeline": "Timeline",
   "settings": "Settings",
   "unknown": "Unknown",
-  "tagline": "Same context. Further thinking.",
+  "tagline": "Keep knowledge for your next task.",
   "clear": "Clear",
   "timelineWhy": "Timeline becomes available when a recent knowledge query exists.",
-  "back": "Back"
+  "back": "Back",
+  "footerTagline": "Save · Organize · Reuse"
 }

@@ -53,6 +53,10 @@ export default function App() {
   const page = handle.page;
   const itemId = matched?.params.knowledgeId ?? matched?.params.spaceId;
   const navigation = useNavigation();
+  const homeLayout =
+    navigation.state === "loading"
+      ? navigation.location?.pathname === "/"
+      : page === "home";
   useEffect(() => {
     if (params.toString() !== rawParams.toString()) {
       setParams(params, {
@@ -172,6 +176,15 @@ export default function App() {
     addEventListener("keydown", key);
     return () => removeEventListener("keydown", key);
   }, [navigate]);
+  useEffect(() => {
+    if (
+      page === "search" &&
+      location.state?.focusSearch &&
+      navigation.state === "idle"
+    ) {
+      document.getElementById("knowledge-search")?.focus();
+    }
+  }, [page, location.state, navigation.state]);
   const filteredSamples = sampleKnowledge.filter((item) => {
     if (
       q &&
@@ -221,10 +234,10 @@ export default function App() {
     onLanguage: changeLang,
   };
   return (
-    <div className="shell">
+    <div className="shell shell-ready">
       <ScrollRestoration />
       <Sidebar linkTo={previewPath} />
-      <div className="frame">
+      <div className={`frame${homeLayout ? " frame-home" : ""}`}>
         <Header
           theme={theme}
           lang={lang}
@@ -243,43 +256,45 @@ export default function App() {
             compact
           />
         )}
-        <div className={`preview-control ${preview ? "is-preview" : ""}`}>
-          <span>{preview ? t("sampleHint") : ""}</span>
-          {preview && handle.previewControls && (
-            <div className="preview-state-select">
-              <span>{t("previewState")}</span>
-              <AppSelect
-                label={t("previewState")}
-                value={previewState}
-                onChange={(value) => setPreviewState(value as PreviewState)}
-                options={(
-                  [
-                    "success",
-                    "loading",
-                    "empty",
-                    "error",
-                    "permission",
-                    "degraded",
-                  ] as const
-                ).map((state) => ({ value: state, label: t(state) }))}
-              />
-            </div>
-          )}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={togglePreview}
-          >
-            {preview ? t("previewOff") : t("preview")}
-          </Button>
-        </div>
+        {(page !== "home" || preview) && (
+          <div className={`preview-control ${preview ? "is-preview" : ""}`}>
+            <span>{preview ? t("sampleHint") : ""}</span>
+            {preview && handle.previewControls && (
+              <div className="preview-state-select">
+                <span>{t("previewState")}</span>
+                <AppSelect
+                  label={t("previewState")}
+                  value={previewState}
+                  onChange={(value) => setPreviewState(value as PreviewState)}
+                  options={(
+                    [
+                      "success",
+                      "loading",
+                      "empty",
+                      "error",
+                      "permission",
+                      "degraded",
+                    ] as const
+                  ).map((state) => ({ value: state, label: t(state) }))}
+                />
+              </div>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={togglePreview}
+            >
+              {preview ? t("previewOff") : t("preview")}
+            </Button>
+          </div>
+        )}
         <main
-          className={`page ${page}`}
+          className={`page ${homeLayout ? "home" : navigation.state === "loading" ? "loading" : page}`}
           aria-busy={navigation.state === "loading"}
         >
           {navigation.state === "loading" ? (
-            <RouteLoading />
+            <RouteLoading home={homeLayout} />
           ) : (
             <div className="route-content" key={location.pathname}>
               <Outlet key={itemId} context={context} />
@@ -288,7 +303,7 @@ export default function App() {
         </main>
         <footer>
           <span>ContextDepot</span>
-          <span>Capture / Organize / Understand</span>
+          <span>{t("footerTagline")}</span>
         </footer>
       </div>
     </div>

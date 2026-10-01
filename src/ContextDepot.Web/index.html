@@ -8,9 +8,28 @@
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
     <meta name="theme-color" content="#f3f5f2" />
+    <style>
+      html {
+        background: #f3f5f2;
+      }
+      html[data-theme="dark"] {
+        background: #151917;
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+      }
+    </style>
     <script>
       try {
-        const theme = localStorage.getItem("contextdepot.theme");
+        const allowedThemes = ["system", "light", "dark"];
+        const override = localStorage.getItem("contextdepot.theme");
+        const cachedTheme = localStorage.getItem("contextdepot.theme-mode");
+        const theme = allowedThemes.includes(override)
+          ? override
+          : allowedThemes.includes(cachedTheme)
+            ? cachedTheme
+            : "system";
         const dark =
           theme === "dark" ||
           (theme !== "light" &&

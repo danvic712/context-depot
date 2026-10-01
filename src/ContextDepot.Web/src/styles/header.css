@@ -13,6 +13,21 @@
   gap: 12px;
 }
 
+.frame-home .topbar {
+  background: color-mix(in srgb, var(--canvas) 88%, transparent);
+  border-bottom-color: transparent;
+  backdrop-filter: blur(16px);
+}
+
+.frame-home .topbar::after {
+  content: "";
+  position: absolute;
+  inset: 100% 0 auto;
+  height: 16px;
+  background: linear-gradient(to bottom, var(--canvas), transparent);
+  pointer-events: none;
+}
+
 .brand-lockup {
   display: flex;
   align-items: center;

@@ -5,6 +5,7 @@ import { createBrowserRouter } from "react-router";
 import { RouterProvider } from "react-router/dom";
 import { createRoot } from "react-dom/client";
 import "./styles/app.css";
+import "./styles/page-transitions.css";
 import { appRoutes } from "./routes";
 import { initializeI18n, type Lang } from "./lib/i18n";
 import { Toaster } from "./components/ui/sonner";
@@ -22,7 +23,7 @@ import {
 const router = createBrowserRouter(appRoutes);
 
 const root = createRoot(document.getElementById("root")!);
-root.render(<AppLoading />);
+root.render(<AppLoading pathname={router.state.location.pathname} />);
 
 getAppearance()
   .catch(() => getInitialAppearance().settings)
