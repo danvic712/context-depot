@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+  lazy,
+  Suspense,
+} from "react";
 import {
   ScrollRestoration,
   Outlet,
@@ -24,7 +32,23 @@ import type { AppContext, PageHandle } from "./hooks/use-app-context";
 import type { PreviewState } from "./components/feedback/StatePreview";
 import { normalizeKnowledgeParams } from "./features/knowledge/query-params";
 
+const KnowledgeSearchDialog = lazy(
+  () => import("./features/knowledge/KnowledgeSearchDialog"),
+);
+
 export default function App() {
+  const [searchDialog, setSearchDialog] = useState<{
+    query: string;
+    session: number;
+  } | null>(null);
+  const searchOrigin = useRef<HTMLElement | null>(null);
+  const openSearch = useCallback((query = "") => {
+    searchOrigin.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    setSearchDialog({ query, session: Date.now() });
+  }, []);
   const { t, i18n } = useTranslation();
   const {
     theme,
@@ -167,15 +191,12 @@ export default function App() {
     const key = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        navigate("/search");
-        requestAnimationFrame(() =>
-          document.getElementById("knowledge-search")?.focus(),
-        );
+        if (!document.querySelector("[role=dialog]")) openSearch();
       }
     };
     addEventListener("keydown", key);
     return () => removeEventListener("keydown", key);
-  }, [navigate]);
+  }, [openSearch]);
   useEffect(() => {
     if (
       page === "search" &&
@@ -218,7 +239,7 @@ export default function App() {
     query: q,
     params,
     results: filteredSamples,
-    onSearch: search,
+    onSearch: page === "home" ? openSearch : search,
     onFilter: setSearchFilter,
     navigate,
     linkTo: previewPath,
@@ -235,8 +256,19 @@ export default function App() {
   };
   return (
     <div className="shell shell-ready">
+      {searchDialog && (
+        <Suspense fallback={null}>
+          <KnowledgeSearchDialog
+            key={searchDialog.session}
+            initialQuery={searchDialog.query}
+            preview={preview}
+            onClose={() => setSearchDialog(null)}
+            onRestoreFocus={() => searchOrigin.current?.focus()}
+          />
+        </Suspense>
+      )}
       <ScrollRestoration />
-      <Sidebar linkTo={previewPath} />
+      <Sidebar linkTo={previewPath} onSearch={() => openSearch()} />
       <div className={`frame${homeLayout ? " frame-home" : ""}`}>
         <Header
           theme={theme}
@@ -245,6 +277,7 @@ export default function App() {
           appearancePending={appearancePending}
           onTheme={changeTheme}
           onLanguage={changeLang}
+          onSearch={() => openSearch()}
         />
         {appearanceError && (
           <RequestFeedback

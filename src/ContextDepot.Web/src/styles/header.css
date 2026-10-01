@@ -161,3 +161,23 @@
     transition: none;
   }
 }
+
+.header-search-shortcut {
+  color: var(--muted);
+  font-size: 11px;
+  font-family: inherit;
+}
+@media (max-width: 800px) {
+  .header-search-shortcut {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  .header-search-label {
+    display: none;
+  }
+  .top-controls .header-search {
+    width: 36px;
+    padding: 0;
+  }
+}

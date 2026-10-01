@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import {
   LanguagesIcon,
+  SearchIcon,
   CaseSensitiveIcon,
   ChevronDownIcon,
   MonitorIcon,
@@ -31,6 +32,7 @@ interface Props {
   appearancePending?: boolean;
   onTheme: (value: Theme) => void;
   onLanguage: (value: Lang) => void;
+  onSearch?: () => void;
 }
 
 function PreferenceMenu({
@@ -128,6 +130,7 @@ export function Header({
   appearancePending = false,
   onTheme,
   onLanguage,
+  onSearch,
 }: Props) {
   const { t } = useTranslation();
   return (
@@ -138,6 +141,19 @@ export function Header({
         <small>{t("tagline")}</small>
       </div>
       <div className="top-controls">
+        {onSearch && (
+          <Button
+            variant="outline"
+            className="header-search cursor-pointer"
+            aria-label={t("dialogSearchTitle")}
+            title={t("dialogSearchShortcut")}
+            onClick={onSearch}
+          >
+            <SearchIcon data-icon="inline-start" aria-hidden="true" />
+            <span className="header-search-label">{t("searchButton")}</span>
+            <kbd className="header-search-shortcut">⌘ / Ctrl K</kbd>
+          </Button>
+        )}
         <PreferenceMenu
           label={t("theme")}
           Icon={themeIcons[theme]}
