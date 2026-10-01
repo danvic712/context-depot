@@ -84,7 +84,11 @@ Lexical / Semantic / Hybrid Retrieval
 
 | Endpoint | Description |
 | --- | --- |
-| `/` and frontend routes | Web prototype, served by the ASP.NET Core host |
+| `/` | Home: live spaces, recent knowledge and root workspace creation |
+| Other frontend routes | Navigation and explicit sample previews; resource reads are not connected yet |
+| `GET /api/workspaces` | Recent workspace summaries, `sort=-activityAt`, `limit=1..8` (default 3) |
+| `GET /api/knowledge` | Recent active knowledge summaries, `sort=-updatedAt`, `limit=1..20` (default 3) |
+| `POST /api/workspaces` | Create a root workspace; duplicate paths return 409 without updating existing data |
 | `/mcp` | Stateless Streamable HTTP MCP endpoint |
 | `/healthz` | Process health check |
 | `/readyz` | Dependency and retrieval readiness check |
@@ -112,10 +116,10 @@ Install frontend dependencies, then start the Host with its Web profile:
 
 ```sh
 bun install --frozen-lockfile --cwd src/ContextDepot.Web
-dotnet run --project src/ContextDepot --launch-profile web
+dotnet run --project src/ContextDepot --launch-profile http
 ```
 
-The Host requires its normal PostgreSQL and storage configuration. The Web profile starts Bun/Vite on port 5173 and redirects the browser from the Host on port 5289. The existing HTTP/HTTPS profiles continue to run the backend independently.
+The Host requires its normal PostgreSQL and storage configuration. The HTTP profile starts Bun/Vite on port 5173 and redirects the browser from the Host on port 5289. The existing HTTP/HTTPS profiles continue to run the backend independently.
 
 Publish the frontend and Host together:
 
@@ -123,7 +127,13 @@ Publish the frontend and Host together:
 dotnet publish src/ContextDepot/ContextDepot.csproj -c Release -p:BuildFrontend=true -o artifacts/publish
 ```
 
-Frontend assets are built into the Host's generated `wwwroot` directory and included in the publish output. Production only requires ASP.NET Core. The Docker build also builds and packages the frontend. The Web interface remains a clearly labeled prototype until authorized Web data and browser authentication APIs are available.
+Frontend assets are built into the Host's generated `wwwroot` directory and included in the publish output. Production only requires ASP.NET Core. The Docker build also builds and packages the frontend. Home reads real data and creates root workspaces. The other pages retain their existing navigation and explicit sample previews. Home's optional `?preview=1` mode uses labeled fixtures and cannot create workspaces.
+
+This iteration does not apply Web permissions. Set the server-side `ContextDepot:Web:DepotId` (environment variable `ContextDepot__Web__DepotId`) to the Depot shown in Home. If unset, the Host selects a Depot only when exactly one exists; an empty or ambiguous selection returns 503 with `web.depot_unavailable`. The client cannot supply a Depot ID. This Web selection does not change MCP access-key behavior.
+
+Home reads metadata independently of semantic retrieval. Readiness reports storage and index coverage, and does not test model connectivity.
+
+Run PostgreSQL resource integration tests with `CONTEXTDEPOT_TEST_CONNECTION` set to a migrated test connection. Each test uses an isolated Depot and rolls back every write; these tests are skipped when the variable is unset.
 
 ## Security Model
 
