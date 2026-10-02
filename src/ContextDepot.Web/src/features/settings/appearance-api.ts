@@ -62,6 +62,7 @@ export async function getAppearance(
 export async function setAppearanceTheme(theme: Theme): Promise<Theme> {
   const saved = await httpRequest({
     method: "PUT",
+    headers: { "X-ContextDepot-Management": "web" },
     url: "/settings/appearance/theme",
     data: { theme },
     parse: (data) => themeValue(objectValue(data).theme),
@@ -78,6 +79,7 @@ export async function setAppearanceTheme(theme: Theme): Promise<Theme> {
 export async function setAppearanceLanguage(language: Lang): Promise<Lang> {
   const saved = await httpRequest({
     method: "PUT",
+    headers: { "X-ContextDepot-Management": "web" },
     url: "/settings/appearance/language",
     data: {
       language: language === "zh" ? "zh-CN" : "en-US",

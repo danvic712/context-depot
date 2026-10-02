@@ -1,21 +1,19 @@
 import type { ReactNode } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import type { LucideIcon } from "lucide-react";
 
 export function SettingsSection({
   id,
   title,
   detail,
+  icon: Icon,
+  action,
   children,
 }: {
   id: string;
   title: string;
   detail: string;
+  icon: LucideIcon;
+  action?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -24,15 +22,17 @@ export function SettingsSection({
       id={id}
       aria-labelledby={`${id}-title`}
     >
-      <Card>
-        <CardHeader>
-          <CardTitle id={`${id}-title`} role="heading" aria-level={2}>
-            {title}
-          </CardTitle>
-          <CardDescription>{detail}</CardDescription>
-        </CardHeader>
-        <CardContent>{children}</CardContent>
-      </Card>
+      <div className="settings-section-header">
+        <span className="settings-section-icon">
+          <Icon aria-hidden="true" />
+        </span>
+        <div className="settings-section-heading">
+          <h2 id={`${id}-title`}>{title}</h2>
+          <p>{detail}</p>
+        </div>
+        {action && <div className="settings-section-action">{action}</div>}
+      </div>
+      <div className="settings-section-content">{children}</div>
     </section>
   );
 }

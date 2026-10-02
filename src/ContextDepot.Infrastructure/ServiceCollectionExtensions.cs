@@ -84,6 +84,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<VectorCollectionInitializer>();
         services.AddScoped<VectorCoverageSnapshotProvider>();
         services.AddScoped<IAppearanceSettingsRepository, AppearanceSettingsRepository>();
+        services.AddScoped<IAccessKeyRepository, AccessKeyRepository>();
+        services.AddScoped<ISettingsOverviewRepository, SettingsOverviewRepository>();
+        services.AddScoped<IAiSettingsRepository, AiSettingsRepository>();
         services.AddScoped<ContextDepot.Application.Overview.IOverviewRepository, OverviewRepository>();
         services.AddScoped<IDepotRepository, DepotRepository>();
         services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
@@ -104,6 +107,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICurrentDepotContext>(sp => sp.GetRequiredService<CurrentDepotAccessContext>());
         services.AddScoped<IWorkspaceAccessContext>(sp => sp.GetRequiredService<CurrentDepotAccessContext>());
         services.AddSingleton<DepotAccessKeySecretHasher>();
+        services.AddSingleton<IAccessKeySecretGenerator>(sp => sp.GetRequiredService<DepotAccessKeySecretHasher>());
         services.AddScoped<IDepotAccessKeyAuthenticator, DepotAccessKeyAuthenticator>();
         services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
 

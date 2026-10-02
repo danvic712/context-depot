@@ -46,6 +46,9 @@ public static class ServiceCollectionExtensions
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<IndexRepairOptions>, IndexRepairOptionsValidator>();
         services.AddScoped<IAppearanceSettingsAppService, AppearanceSettingsAppService>();
+        services.AddScoped<AccessKeyAppService>();
+        services.AddScoped<SettingsOverviewAppService>();
+        services.AddScoped<AiSettingsAppService>();
         services.AddScoped<IValidator<ThemeRequest>, ThemeRequestValidator>();
         services.AddScoped<IValidator<LanguageRequest>, LanguageRequestValidator>();
         services.AddOptions<AppearanceOptions>()

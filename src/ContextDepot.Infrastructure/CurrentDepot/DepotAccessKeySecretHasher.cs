@@ -1,21 +1,22 @@
 using System.Buffers.Text;
+using ContextDepot.Application.Settings.Contracts;
 using System.Security.Cryptography;
 
 namespace ContextDepot.Infrastructure.CurrentDepot;
 
-public sealed class DepotAccessKeySecretHasher
+public sealed class DepotAccessKeySecretHasher : IAccessKeySecretGenerator
 {
     private const string Marker = "cdk_";
     private const int PublicPartByteCount = 12;
     private const int SecretPartByteCount = 32;
 
-    public GeneratedDepotAccessKey Generate()
+    public GeneratedAccessKey Generate()
     {
         var publicPart = Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(PublicPartByteCount));
         var secretPart = Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(SecretPartByteCount));
         var prefix = Marker + publicPart;
         var plaintext = prefix + "." + secretPart;
-        return new GeneratedDepotAccessKey(plaintext, prefix, Hash(plaintext));
+        return new GeneratedAccessKey(plaintext, prefix, Hash(plaintext));
     }
 
     public bool Verify(string presentedKey, string expectedHash)
@@ -69,5 +70,3 @@ public sealed class DepotAccessKeySecretHasher
         Convert.ToHexStringLower(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(plaintext)));
 
 }
-
-public sealed record GeneratedDepotAccessKey(string Plaintext, string Prefix, string SecretHash);

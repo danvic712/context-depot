@@ -86,10 +86,16 @@ Lexical / Semantic / Hybrid Retrieval
 | --- | --- |
 | `/` | Home: live spaces, recent knowledge and root workspace creation |
 | `/search` | Search saved knowledge, filter results and read full content |
+| `/settings` | Appearance, storage/retrieval status, MCP access keys and AI configuration |
 | Workspace and standalone detail routes | Navigation and API availability notices |
 | `GET /api/workspaces` | Recent workspace summaries, `sort=-activityAt`, `limit=1..8` (default 3) |
 | `GET /api/knowledge` | Recent active knowledge summaries, `sort=-updatedAt`, `limit=1..20` (default 3) |
 | `POST /api/workspaces` | Create a root workspace; duplicate paths return 409 without updating existing data |
+| `GET /api/settings/overview` | Public storage status and current Depot vector coverage |
+| `GET/POST /api/settings/access-keys` | List key metadata or issue a key with explicit Workspace grants |
+| `PUT /api/settings/access-keys/{id}/grants` | Update Workspace access for an active key |
+| `POST /api/settings/access-keys/{id}/rotate` or `/revoke` | Atomically rotate a key or revoke it |
+| `GET /api/settings/ai`, `PUT /api/settings/ai/{capability}` | Read or configure OpenAI-compatible Embedding and Chat routes |
 | `/mcp` | Stateless Streamable HTTP MCP endpoint |
 | `/healthz` | Process health check |
 | `/readyz` | Dependency and retrieval readiness check |
@@ -134,13 +140,17 @@ This iteration does not apply Web permissions. Set the server-side `ContextDepot
 
 Home reads metadata independently of semantic retrieval. Readiness reports storage and index coverage, and does not test model connectivity.
 
-Run PostgreSQL resource integration tests with `CONTEXTDEPOT_TEST_CONNECTION` set to a migrated test connection. Each test uses an isolated Depot and rolls back every write; these tests are skipped when the variable is unset.
+Run PostgreSQL resource integration tests with `CONTEXTDEPOT_TEST_CONNECTION` set to a migrated test connection. Tests use isolated fixtures and roll back writes or remove their fixtures; these tests are skipped when the variable is unset.
 
 ## Security Model
 
 Access keys are stored using a public key prefix and a cryptographic hash rather than the original secret.
 
-Each request is restricted to the Workspaces explicitly granted to its Access Key. Retrieved context is returned as application data and does not receive instruction priority.
+MCP requests are restricted to the Workspaces explicitly granted to their Access Key. Retrieved context is returned as application data and does not receive instruction priority.
+
+The Web UI and Settings management APIs use the existing trusted deployment boundary, without a user login system. The Host selects one Depot through `ContextDepot:Web:DepotId`, or automatically when only one Depot exists. MCP keys do not grant Settings management access. Settings writes require `X-ContextDepot-Management: web` to prevent cross-site form submissions; this header is not an authentication credential.
+
+New and rotated MCP secrets are returned once. AI API keys are encrypted with Data Protection and never returned by read APIs. Embedding changes prepare isolated derived collections before saving and refresh the running profile. Chat configuration is stored for later use; the current app does not provide chat features. Configuration activation does not verify remote provider connectivity.
 
 ## Project Status
 

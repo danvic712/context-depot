@@ -84,6 +84,9 @@ public sealed class GlobalExceptionHandler(
 
     private static int GetStatusCode(string code) => code switch
     {
+        ApplicationErrorCodes.SettingsForbidden => StatusCodes.Status403Forbidden,
+        ApplicationErrorCodes.AccessKeyNotFound => StatusCodes.Status404NotFound,
+        ApplicationErrorCodes.SettingsConflict => StatusCodes.Status409Conflict,
         ApplicationErrorCodes.Unauthorized => StatusCodes.Status401Unauthorized,
         ApplicationErrorCodes.ContextNotFound or ApplicationErrorCodes.DocumentNotFound or
             ApplicationErrorCodes.WorkspaceNotFound or ApplicationErrorCodes.WorkspaceParentNotFound => StatusCodes.Status404NotFound,

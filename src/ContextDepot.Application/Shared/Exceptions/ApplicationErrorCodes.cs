@@ -4,6 +4,10 @@ namespace ContextDepot.Application.Shared.Exceptions;
 
 public static class ApplicationErrorCodes
 {
+    public const string SettingsForbidden = "SettingsForbidden";
+    public const string AccessKeyNotFound = "AccessKeyNotFound";
+    public const string SettingsConflict = "SettingsConflict";
+    public const string InvalidAiConfiguration = "InvalidAiConfiguration";
     public const string InvalidRequest = "InvalidRequest";
     public const string Unauthorized = "Unauthorized";
     public const string WebDepotUnavailable = "web.depot_unavailable";

@@ -10,7 +10,21 @@ public sealed class WebDepotContextMiddleware(RequestDelegate next, IConfigurati
     public async Task InvokeAsync(HttpContext context, IDepotRepository depots, CurrentDepotAccessContext currentDepot)
     {
         if (!context.Request.Path.StartsWithSegments("/api/workspaces") &&
-            !context.Request.Path.StartsWithSegments("/api/knowledge"))
+            !context.Request.Path.StartsWithSegments("/api/knowledge") &&
+            !context.Request.Path.StartsWithSegments("/api/settings"))
+        {
+            await next(context);
+            return;
+        }
+
+        if (context.Request.Path.StartsWithSegments("/api/settings") &&
+            (context.Request.Headers.ContainsKey("X-ContextDepot-Key") ||
+             context.Request.Headers["Sec-Fetch-Site"] == "cross-site" ||
+             (!HttpMethods.IsGet(context.Request.Method) && context.Request.Headers["X-ContextDepot-Management"] != "web")))
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.SettingsForbidden);
+
+        // Appearance is a deployment default and does not depend on selecting a Depot.
+        if (context.Request.Path.StartsWithSegments("/api/settings/appearance"))
         {
             await next(context);
             return;
