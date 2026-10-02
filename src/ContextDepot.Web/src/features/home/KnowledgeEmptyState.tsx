@@ -6,7 +6,6 @@ import {
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router";
 import { Button } from "@/components/ui/button";
-import { useAppContext } from "@/hooks/use-app-context";
 import type { WorkspaceSummary } from "./home-api";
 
 export function KnowledgeEmptyState({
@@ -15,7 +14,6 @@ export function KnowledgeEmptyState({
   spaces?: WorkspaceSummary[];
 }) {
   const { t } = useTranslation();
-  const { linkTo } = useAppContext();
   const location = useLocation();
   const workspace = spaces?.[0];
   return (
@@ -55,7 +53,7 @@ export function KnowledgeEmptyState({
         {workspace && (
           <Button variant="outline" asChild>
             <Link
-              to={linkTo(`/spaces/${workspace.id}`)}
+              to={`/spaces/${workspace.id}`}
               state={{
                 from: location.pathname + location.search,
                 navigation: "home",

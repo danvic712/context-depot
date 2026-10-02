@@ -14,13 +14,13 @@ async function readMessages(language: Lang): Promise<Messages> {
   const locale = language === "zh" ? "zh-CN" : "en-US";
   const directory = new URL(`../../../../locales/${locale}/`, import.meta.url);
   const glob = new Glob(
-    "{navigation-and-actions,home-overview,knowledge-search,workspace-browser,knowledge-actions,application-settings,ui-states}.json",
+    "{navigation-and-actions,home-overview,knowledge-search,workspace-browser,application-settings,ui-states}.json",
   );
   const messages = [];
   for await (const file of glob.scan({ cwd: directory.pathname })) {
     messages.push(await Bun.file(new URL(file, directory)).json());
   }
-  expect(messages).toHaveLength(7);
+  expect(messages).toHaveLength(6);
   return Object.assign({}, ...messages);
 }
 

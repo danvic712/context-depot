@@ -1,12 +1,6 @@
 import { HouseIcon, SearchIcon, FolderIcon, SettingsIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import {
-  Link,
-  useLocation,
-  useMatches,
-  useNavigation,
-  type To,
-} from "react-router";
+import { Link, useLocation, useMatches, useNavigation } from "react-router";
 import type { NavigationItem, PageHandle } from "@/hooks/use-app-context";
 import { cn } from "@/lib/utils";
 import { lazy, Suspense } from "react";
@@ -27,11 +21,7 @@ const items = [
   { item: "settings", path: "/settings", Icon: SettingsIcon },
 ] as const;
 
-interface Props {
-  linkTo: (path: string) => To;
-}
-
-export function Sidebar({ linkTo }: Props) {
+export function Sidebar() {
   const { t } = useTranslation();
   const handle = useMatches().at(-1)?.handle as PageHandle;
   const { state } = useLocation();
@@ -51,7 +41,7 @@ export function Sidebar({ linkTo }: Props) {
       <div className="rail-brand">
         <Link
           className="rail-brand-link"
-          to={linkTo("/")}
+          to="/"
           aria-label={`ContextDepot · ${t("home")}`}
           title={t("home")}
         >
@@ -64,7 +54,7 @@ export function Sidebar({ linkTo }: Props) {
           return (
             <Link
               key={item}
-              to={linkTo(path)}
+              to={path}
               aria-current={active === item ? "page" : undefined}
               className={cn(
                 "rail-link",

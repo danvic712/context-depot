@@ -21,7 +21,6 @@ export const appRoutes: RouteObject[] = [
           page: "home",
           title: "home",
           navigation: "home",
-          previewControls: true,
         },
         lazy: () =>
           import("./pages/home/Home").then(({ Home }) => ({ Component: Home })),
@@ -33,7 +32,6 @@ export const appRoutes: RouteObject[] = [
           page: "search",
           title: "search",
           navigation: "search",
-          previewControls: true,
         },
         lazy: () =>
           import("./pages/search/Search").then(({ Search }) => ({
@@ -47,7 +45,6 @@ export const appRoutes: RouteObject[] = [
           page: "spaces",
           title: "spaces",
           navigation: "spaces",
-          previewControls: true,
         },
         lazy: () =>
           import("./pages/spaces/Spaces").then(({ Spaces }) => ({
@@ -61,7 +58,6 @@ export const appRoutes: RouteObject[] = [
           page: "space",
           title: "spaces",
           navigation: "spaces",
-          previewControls: true,
         },
         lazy: () =>
           import("./pages/space-detail/SpaceDetail").then(

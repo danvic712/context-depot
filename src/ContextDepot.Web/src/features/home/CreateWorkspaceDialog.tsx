@@ -18,11 +18,9 @@ import { createWorkspace } from "./home-api";
 type FieldErrors = Partial<Record<"name" | "path", string>>;
 export function CreateWorkspaceDialog({
   onCreated,
-  preview = false,
   compact = false,
 }: {
   onCreated: () => void | Promise<void>;
-  preview?: boolean;
   compact?: boolean;
 }) {
   const { t } = useTranslation();
@@ -113,12 +111,6 @@ export function CreateWorkspaceDialog({
               ? `${buttonVariants()} home-create-action`
               : "home-space-tile home-create-tile"
           }
-          onClick={(event) => {
-            if (preview) {
-              event.preventDefault();
-              toast.info(t("createPreviewHint"));
-            }
-          }}
         >
           {compact ? (
             <>

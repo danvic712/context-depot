@@ -1,11 +1,6 @@
 {
   "spacesTitle": "Your spaces.",
   "spacesSub": "Browse the workspaces available to you.",
-  "allKnowledge": "All knowledge",
-  "sampleSpace": "SAMPLE WORKSPACE",
   "newSpace": "New space",
-  "newSpaceUnavailable": "Creation needs a Web API and permission.",
-  "noKnowledge": "No knowledge in this view.",
-  "changeView": "Choose another view to browse this workspace.",
   "spacesKicker": "KNOWLEDGE / SPACES"
 }

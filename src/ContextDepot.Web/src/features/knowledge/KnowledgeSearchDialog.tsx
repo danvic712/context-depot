@@ -23,7 +23,6 @@ import {
   CommandItem,
 } from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { AppSelect } from "@/components/ui/AppSelect";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { RequestFeedback } from "@/components/feedback/RequestFeedback";
@@ -45,13 +44,11 @@ import "@/styles/knowledge-search-dialog.css";
 
 export default function KnowledgeSearchDialog({
   initialQuery,
-  preview,
   onClose,
   onRestoreFocus,
   onOpenPage,
 }: {
   initialQuery: string;
-  preview: boolean;
   onClose: () => void;
   onRestoreFocus: () => void;
   onOpenPage: (criteria: {
@@ -71,12 +68,12 @@ export default function KnowledgeSearchDialog({
   const [retry, setRetry] = useState(0);
   const [previewRetry, setPreviewRetry] = useState(0);
   const input = useRef<HTMLInputElement>(null);
-  const resource = useKnowledgeSearch(query, workspace, preview, retry);
-  const workspaces = useSearchWorkspaces(preview, workspaceRetry);
+  const resource = useKnowledgeSearch(query, workspace, retry);
+  const workspaces = useSearchWorkspaces(workspaceRetry);
   const hits = resource.data?.items ?? [];
   const visible = hits.filter((item) => type === "all" || item.type === type);
   const item = visible.find((hit) => hitKey(hit) === selected) ?? visible[0];
-  const detail = useKnowledgePreview(item, preview, previewRetry);
+  const detail = useKnowledgePreview(item, previewRetry);
   const pending = resource.pending;
   const counts = {
     all: hits.length,
@@ -234,7 +231,6 @@ export default function KnowledgeSearchDialog({
                   : resource.data
                     ? t("dialogResultCount", { count: visible.length })
                     : t("dialogResults")}
-                {preview && <Badge variant="secondary">{t("preview")}</Badge>}
               </div>
               <CommandList
                 className="search-result-list"

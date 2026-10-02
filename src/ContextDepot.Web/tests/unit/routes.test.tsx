@@ -1,13 +1,26 @@
 import { describe, expect, test } from "bun:test";
 import { Glob } from "bun";
-import { createMemoryRouter, Outlet, RouterProvider } from "react-router";
+import { createMemoryRouter, RouterProvider } from "react-router";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Header } from "../../src/components/layout/Header";
 import { appRoutes } from "../../src/routes";
 import { AppLoading } from "../../src/components/feedback/RouteFeedback";
 import { initializeI18n } from "../../src/lib/i18n";
 import { KnowledgeEmptyState } from "../../src/features/home/KnowledgeEmptyState";
-import { previewWorkspaces } from "../../src/features/home/preview-data";
+import { WorkspaceTiles } from "../../src/features/home/HomeCollections";
+import type { WorkspaceSummary } from "../../src/features/home/home-api";
+
+const workspaces: WorkspaceSummary[] = [
+  {
+    id: "projects",
+    name: "Projects",
+    description: null,
+    path: "projects",
+    contextCount: 0,
+    documentCount: 0,
+    activityAt: "2026-10-01T00:00:00Z",
+  },
+];
 
 async function ready(router: ReturnType<typeof createMemoryRouter>) {
   if (router.state.initialized && router.state.navigation.state === "idle")
@@ -26,7 +39,7 @@ async function english() {
   await initializeI18n("en", async () => {
     const directory = new URL("../../../../locales/en-US/", import.meta.url);
     const glob = new Glob(
-      "{navigation-and-actions,home-overview,knowledge-search,workspace-browser,knowledge-actions,application-settings,ui-states}.json",
+      "{navigation-and-actions,home-overview,knowledge-search,workspace-browser,application-settings,ui-states}.json",
     );
     const messages = [];
     for await (const file of glob.scan({ cwd: directory.pathname })) {
@@ -40,7 +53,7 @@ describe("Application routes", () => {
   test("a direct search link preserves its query and filters while results load", async () => {
     await english();
     const router = createMemoryRouter(appRoutes, {
-      initialEntries: ["/search?preview=1&q=notes&type=documents"],
+      initialEntries: ["/search?q=notes&type=documents"],
     });
     try {
       await ready(router);
@@ -59,14 +72,13 @@ describe("Application routes", () => {
     }
   });
 
-  test("detail routes select their own record and preserve the source location", async () => {
+  test("detail routes preserve the source location and show their API availability", async () => {
     await english();
     const router = createMemoryRouter(appRoutes, {
       initialEntries: [
         {
           pathname: "/documents/notes",
-          search: "?preview=1",
-          state: { from: "/search?preview=1&q=notes" },
+          state: { from: "/search?q=notes" },
         },
       ],
     });
@@ -75,15 +87,15 @@ describe("Application routes", () => {
       expect(router.state.errors).toBeNull();
       expect(
         renderToStaticMarkup(<RouterProvider router={router} />),
-      ).toContain("Working notes.md");
+      ).toContain("Recent knowledge needs a Web read API.");
       expect(router.state.location.state).toEqual({
-        from: "/search?preview=1&q=notes",
+        from: "/search?q=notes",
       });
-      await router.navigate("/contexts/decision?preview=1");
+      await router.navigate("/contexts/decision");
       expect(router.state.matches.at(-1)?.route.id).toBe("context");
       expect(
         renderToStaticMarkup(<RouterProvider router={router} />),
-      ).toContain("Choose a single source for decisions");
+      ).toContain("Recent knowledge needs a Web read API.");
     } finally {
       router.dispose();
     }
@@ -101,7 +113,7 @@ function menu(html: string) {
 describe("Home collection states", () => {
   test("initial loading announces progress and shows placeholders before empty content", async () => {
     await english();
-    for (const path of ["/", "/?preview=1&state=loading"]) {
+    for (const path of ["/", "/?preview=1&state=empty"]) {
       const router = createMemoryRouter(appRoutes, { initialEntries: [path] });
       try {
         await ready(router);
@@ -120,24 +132,27 @@ describe("Home collection states", () => {
     }
   });
 
-  test("empty preview explains both collections and keeps the create entry", async () => {
+  test("an empty workspace collection keeps the create entry", async () => {
     await english();
-    const router = createMemoryRouter(appRoutes, {
-      initialEntries: ["/?preview=1&state=empty"],
-    });
+    const router = createMemoryRouter([
+      {
+        path: "/",
+        Component: () => (
+          <WorkspaceTiles
+            items={[]}
+            pending={false}
+            empty
+            onCreated={() => {}}
+          />
+        ),
+      },
+    ]);
     try {
       await ready(router);
       const html = renderToStaticMarkup(<RouterProvider router={router} />);
       expect(html).toContain("Create your first space");
       expect(html).toContain("home-create-action");
-      expect(html).toContain("Create a space above");
-      expect(html).toContain("A home for knowledge worth keeping.");
-      expect(html).not.toContain("Most recently updated");
-      expect(html).toContain("Start with your first piece of knowledge.");
-      expect(html).toContain("Save a piece of context");
-      expect(html).toContain("Save a Markdown document");
       expect(html).not.toContain("home-space-skeleton");
-      expect(html).not.toContain('href="/spaces/projects?preview=1"');
     } finally {
       router.dispose();
     }
@@ -145,18 +160,11 @@ describe("Home collection states", () => {
 
   test("knowledge onboarding uses an existing space and waits for space availability", async () => {
     await english();
-    for (const spaces of [previewWorkspaces, [], undefined]) {
+    for (const spaces of [workspaces, [], undefined]) {
       const router = createMemoryRouter([
         {
-          Component: () => (
-            <Outlet context={{ linkTo: (path: string) => path }} />
-          ),
-          children: [
-            {
-              index: true,
-              Component: () => <KnowledgeEmptyState spaces={spaces} />,
-            },
-          ],
+          path: "/",
+          Component: () => <KnowledgeEmptyState spaces={spaces} />,
         },
       ]);
       try {
@@ -181,23 +189,6 @@ describe("Home collection states", () => {
       }
     }
   });
-
-  test("preview failure does not misrepresent unavailable collections as empty", async () => {
-    await english();
-    const router = createMemoryRouter(appRoutes, {
-      initialEntries: ["/?preview=1&state=error"],
-    });
-    try {
-      await ready(router);
-      const html = renderToStaticMarkup(<RouterProvider router={router} />);
-      expect(html).not.toContain("Create your first space");
-      expect(html).not.toContain("Start with your first piece of knowledge.");
-      expect(html).not.toContain("home-space-skeleton");
-      expect(html).toContain("Retry");
-    } finally {
-      router.dispose();
-    }
-  });
 });
 
 function selected(html: string, path: string) {
@@ -211,17 +202,48 @@ function selected(html: string, path: string) {
 }
 
 describe("Sidebar navigation", () => {
-  test("all menu destinations navigate and preserve preview mode", async () => {
+  test("legacy sample links never expose a sample toggle or simulation controls", async () => {
     await english();
     const router = createMemoryRouter(appRoutes, {
-      initialEntries: ["/?preview=1"],
+      initialEntries: ["/?preview=1&state=empty"],
+    });
+    try {
+      await ready(router);
+      for (const path of [
+        "/",
+        "/search?q=notes",
+        "/spaces",
+        "/spaces/projects",
+        "/documents/notes",
+        "/contexts/decision",
+        "/settings",
+      ]) {
+        await router.navigate(
+          `${path}${path.includes("?") ? "&" : "?"}preview=1&state=error`,
+        );
+        const html = renderToStaticMarkup(<RouterProvider router={router} />);
+        expect(html).not.toContain("preview-control");
+        expect(html).not.toContain("Preview sample data");
+        expect(html).not.toContain("Showing sample data");
+        expect(html).not.toContain("Working notes.md");
+        expect(html).not.toContain("Simulate hash conflict");
+        expect(menu(html)).not.toContain("preview=1");
+      }
+    } finally {
+      router.dispose();
+    }
+  });
+  test("all menu destinations navigate without sample-mode controls", async () => {
+    await english();
+    const router = createMemoryRouter(appRoutes, {
+      initialEntries: ["/"],
     });
     try {
       await ready(router);
       for (const path of ["/", "/search", "/spaces", "/settings"]) {
         const html = renderToStaticMarkup(<RouterProvider router={router} />);
-        expect(menu(html)).toContain(`href="${path}?preview=1"`);
-        await router.navigate(`${path}?preview=1`);
+        expect(menu(html)).toContain(`href="${path}"`);
+        await router.navigate(`${path}`);
         expect(router.state.errors).toBeNull();
         expect(
           selected(
@@ -235,7 +257,7 @@ describe("Sidebar navigation", () => {
       expect(menu(html)).not.toContain("Timeline");
       expect(html).toContain('class="rail-brand-link"');
       expect(html).toContain(
-        'aria-label="ContextDepot · Home" title="Home" href="/?preview=1"',
+        'aria-label="ContextDepot · Home" title="Home" href="/"',
       );
     } finally {
       router.dispose();
@@ -245,7 +267,7 @@ describe("Sidebar navigation", () => {
   test("space details select Spaces and direct knowledge links select Search", async () => {
     await english();
     const router = createMemoryRouter(appRoutes, {
-      initialEntries: ["/spaces/personal?preview=1"],
+      initialEntries: ["/spaces/personal"],
     });
     try {
       await ready(router);
@@ -256,7 +278,7 @@ describe("Sidebar navigation", () => {
         ),
       ).toBe(true);
       for (const path of ["/documents/notes", "/contexts/decision"]) {
-        await router.navigate(`${path}?preview=1`);
+        await router.navigate(`${path}`);
         expect(
           selected(
             renderToStaticMarkup(<RouterProvider router={router} />),
@@ -264,8 +286,8 @@ describe("Sidebar navigation", () => {
           ),
         ).toBe(true);
       }
-      await router.navigate("/documents/notes?preview=1", {
-        state: { from: "/spaces/personal?preview=1", navigation: "spaces" },
+      await router.navigate("/documents/notes", {
+        state: { from: "/spaces/personal", navigation: "spaces" },
       });
       expect(
         selected(
@@ -298,14 +320,14 @@ describe("Sidebar navigation", () => {
       ),
     }));
     const router = createMemoryRouter(routes, {
-      initialEntries: ["/search?preview=1&q=notes"],
+      initialEntries: ["/search?q=notes"],
     });
     try {
       await ready(router);
       expect(
         renderToStaticMarkup(<RouterProvider router={router} />),
       ).toContain('class="search-workbench"');
-      const navigation = router.navigate("/settings?preview=1");
+      const navigation = router.navigate("/settings");
       const html = renderToStaticMarkup(<RouterProvider router={router} />);
       expect(menu(html)).toContain("rail-link pending rail-settings");
       expect(menu(html)).toContain('role="status"');
@@ -373,11 +395,11 @@ describe("Sidebar navigation", () => {
       ),
     }));
     const router = createMemoryRouter(routes, {
-      initialEntries: ["/?preview=1"],
+      initialEntries: ["/"],
     });
     try {
       await ready(router);
-      const navigation = router.navigate("/search?preview=1&q=notes");
+      const navigation = router.navigate("/search?q=notes");
       const html = renderToStaticMarkup(<RouterProvider router={router} />);
       expect(html).toContain('class="page search"');
       expect(html).toContain("search-page-skeleton");
@@ -407,11 +429,11 @@ describe("Sidebar navigation", () => {
       ),
     }));
     const router = createMemoryRouter(routes, {
-      initialEntries: ["/search?preview=1&q=notes"],
+      initialEntries: ["/search?q=notes"],
     });
     try {
       await ready(router);
-      const navigation = router.navigate("/?preview=1");
+      const navigation = router.navigate("/");
       const html = renderToStaticMarkup(<RouterProvider router={router} />);
       expect(html).toContain('class="page home"');
       expect(html).toContain('class="home-skeleton"');

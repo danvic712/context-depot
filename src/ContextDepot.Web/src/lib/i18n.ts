@@ -8,7 +8,6 @@ export type Messages =
     typeof import("../../../../locales/en-US/home-overview.json") &
     typeof import("../../../../locales/en-US/knowledge-search.json") &
     typeof import("../../../../locales/en-US/workspace-browser.json") &
-    typeof import("../../../../locales/en-US/knowledge-actions.json") &
     typeof import("../../../../locales/en-US/application-settings.json") &
     typeof import("../../../../locales/en-US/ui-states.json");
 export type Lang = "en" | "zh";

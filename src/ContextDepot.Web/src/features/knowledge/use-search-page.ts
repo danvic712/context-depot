@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useSearchParams } from "react-router";
-import { useAppContext } from "@/hooks/use-app-context";
 import { hitKey, type ContextKind, type SearchHit } from "./search-api";
 import {
   useKnowledgeSearch,
@@ -9,7 +8,6 @@ import {
 } from "./use-knowledge-search";
 
 export function useSearchPage() {
-  const { preview, state, onRetry } = useAppContext();
   const [params, setParams] = useSearchParams();
   const location = useLocation();
   const query = params.get("q") ?? "";
@@ -19,43 +17,22 @@ export function useSearchPage() {
   const [spaceRetry, setSpaceRetry] = useState(0);
   const [previewRetry, setPreviewRetry] = useState(0);
   const [immediate, setImmediate] = useState(false);
-  const spaces = useSearchWorkspaces(preview, spaceRetry);
-  const search = useKnowledgeSearch(
+  const spaces = useSearchWorkspaces(spaceRetry);
+  const resource = useKnowledgeSearch(
     query,
     workspace,
-    preview,
     retry,
     kind ?? undefined,
     immediate,
   );
-  const resource =
-    preview && state !== "success" && state !== "degraded"
-      ? {
-          ...search,
-          pending: state === "loading",
-          data: undefined,
-          error:
-            state === "error" || state === "permission"
-              ? {
-                  kind:
-                    state === "permission"
-                      ? ("forbidden" as const)
-                      : ("network" as const),
-                  retryable: state !== "permission",
-                }
-              : undefined,
-        }
-      : search;
-  const hits = (
-    state === "empty" && preview ? [] : (resource.data?.items ?? [])
-  ).filter(
+  const hits = (resource.data?.items ?? []).filter(
     (hit) =>
       !params.has("type") ||
       hit.type === (params.get("type") === "contexts" ? "context" : "document"),
   );
   const selected =
     hits.find((hit) => hitKey(hit) === params.get("selected")) ?? hits[0];
-  const detail = useKnowledgePreview(selected, preview, previewRetry);
+  const detail = useKnowledgePreview(selected, previewRetry);
   const reading = params.get("read") === "1" && !!selected;
   const listRef = useRef<HTMLDivElement>(null);
   const paneRef = useRef<HTMLElement>(null);
@@ -115,7 +92,6 @@ export function useSearchPage() {
     const next = new URLSearchParams(params);
     for (const key of ["type", "kind", "workspace", "selected", "read"])
       next.delete(key);
-    if (preview) next.delete("state");
     setImmediate(true);
     setRetry((value) => value + 1);
     update(next);
@@ -140,7 +116,6 @@ export function useSearchPage() {
   return {
     params,
     query,
-    preview,
     resource,
     hits,
     selected,
@@ -149,16 +124,13 @@ export function useSearchPage() {
     reading,
     listRef,
     paneRef,
-    degraded: resource.data?.degraded || (preview && state === "degraded"),
+    degraded: resource.data?.degraded,
     changeQuery,
     filter,
     reset,
     select,
     back,
-    retrySearch: () => {
-      onRetry();
-      setRetry((value) => value + 1);
-    },
+    retrySearch: () => setRetry((value) => value + 1),
     retrySpaces: () => setSpaceRetry((value) => value + 1),
     retryPreview: () => setPreviewRetry((value) => value + 1),
   };

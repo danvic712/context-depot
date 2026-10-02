@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next";
-import { Badge } from "@/components/ui/badge";
 import { RequestFeedback } from "@/components/feedback/RequestFeedback";
 import { SearchBox } from "@/features/knowledge/SearchBox";
 import { SearchFilters } from "@/features/knowledge/SearchFilters";
@@ -40,7 +39,6 @@ export function Search() {
         <span className="search-eyebrow">{t("searchKicker")}</span>
         <h1>{t("searchTitle")}</h1>
         <p>{t("searchSub")}</p>
-        {page.preview && <Badge variant="secondary">{t("sampleHint")}</Badge>}
       </div>
       <SearchBox
         value={page.query}

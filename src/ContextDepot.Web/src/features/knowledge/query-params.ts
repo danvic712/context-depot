@@ -2,12 +2,10 @@ import { contextKinds } from "./search-api";
 
 export function normalizeKnowledgeParams(params: URLSearchParams) {
   const next = new URLSearchParams(params);
+  for (const key of ["preview", "state", "view"]) next.delete(key);
   const choices: Record<string, readonly string[]> = {
     type: ["contexts", "documents"],
     kind: contextKinds,
-    view: ["contexts", "documents"],
-    state: ["loading", "empty", "error", "permission", "degraded"],
-    preview: ["1"],
     read: ["1"],
   };
   for (const [key, allowed] of Object.entries(choices)) {

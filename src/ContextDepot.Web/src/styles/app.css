@@ -178,53 +178,6 @@ footer {
   }
 }
 
-.preview-control {
-  min-height: 33px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 16px;
-  padding: 0 var(--content-inset);
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.preview-control.is-preview {
-  background: var(--selection);
-  justify-content: space-between;
-  color: var(--foreground);
-}
-
-@media (max-width: 640px) {
-  .preview-control {
-    padding: 5px 20px;
-    gap: 8px;
-  }
-  .preview-control.is-preview {
-    align-items: flex-start;
-  }
-}
-
-.preview-state-select {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  white-space: nowrap;
-}
-
-.preview-state-select [data-slot="select-trigger"] {
-  min-width: 120px;
-}
-
-@media (max-width: 640px) {
-  .preview-control.is-preview {
-    flex-wrap: wrap;
-  }
-  .preview-control > span {
-    width: 100%;
-  }
-}
-
 .loading-preference {
   width: 100px;
   height: 36px;

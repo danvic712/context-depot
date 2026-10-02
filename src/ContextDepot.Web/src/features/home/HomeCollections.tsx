@@ -6,7 +6,6 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router";
-import { useAppContext } from "@/hooks/use-app-context";
 import { KnowledgeSkeleton, WorkspaceSkeleton } from "./HomeSkeleton";
 import { CreateWorkspaceDialog } from "./CreateWorkspaceDialog";
 import type { KnowledgeSummary, WorkspaceSummary } from "./home-api";
@@ -52,16 +51,13 @@ export function WorkspaceTiles({
   pending,
   empty = false,
   onCreated,
-  preview,
 }: {
   items: WorkspaceSummary[];
   pending: boolean;
   empty?: boolean;
   onCreated: () => void | Promise<void>;
-  preview: boolean;
 }) {
   const { t } = useTranslation();
-  const { linkTo } = useAppContext();
   const location = useLocation();
   if (empty && !pending)
     return (
@@ -74,11 +70,7 @@ export function WorkspaceTiles({
             <h3>{t("homeSpacesEmptyTitle")}</h3>
             <p>{t("homeSpacesEmpty")}</p>
           </div>
-          <CreateWorkspaceDialog
-            onCreated={onCreated}
-            preview={preview}
-            compact
-          />
+          <CreateWorkspaceDialog onCreated={onCreated} compact />
         </div>
       </div>
     );
@@ -88,7 +80,7 @@ export function WorkspaceTiles({
       {items.map((space) => (
         <Link
           key={space.id}
-          to={linkTo(`/spaces/${space.id}`)}
+          to={`/spaces/${space.id}`}
           className="home-space-tile"
           state={{
             from: location.pathname + location.search,
@@ -116,7 +108,7 @@ export function WorkspaceTiles({
           </span>
         </Link>
       ))}
-      <CreateWorkspaceDialog onCreated={onCreated} preview={preview} />
+      <CreateWorkspaceDialog onCreated={onCreated} />
     </div>
   );
 }
@@ -145,7 +137,6 @@ export function RecentKnowledge({
   pending: boolean;
 }) {
   const { t, i18n } = useTranslation();
-  const { linkTo } = useAppContext();
   const location = useLocation();
   const locale = i18n.resolvedLanguage === "zh" ? "zh-CN" : "en-US";
   if (pending) return <KnowledgeSkeleton />;
@@ -157,9 +148,7 @@ export function RecentKnowledge({
         return (
           <li key={`${item.type}:${item.id}`}>
             <Link
-              to={linkTo(
-                `/${item.type === "context" ? "contexts" : "documents"}/${item.id}`,
-              )}
+              to={`/${item.type === "context" ? "contexts" : "documents"}/${item.id}`}
               state={{
                 from: location.pathname + location.search,
                 navigation: "home",

@@ -18,14 +18,40 @@ describe("knowledge URL filters", () => {
     expect(result.has("kind")).toBe(false);
     expect(result.get("workspace")).toBe("projects");
   });
-  test("a kind deep link selects Contexts and preserves preview", () => {
+  test("a kind deep link selects Contexts and removes legacy simulation flags", () => {
     const result = normalizeKnowledgeParams(
       new URLSearchParams("q=copy&kind=preference&preview=1&state=degraded"),
     );
     expect(result.get("type")).toBe("contexts");
     expect(result.get("kind")).toBe("preference");
     expect(result.get("q")).toBe("copy");
-    expect(result.get("state")).toBe("degraded");
+    expect(result.has("preview")).toBe(false);
+    expect(result.has("state")).toBe(false);
+  });
+  test("old sample states cannot override real search and content selection", () => {
+    for (const state of [
+      "loading",
+      "empty",
+      "error",
+      "permission",
+      "degraded",
+    ]) {
+      const result = normalizeKnowledgeParams(
+        new URLSearchParams({
+          q: "notes",
+          workspace: "projects/research",
+          type: "documents",
+          selected: "document:resource",
+          read: "1",
+          preview: "1",
+          state,
+          view: "contexts",
+        }),
+      );
+      expect(result.toString()).toBe(
+        "q=notes&workspace=projects%2Fresearch&type=documents&selected=document%3Aresource&read=1",
+      );
+    }
   });
   test("accepts all seven Context kinds and full nested workspace paths", () => {
     for (const kind of [
