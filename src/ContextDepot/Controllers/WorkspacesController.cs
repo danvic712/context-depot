@@ -1,4 +1,6 @@
 using ContextDepot.Application.Overview;
+using ContextDepot.Application.Workspaces;
+using ContextDepot.Application.Workspaces.Dtos;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ContextDepot.Controllers;
@@ -6,8 +8,17 @@ namespace ContextDepot.Controllers;
 [ApiController]
 [Route("api/workspaces")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
-public sealed class WorkspacesController(OverviewAppService service) : ControllerBase
+public sealed class WorkspacesController(OverviewAppService service, WorkspaceBrowserAppService browser) : ControllerBase
 {
+    [HttpGet("browse")]
+    public async Task<ActionResult<WorkspaceDirectory>> BrowseAsync(CancellationToken cancellationToken,
+        [FromQuery] Guid? parentId = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 12) =>
+        Ok(await browser.BrowseAsync(parentId, page, pageSize, cancellationToken));
+
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<WorkspaceDetail>> GetAsync(Guid id, CancellationToken cancellationToken) =>
+        Ok(await browser.GetAsync(id, cancellationToken));
+
     [HttpGet]
     public async Task<ActionResult<ResourceCollection<WorkspaceSummary>>> ListAsync(
         CancellationToken cancellationToken, [FromQuery] int limit = 3, [FromQuery] string sort = "-activityAt") =>

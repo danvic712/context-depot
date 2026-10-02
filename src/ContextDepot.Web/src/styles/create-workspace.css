@@ -1,0 +1,31 @@
+.home-create-action {
+  min-height: 40px;
+  padding-inline: 18px;
+}
+.home-create-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 28px;
+}
+.home-create-form label {
+  font-size: 13px;
+  margin-top: 8px;
+}
+.home-field-hint,
+.home-field-error {
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 0;
+}
+.home-field-hint {
+  color: var(--muted);
+}
+.home-field-error {
+  color: var(--destructive);
+}
+.home-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}

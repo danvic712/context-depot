@@ -67,6 +67,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ContextDepot.Application.Overview.OverviewAppService>();
         services.AddScoped<ContextDepot.Application.Overview.KnowledgeSearchAppService>();
         services.AddScoped<IWorkspaceAppService, WorkspaceAppService>();
+        services.AddScoped<WorkspaceBrowserAppService>();
         services.AddScoped<IContextAppService, ContextAppService>();
         services.AddScoped<IContextQueryAppService, ContextQueryAppService>();
         services.AddScoped<IDocumentAppService, DocumentAppService>();

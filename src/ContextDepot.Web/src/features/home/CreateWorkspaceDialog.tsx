@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import axios from "axios";
 import { LoaderCircleIcon, PlusIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -14,14 +20,19 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { createWorkspace } from "./home-api";
+import "@/styles/create-workspace.css";
 
 type FieldErrors = Partial<Record<"name" | "path", string>>;
 export function CreateWorkspaceDialog({
   onCreated,
   compact = false,
+  children,
+  triggerClassName,
 }: {
   onCreated: () => void | Promise<void>;
   compact?: boolean;
+  children?: ReactNode;
+  triggerClassName?: string;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -107,29 +118,35 @@ export function CreateWorkspaceDialog({
           type="button"
           ref={trigger}
           className={
-            compact
+            triggerClassName ??
+            (compact
               ? `${buttonVariants()} home-create-action`
-              : "home-space-tile home-create-tile"
+              : "home-space-tile home-create-tile")
           }
         >
-          {compact ? (
-            <>
-              <PlusIcon aria-hidden="true" />
-              <span>{t("newSpace")}</span>
-            </>
-          ) : (
-            <>
-              <span className="home-space-icon">
+          {children ??
+            (compact ? (
+              <>
                 <PlusIcon aria-hidden="true" />
-              </span>
-              <strong>{t("newSpace")}</strong>
-              <span className="home-space-description">
-                {t("createSpaceDescription")}
-              </span>
-              <span className="home-space-path">{t("createSpaceExample")}</span>
-              <span className="home-space-meta">{t("createSpaceFooter")}</span>
-            </>
-          )}
+                <span>{t("newSpace")}</span>
+              </>
+            ) : (
+              <>
+                <span className="home-space-icon">
+                  <PlusIcon aria-hidden="true" />
+                </span>
+                <strong>{t("newSpace")}</strong>
+                <span className="home-space-description">
+                  {t("createSpaceDescription")}
+                </span>
+                <span className="home-space-path">
+                  {t("createSpaceExample")}
+                </span>
+                <span className="home-space-meta">
+                  {t("createSpaceFooter")}
+                </span>
+              </>
+            ))}
         </button>
       </DialogTrigger>
       <DialogContent

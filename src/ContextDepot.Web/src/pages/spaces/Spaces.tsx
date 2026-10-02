@@ -1,24 +1,28 @@
 import { useTranslation } from "react-i18next";
-import { FolderIcon } from "lucide-react";
+import stillLife from "@/assets/home-still-life.png";
+import { NewSpaceCard } from "@/features/spaces/NewSpaceCard";
+import { SpaceDirectory } from "@/features/spaces/SpaceDirectory";
+import { useSpaceDirectory } from "@/features/spaces/use-space-directory";
 import "@/styles/spaces.css";
-import { Notice, Heading } from "@/components/content/PageElements";
 
 export function Spaces() {
   const { t } = useTranslation();
+  const spaces = useSpaceDirectory();
   return (
-    <>
-      <Heading
-        kicker={t("spacesKicker")}
-        title={t("spacesTitle")}
-        sub={t("spacesSub")}
+    <div className="spaces-workbench">
+      <header className="spaces-heading spaces-overview-heading">
+        <img className="spaces-hero-art" src={stillLife} alt="" />
+        <div>
+          <span className="spaces-eyebrow">{t("spacesKicker")}</span>
+          <h1>{t("spacesTitle")}</h1>
+          <p>{t("spacesSub")}</p>
+        </div>
+      </header>
+      <SpaceDirectory
+        resource={spaces}
+        root
+        creation={<NewSpaceCard onCreated={spaces.onCreated} />}
       />
-      <div className="spaces-content">
-        <Notice
-          icon={FolderIcon}
-          title={t("spacesMissing")}
-          detail={t("spacesWhy")}
-        />
-      </div>
-    </>
+    </div>
   );
 }
