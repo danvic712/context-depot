@@ -2,10 +2,6 @@
   padding-top: 0;
   padding-bottom: 40px;
 }
-.spaces-workbench {
-  max-width: 1440px;
-  margin-inline: auto;
-}
 .spaces-heading {
   display: flex;
   align-items: flex-end;
