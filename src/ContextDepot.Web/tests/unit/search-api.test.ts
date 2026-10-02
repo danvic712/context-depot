@@ -123,4 +123,32 @@ describe("Knowledge search API", () => {
       await server.stop(true);
     }
   });
+  test("rejects detail responses for a different ID or knowledge type", async () => {
+    let returned = detail;
+    const server = Bun.serve({
+      port: 0,
+      fetch: () => Response.json(returned),
+    });
+    const original = httpClient.defaults.baseURL;
+    httpClient.defaults.baseURL = `http://localhost:${server.port}/api`;
+    try {
+      returned = { ...detail, id: "another-record" };
+      await expect(
+        getKnowledgePreview({ id: "same", type: "document" }),
+      ).rejects.toThrow();
+      returned = { ...detail, type: "context" };
+      await expect(
+        getKnowledgePreview({ id: "same", type: "document" }),
+      ).rejects.toThrow();
+      returned = { ...detail, id: "01a0fc52-fe83-7458-add6-6106ad706243" };
+      const result = await getKnowledgePreview({
+        id: returned.id.toUpperCase(),
+        type: "document",
+      });
+      expect(result.id).toBe(returned.id);
+    } finally {
+      httpClient.defaults.baseURL = original;
+      await server.stop(true);
+    }
+  });
 });

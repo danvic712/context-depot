@@ -134,6 +134,14 @@ export function getKnowledgePreview(
     method: "GET",
     url: `/knowledge/${item.type}/${encodeURIComponent(item.id)}`,
     signal,
-    parse: parsePreview,
+    parse: (data) => {
+      const detail = parsePreview(data);
+      if (
+        detail.type !== item.type ||
+        detail.id.toLowerCase() !== item.id.toLowerCase()
+      )
+        throw new Error("search.invalid_response");
+      return detail;
+    },
   });
 }

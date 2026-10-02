@@ -6,16 +6,20 @@ import { SidebarSkeleton } from "@/components/layout/Sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HomeSkeleton } from "@/features/home/HomeSkeleton";
 import { SearchPageSkeleton } from "@/features/knowledge/SearchSkeleton";
+import { KnowledgeReaderSkeleton } from "@/features/knowledge/KnowledgeReaderSkeleton";
 import "@/styles/header.css";
 
 export function RouteLoading({
   home = false,
   search = false,
+  knowledge = false,
 }: {
   home?: boolean;
   search?: boolean;
+  knowledge?: boolean;
 }) {
   const { t } = useTranslation();
+  if (knowledge) return <KnowledgeReaderSkeleton label={t("loading")} />;
   if (home)
     return (
       <div role="status" aria-label={t("loading")}>
@@ -40,6 +44,7 @@ export function AppLoading({
 }) {
   const home = pathname === "/";
   const search = pathname === "/search";
+  const knowledge = /^\/(contexts|documents)\/[^/]+$/.test(pathname);
   return (
     <div className="shell startup-loading" aria-busy="true">
       <SidebarSkeleton />
@@ -61,7 +66,9 @@ export function AppLoading({
           role="status"
           aria-label="Loading / 加载中"
         >
-          {home ? (
+          {knowledge ? (
+            <KnowledgeReaderSkeleton />
+          ) : home ? (
             <HomeSkeleton />
           ) : search ? (
             <SearchPageSkeleton />

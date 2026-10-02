@@ -72,7 +72,7 @@ describe("Application routes", () => {
     }
   });
 
-  test("detail routes preserve the source location and show their API availability", async () => {
+  test("detail routes load knowledge and preserve a deterministic return to the source", async () => {
     await english();
     const router = createMemoryRouter(appRoutes, {
       initialEntries: [
@@ -85,17 +85,20 @@ describe("Application routes", () => {
     try {
       await ready(router);
       expect(router.state.errors).toBeNull();
-      expect(
-        renderToStaticMarkup(<RouterProvider router={router} />),
-      ).toContain("Recent knowledge needs a Web read API.");
+      const document = renderToStaticMarkup(<RouterProvider router={router} />);
+      expect(document).toContain('href="/search?q=notes"');
+      expect(document).toContain('class="knowledge-reader" aria-busy="true"');
+      expect(document).toContain('data-slot="skeleton"');
+      expect(document).not.toContain("Recent knowledge needs a Web read API.");
       expect(router.state.location.state).toEqual({
         from: "/search?q=notes",
       });
       await router.navigate("/contexts/decision");
       expect(router.state.matches.at(-1)?.route.id).toBe("context");
-      expect(
-        renderToStaticMarkup(<RouterProvider router={router} />),
-      ).toContain("Recent knowledge needs a Web read API.");
+      const context = renderToStaticMarkup(<RouterProvider router={router} />);
+      expect(context).toContain('href="/search"');
+      expect(context).toContain('class="knowledge-reader" aria-busy="true"');
+      expect(context).not.toContain("Recent knowledge needs a Web read API.");
     } finally {
       router.dispose();
     }
@@ -364,6 +367,16 @@ describe("Sidebar navigation", () => {
     const html = renderToStaticMarkup(<AppLoading pathname="/settings" />);
     expect(html).not.toContain("home-dashboard");
     expect(html).toContain('role="status"');
+  });
+
+  test("direct knowledge startup shows a reading skeleton before translations initialize", () => {
+    for (const pathname of ["/contexts/record", "/documents/record"]) {
+      const html = renderToStaticMarkup(<AppLoading pathname={pathname} />);
+      expect(html).toContain('class="knowledge-reader"');
+      expect(html).toContain('aria-label="Loading / 加载中"');
+      expect(html).not.toContain("home-dashboard");
+      expect(html).not.toContain("<button");
+    }
   });
 
   test("startup on Search preserves its filters and two-pane layout", () => {

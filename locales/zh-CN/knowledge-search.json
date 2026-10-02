@@ -60,5 +60,13 @@
   "goalKind": "目标",
   "stateKind": "状态",
   "eventKind": "事件",
-  "observationKind": "观察"
+  "observationKind": "观察",
+  "contextDetailTitle": "上下文详情",
+  "documentReaderTitle": "阅读文档",
+  "knowledgeBackHome": "返回首页",
+  "knowledgeBackSearch": "返回搜索",
+  "knowledgeBackSpaces": "返回空间",
+  "knowledgeNotFound": "未找到这条知识",
+  "knowledgeForbidden": "无权访问这条知识",
+  "knowledgeLoadError": "知识暂时无法加载"
 }

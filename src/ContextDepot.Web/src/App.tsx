@@ -79,6 +79,12 @@ export default function App() {
     navigation.state === "loading"
       ? navigation.location?.pathname === "/search"
       : page === "search";
+  const knowledgeLayout =
+    navigation.state === "loading"
+      ? /^\/(contexts|documents)\/[^/]+$/.test(
+          navigation.location?.pathname ?? "",
+        )
+      : page === "context" || page === "document";
   useEffect(() => {
     if (params.toString() !== rawParams.toString()) {
       setParams(params, {
@@ -89,25 +95,11 @@ export default function App() {
     }
   }, [params, rawParams, setParams, location.state]);
   const activeLang: Lang = i18n.resolvedLanguage === "zh" ? "zh" : "en";
-  function backFromDetail() {
-    const state: unknown = location.state;
-    if (
-      state &&
-      typeof state === "object" &&
-      "from" in state &&
-      typeof state.from === "string" &&
-      state.from.startsWith("/") &&
-      !state.from.startsWith("//")
-    ) {
-      void navigate(-1);
-    } else {
-      void navigate("/spaces");
-    }
-  }
   useEffect(() => {
     document.documentElement.lang = activeLang === "zh" ? "zh-CN" : "en";
-    document.title = `ContextDepot · ${t(handle.title)}`;
-  }, [activeLang, handle.title, t]);
+    if (page !== "context" && page !== "document")
+      document.title = `ContextDepot · ${t(handle.title)}`;
+  }, [activeLang, handle.title, page, t]);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -133,7 +125,6 @@ export default function App() {
   }, [page, location.state, navigation.state]);
   const context: AppContext = {
     onSearch: openSearch,
-    onBack: backFromDetail,
     theme,
     language: lang,
     languagePending,
@@ -195,7 +186,11 @@ export default function App() {
           aria-busy={navigation.state === "loading"}
         >
           {navigation.state === "loading" ? (
-            <RouteLoading home={homeLayout} search={searchLayout} />
+            <RouteLoading
+              home={homeLayout}
+              search={searchLayout}
+              knowledge={knowledgeLayout}
+            />
           ) : (
             <div className="route-content" key={location.pathname}>
               <Outlet key={itemId} context={context} />

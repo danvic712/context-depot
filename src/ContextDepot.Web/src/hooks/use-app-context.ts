@@ -9,12 +9,17 @@ export type NavigationItem = "home" | "search" | "spaces" | "settings";
 export interface PageHandle {
   navigation: NavigationItem;
   page: PageId;
-  title: "home" | "search" | "spaces" | "settings";
+  title:
+    | "home"
+    | "search"
+    | "spaces"
+    | "settings"
+    | "contextDetailTitle"
+    | "documentReaderTitle";
 }
 
 export interface AppContext {
   onSearch: (query: string) => void;
-  onBack: () => void;
   theme: Theme;
   language: Lang;
   languagePending: boolean;

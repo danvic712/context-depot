@@ -67,7 +67,11 @@ export const appRoutes: RouteObject[] = [
       {
         path: "contexts/:knowledgeId",
         id: "context",
-        handle: { page: "context", title: "search", navigation: "search" },
+        handle: {
+          page: "context",
+          title: "contextDetailTitle",
+          navigation: "search",
+        },
         lazy: () =>
           import("./pages/context-detail/ContextDetail").then(
             ({ ContextDetail }) => ({ Component: ContextDetail }),
@@ -76,7 +80,11 @@ export const appRoutes: RouteObject[] = [
       {
         path: "documents/:knowledgeId",
         id: "document",
-        handle: { page: "document", title: "search", navigation: "search" },
+        handle: {
+          page: "document",
+          title: "documentReaderTitle",
+          navigation: "search",
+        },
         lazy: () =>
           import("./pages/document-reader/DocumentReader").then(
             ({ DocumentReader }) => ({ Component: DocumentReader }),

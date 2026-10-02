@@ -60,5 +60,13 @@
   "goalKind": "Goal",
   "stateKind": "State",
   "eventKind": "Event",
-  "observationKind": "Observation"
+  "observationKind": "Observation",
+  "contextDetailTitle": "Context details",
+  "documentReaderTitle": "Read document",
+  "knowledgeBackHome": "Back to home",
+  "knowledgeBackSearch": "Back to search",
+  "knowledgeBackSpaces": "Back to spaces",
+  "knowledgeNotFound": "Knowledge not found",
+  "knowledgeForbidden": "Knowledge is unavailable to you",
+  "knowledgeLoadError": "Knowledge could not be loaded"
 }

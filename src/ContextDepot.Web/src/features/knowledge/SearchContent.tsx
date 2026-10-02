@@ -13,8 +13,9 @@ import {
   EmptyDescription,
   EmptyContent,
 } from "@/components/ui/empty";
-import { MarkdownBody } from "./MarkdownBody";
 import { hitKey, type SearchHit, type KnowledgePreview } from "./search-api";
+
+export { KnowledgeContent as SearchPreviewContent } from "./KnowledgeContent";
 
 export function SearchEmpty({
   title,
@@ -101,29 +102,6 @@ export function SearchResultText({
   );
 }
 
-export function SearchPreviewContent({ detail }: { detail: KnowledgePreview }) {
-  const { t, i18n } = useTranslation();
-  return (
-    <>
-      <div className="search-preview-heading">
-        <Badge variant="secondary">
-          {t(detail.type === "document" ? "dialogDocuments" : "dialogContexts")}
-        </Badge>
-        <h2>{detail.title}</h2>
-        <p>
-          {detail.workspace} ·{" "}
-          {t("searchUpdated", {
-            date: new Intl.DateTimeFormat(i18n.resolvedLanguage, {
-              dateStyle: "medium",
-            }).format(new Date(detail.updatedAt)),
-          })}
-        </p>
-      </div>
-      <MarkdownBody content={detail.content} />
-    </>
-  );
-}
-
 export function SearchCopyButton({
   detail,
   pending = false,
@@ -156,9 +134,9 @@ export function SearchCopyButton({
       onClick={() => void copy()}
     >
       {done ? (
-        <CheckIcon data-icon="inline-start" />
+        <CheckIcon data-icon="inline-start" aria-hidden="true" />
       ) : (
-        <CopyIcon data-icon="inline-start" />
+        <CopyIcon data-icon="inline-start" aria-hidden="true" />
       )}
       {t(done ? "dialogCopied" : "dialogCopy")}
     </Button>
