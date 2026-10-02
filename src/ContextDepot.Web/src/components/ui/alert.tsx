@@ -10,6 +10,8 @@ const alertVariants = cva(
         default: "bg-card text-card-foreground",
         "soft-error":
           "border-destructive/20 bg-destructive/5 text-foreground [&>svg]:text-destructive",
+        "soft-warning":
+          "border-warning/20 bg-warning-surface text-foreground [&>svg]:text-warning",
         "soft-info":
           "border-primary/20 bg-primary/5 text-foreground [&>svg]:text-primary",
         destructive:

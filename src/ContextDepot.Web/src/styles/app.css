@@ -21,6 +21,8 @@
   --color-accent: var(--selection);
   --color-accent-foreground: var(--foreground);
   --color-destructive: var(--destructive);
+  --color-warning: var(--warning);
+  --color-warning-surface: var(--warning-surface);
   --color-border: var(--border);
   --color-input: var(--border);
   --color-ring: var(--focus);
@@ -35,6 +37,23 @@
 }
 :root {
   --radius: 0.625rem;
+  --radius-compact: 4px;
+  --radius-control: 8px;
+  --radius-card: 12px;
+  --radius-dialog: 16px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --motion-fast: 150ms;
+  --motion-normal: 180ms;
+  --motion-slow: 280ms;
+  --target-min: 44px;
+  --workspace-card-min: 220px;
+  --font-display: "Noto Serif SC", "Songti SC", "STSong", Georgia, serif;
   --header-height: 64px;
   --page-gutter: clamp(20px, 3vw, 48px);
 }
@@ -58,6 +77,14 @@
   --border: #dde2de;
   --subtle: #f0f3ef;
   --focus: #326d58;
+  --success: #326951;
+  --success-surface: #e1eae4;
+  --warning: #805d20;
+  --warning-surface: #f1e9d8;
+  --danger: var(--destructive);
+  --danger-surface: #f5e4e2;
+  --neutral: var(--muted);
+  --neutral-surface: var(--subtle);
 }
 :root[data-theme="dark"] {
   --canvas: #151917;
@@ -73,6 +100,11 @@
   --border: #303733;
   --subtle: #212a25;
   --focus: #a1c7b4;
+  --success: #9abfae;
+  --success-surface: #29362f;
+  --warning: #d9b872;
+  --warning-surface: #362f20;
+  --danger-surface: #382627;
   color-scheme: dark;
 }
 @layer base {
@@ -197,4 +229,19 @@ footer {
 .appearance-error {
   width: auto;
   margin: 12px var(--content-inset) 0;
+}
+
+@media (max-width: 640px) {
+  .app-button,
+  [data-slot="select-trigger"],
+  [data-slot="toggle-group-item"],
+  [data-slot="dialog-close"] {
+    min-width: var(--target-min);
+    min-height: var(--target-min);
+  }
+  .settings-theme-options button,
+  .settings-workspace-options label,
+  .preference-option {
+    min-height: var(--target-min);
+  }
 }

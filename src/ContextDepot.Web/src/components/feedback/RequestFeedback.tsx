@@ -1,5 +1,6 @@
 import {
   CircleAlertIcon,
+  TriangleAlertIcon,
   InfoIcon,
   LoaderCircleIcon,
   RotateCwIcon,
@@ -44,16 +45,27 @@ export function RequestFeedback({
   onRetry?: () => void | Promise<void>;
   pending?: boolean;
   stale?: boolean;
-  tone?: "error" | "info";
+  tone?: "error" | "info" | "warning";
   compact?: boolean;
   className?: string;
 }) {
   const { t } = useTranslation();
-  const Icon = tone === "info" ? InfoIcon : CircleAlertIcon;
+  const Icon =
+    tone === "info"
+      ? InfoIcon
+      : tone === "warning"
+        ? TriangleAlertIcon
+        : CircleAlertIcon;
   return (
     <Alert
-      variant={tone === "info" ? "soft-info" : "soft-error"}
-      role={tone === "info" ? "status" : "alert"}
+      variant={
+        tone === "info"
+          ? "soft-info"
+          : tone === "warning"
+            ? "soft-warning"
+            : "soft-error"
+      }
+      role={tone === "error" ? "alert" : "status"}
       className={cn("request-feedback", className)}
       data-compact={compact || undefined}
       aria-busy={pending}

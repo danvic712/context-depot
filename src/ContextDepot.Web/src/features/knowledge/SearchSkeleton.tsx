@@ -1,6 +1,6 @@
 import { Field, FieldGroup } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/skeleton";
-import stillLife from "@/assets/home-still-life.png";
+import { PageHeaderSkeleton } from "@/components/content/PageHeader";
 import "@/styles/search-box.css";
 import "@/styles/search.css";
 
@@ -55,12 +55,7 @@ export function SearchPreviewSkeleton() {
 export function SearchPageSkeleton() {
   return (
     <div className="search-workbench search-page-skeleton" aria-hidden="true">
-      <div className="search-hero">
-        <img src={stillLife} className="search-hero-art" alt="" />
-        <Skeleton className="h-6 w-28" />
-        <Skeleton className="search-hero-title-skeleton" />
-        <Skeleton className="search-hero-subtitle-skeleton" />
-      </div>
+      <PageHeaderSkeleton />
       <div className="search-box">
         <FieldGroup>
           <Field>

@@ -1,3 +1,4 @@
+import { lazyPage } from "../../src/lib/lazy-page";
 import { describe, expect, test } from "bun:test";
 import { Glob } from "bun";
 import { createMemoryRouter, RouterProvider } from "react-router";
@@ -123,7 +124,7 @@ describe("Home collection states", () => {
         const html = renderToStaticMarkup(<RouterProvider router={router} />);
         expect(html).toContain('role="status">Loading');
         expect(html.match(/aria-busy="true"/g)).toHaveLength(2);
-        expect(html.match(/home-space-skeleton/g)).toHaveLength(4);
+        expect(html.match(/space-card-skeleton/g)).toHaveLength(4);
         expect(html).not.toContain("Create your first space");
         expect(html).not.toContain("Start with your first piece of knowledge.");
         expect(html).not.toContain("Continue with the knowledge you’ve saved.");
@@ -359,7 +360,7 @@ describe("Sidebar navigation", () => {
     expect(html).toContain('class="home-hero"');
     expect(html).toContain('class="home-dashboard"');
     expect(html).toContain('class="home-guide-content"');
-    expect(html.match(/home-space-skeleton/g)).toHaveLength(4);
+    expect(html.match(/space-card-skeleton/g)).toHaveLength(4);
     expect(html).not.toContain("<button");
   });
 
@@ -383,7 +384,7 @@ describe("Sidebar navigation", () => {
     const html = renderToStaticMarkup(<AppLoading pathname="/search" />);
     expect(html).toContain('class="page search"');
     expect(html).toContain("search-page-skeleton");
-    expect(html).toContain('class="search-hero"');
+    expect(html).toContain('class="page-heading"');
     expect(html).toContain('class="search-box"');
     expect(html).toContain("search-type-field");
     expect(html).toContain("search-kind-field");
@@ -502,4 +503,137 @@ describe("Header preferences", () => {
     expect(html).toContain('role="status"');
     expect(html).toContain('aria-label="Theme: Dark"');
   });
+});
+
+describe("Recoverable route states", () => {
+  test("unknown addresses keep the address and shell and provide a working return", async () => {
+    await english();
+    const router = createMemoryRouter(appRoutes, {
+      initialEntries: ["/missing/page?q=notes"],
+    });
+    try {
+      await ready(router);
+      expect(router.state.location.pathname).toBe("/missing/page");
+      const html = renderToStaticMarkup(<RouterProvider router={router} />);
+      expect(html).toContain("Page not found");
+      expect(html).toContain("Return home");
+      expect(menu(html)).toContain('href="/settings"');
+      expect(html).toContain('class="topbar"');
+      expect(html).toContain("<footer>");
+      await router.navigate("/");
+      expect(router.state.errors).toBeNull();
+      expect(router.state.matches.at(-1)?.route.id).toBe("home");
+    } finally {
+      router.dispose();
+    }
+  });
+
+  test.each([403, 404, 503])(
+    "route HTTP %i preserves navigation and exposes a semantic state",
+    async (status) => {
+      await english();
+      const routes = appRoutes.map((route) => ({
+        ...route,
+        children: route.children?.map((child) =>
+          child.id === "spaces"
+            ? {
+                ...child,
+                loader: () => {
+                  throw new Response(null, { status });
+                },
+              }
+            : child,
+        ),
+      }));
+      const router = createMemoryRouter(routes, {
+        initialEntries: ["/spaces"],
+      });
+      try {
+        await ready(router);
+        const html = renderToStaticMarkup(<RouterProvider router={router} />);
+        expect(html).toContain(
+          status === 403
+            ? "Access is unavailable"
+            : status === 404
+              ? "Page not found"
+              : "Unable to load this page",
+        );
+        expect(html).toContain('class="topbar"');
+        expect(menu(html)).toContain('href="/search"');
+        expect(html).toContain("Return home");
+        expect(html.includes("Reload page")).toBe(status === 503);
+        await router.navigate("/search");
+        expect(router.state.errors).toBeNull();
+      } finally {
+        router.dispose();
+      }
+    },
+  );
+
+  test("a failed lazy module stays inside the shell and another page remains usable", async () => {
+    await english();
+    const routes = appRoutes.map((route) => ({
+      ...route,
+      children: route.children?.map((child) =>
+        child.id === "settings"
+          ? {
+              ...child,
+              lazy: lazyPage(() =>
+                Promise.reject(new Error("test module unavailable")),
+              ),
+            }
+          : child,
+      ),
+    }));
+    const router = createMemoryRouter(routes, {
+      initialEntries: ["/settings"],
+    });
+    try {
+      await ready(router);
+      const html = renderToStaticMarkup(<RouterProvider router={router} />);
+      expect(html).toContain("Unable to load this page");
+      expect(html).toContain('class="topbar"');
+      expect(menu(html)).toContain('href="/spaces"');
+      expect(html).not.toContain("test module unavailable");
+      await router.navigate("/spaces");
+      expect(router.state.errors).toBeNull();
+    } finally {
+      router.dispose();
+    }
+  });
+
+  test("a root failure also keeps the shell with usable return actions", async () => {
+    await english();
+    const routes = appRoutes.map((route) => ({
+      ...route,
+      loader: () => {
+        throw new Response(null, { status: 503 });
+      },
+    }));
+    const router = createMemoryRouter(routes, { initialEntries: ["/"] });
+    try {
+      await ready(router);
+      const html = renderToStaticMarkup(<RouterProvider router={router} />);
+      expect(html).toContain("Unable to load this page");
+      expect(html).toContain('class="topbar"');
+      expect(menu(html)).toContain('href="/search"');
+      expect(html).toContain("<footer>");
+    } finally {
+      router.dispose();
+    }
+  });
+
+  test.each(["/spaces", "/spaces/project", "/settings"])(
+    "startup %s uses the destination layout before translations initialize",
+    (pathname) => {
+      const html = renderToStaticMarkup(<AppLoading pathname={pathname} />);
+      expect(html).toContain(
+        pathname === "/settings"
+          ? "settings-page-skeleton"
+          : "spaces-page-skeleton",
+      );
+      expect(html).not.toContain("<button");
+      expect(html).not.toContain("home-dashboard");
+    },
+  );
 });

@@ -6,31 +6,26 @@ import {
   type ReactNode,
 } from "react";
 import axios from "axios";
-import { LoaderCircleIcon, PlusIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
+import { Field, FieldLabel, FieldDescription } from "@/components/ui/field";
+import { FormDialog } from "@/components/content/FormDialog";
+import { SubmitButton } from "@/components/content/SubmitButton";
 import { createWorkspace } from "./home-api";
 import "@/styles/create-workspace.css";
 
 type FieldErrors = Partial<Record<"name" | "path", string>>;
 export function CreateWorkspaceDialog({
   onCreated,
-  compact = false,
   children,
   triggerClassName,
 }: {
   onCreated: () => void | Promise<void>;
-  compact?: boolean;
   children?: ReactNode;
   triggerClassName?: string;
 }) {
@@ -118,64 +113,48 @@ export function CreateWorkspaceDialog({
           type="button"
           ref={trigger}
           className={
-            triggerClassName ??
-            (compact
-              ? `${buttonVariants()} home-create-action`
-              : "home-space-tile home-create-tile")
+            triggerClassName ?? `${buttonVariants()} home-create-action`
           }
         >
-          {children ??
-            (compact ? (
-              <>
-                <PlusIcon aria-hidden="true" />
-                <span>{t("newSpace")}</span>
-              </>
-            ) : (
-              <>
-                <span className="home-space-icon">
-                  <PlusIcon aria-hidden="true" />
-                </span>
-                <strong>{t("newSpace")}</strong>
-                <span className="home-space-description">
-                  {t("createSpaceDescription")}
-                </span>
-                <span className="home-space-path">
-                  {t("createSpaceExample")}
-                </span>
-                <span className="home-space-meta">
-                  {t("createSpaceFooter")}
-                </span>
-              </>
-            ))}
+          {children ?? (
+            <>
+              <PlusIcon aria-hidden="true" />
+              <span>{t("newSpace")}</span>
+            </>
+          )}
         </button>
       </DialogTrigger>
-      <DialogContent
+      <FormDialog
+        title={t("newSpace")}
+        description={t("createSpaceDescription")}
         closeLabel={t("cancel")}
-        closeDisabled={pending}
+        pending={pending}
+        error={failure ? t("spaceCreateError") : undefined}
+        onSubmit={(event) => void submit(event)}
         onCloseAutoFocus={(event) => {
           event.preventDefault();
           requestAnimationFrame(() => trigger.current?.focus());
         }}
-        onEscapeKeyDown={(event) => {
-          if (pending) event.preventDefault();
-        }}
-        onPointerDownOutside={(event) => {
-          if (pending) event.preventDefault();
-        }}
+        footer={
+          <>
+            <Button
+              variant="outline"
+              type="button"
+              disabled={pending}
+              onClick={() => setOpen(false)}
+            >
+              {t("cancel")}
+            </Button>
+            <SubmitButton
+              pending={pending}
+              label={t("newSpace")}
+              pendingLabel={t("spaceCreating")}
+            />
+          </>
+        }
       >
-        <DialogTitle className="text-xl font-semibold">
-          {t("newSpace")}
-        </DialogTitle>
-        <DialogDescription className="mt-2 text-sm text-muted-foreground">
-          {t("createSpaceDescription")}
-        </DialogDescription>
-        <form
-          className="home-create-form"
-          onSubmit={(event) => void submit(event)}
-          noValidate
-          aria-busy={pending}
-        >
-          <label htmlFor="space-name">{t("spaceNameLabel")}</label>
+        <Field data-invalid={!!errors.name} data-disabled={pending}>
+          <FieldLabel htmlFor="space-name">{t("spaceNameLabel")}</FieldLabel>
           <Input
             id="space-name"
             ref={nameInput}
@@ -189,11 +168,13 @@ export function CreateWorkspaceDialog({
             autoComplete="off"
           />
           {errors.name && (
-            <p id="space-name-error" className="home-field-error" role="alert">
+            <p id="space-name-error" className="form-dialog-error" role="alert">
               {errors.name}
             </p>
           )}
-          <label htmlFor="space-path">{t("spacePathLabel")}</label>
+        </Field>
+        <Field data-invalid={!!errors.path} data-disabled={pending}>
+          <FieldLabel htmlFor="space-path">{t("spacePathLabel")}</FieldLabel>
           <Input
             id="space-path"
             ref={pathInput}
@@ -213,17 +194,19 @@ export function CreateWorkspaceDialog({
             autoCapitalize="none"
             spellCheck={false}
           />
-          <p id="space-path-hint" className="home-field-hint">
+          <FieldDescription id="space-path-hint">
             {t("spacePathHint")}
-          </p>
+          </FieldDescription>
           {errors.path && (
-            <p id="space-path-error" className="home-field-error" role="alert">
+            <p id="space-path-error" className="form-dialog-error" role="alert">
               {errors.path}
             </p>
           )}
-          <label htmlFor="space-description">
+        </Field>
+        <Field data-disabled={pending}>
+          <FieldLabel htmlFor="space-description">
             {t("spaceDescriptionLabel")}
-          </label>
+          </FieldLabel>
           <Textarea
             id="space-description"
             value={description}
@@ -231,29 +214,8 @@ export function CreateWorkspaceDialog({
             disabled={pending}
             rows={3}
           />
-          {failure && (
-            <p className="home-field-error" role="alert">
-              {t("spaceCreateError")}
-            </p>
-          )}
-          <div className="home-dialog-actions">
-            <Button
-              variant="outline"
-              type="button"
-              disabled={pending}
-              onClick={() => setOpen(false)}
-            >
-              {t("cancel")}
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending && (
-                <LoaderCircleIcon className="animate-spin" aria-hidden="true" />
-              )}
-              {pending ? t("spaceCreating") : t("newSpace")}
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
+        </Field>
+      </FormDialog>
     </Dialog>
   );
 }

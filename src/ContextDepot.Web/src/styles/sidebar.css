@@ -28,7 +28,7 @@
   justify-content: center;
   width: 44px;
   height: 44px;
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   transition: background-color 0.18s ease;
 }
 
@@ -52,7 +52,7 @@
   background: transparent;
   color: var(--foreground);
   min-height: 72px;
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -85,20 +85,14 @@
   border-top: 1px solid var(--border);
   padding-top: 16px;
   text-align: center;
-  color: var(--muted);
+  color: var(--status-color, var(--neutral));
   font-size: 11px;
   white-space: nowrap;
 }
 
-.status-dot {
-  width: 7px;
-  height: 7px;
-  display: inline-block;
-  border: 1px solid var(--muted);
-  border-radius: 50%;
+.rail-status .status-dot {
   margin-right: 5px;
 }
-
 @media (max-width: 640px) {
   .rail {
     position: fixed;
@@ -138,17 +132,4 @@
     width: 20px;
     height: 20px;
   }
-}
-
-.readiness-healthy .status-dot {
-  background: var(--primary);
-  border-color: var(--primary);
-}
-.readiness-degraded .status-dot {
-  background: #b68c3e;
-  border-color: #b68c3e;
-}
-.readiness-unhealthy .status-dot {
-  background: var(--destructive);
-  border-color: var(--destructive);
 }

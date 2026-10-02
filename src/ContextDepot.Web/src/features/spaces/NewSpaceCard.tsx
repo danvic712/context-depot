@@ -1,8 +1,13 @@
+import "@/styles/workspace-card.css";
 import { PlusIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { CreateWorkspaceDialog } from "@/features/home/CreateWorkspaceDialog";
 
-export function NewSpaceCard({ onCreated }: { onCreated: () => void }) {
+export function NewSpaceCard({
+  onCreated,
+}: {
+  onCreated: () => void | Promise<void>;
+}) {
   const { t } = useTranslation();
   return (
     <CreateWorkspaceDialog

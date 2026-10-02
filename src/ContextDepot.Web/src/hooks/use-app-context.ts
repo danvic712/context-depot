@@ -3,7 +3,14 @@ import type { Theme } from "@/features/settings/browser-preferences";
 import type { Lang } from "@/lib/i18n";
 
 export type PageId =
-  "home" | "search" | "spaces" | "space" | "context" | "document" | "settings";
+  | "home"
+  | "search"
+  | "spaces"
+  | "space"
+  | "context"
+  | "document"
+  | "settings"
+  | "notFound";
 export type NavigationItem = "home" | "search" | "spaces" | "settings";
 
 export interface PageHandle {
@@ -15,7 +22,8 @@ export interface PageHandle {
     | "spaces"
     | "settings"
     | "contextDetailTitle"
-    | "documentReaderTitle";
+    | "documentReaderTitle"
+    | "pageNotFound";
 }
 
 export interface AppContext {

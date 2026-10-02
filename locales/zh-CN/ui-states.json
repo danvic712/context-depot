@@ -18,5 +18,9 @@
   "requestStale": "已保留上次加载的内容。",
   "requestRetrying": "正在重试",
   "requestAppearanceError": "显示设置暂时无法加载",
-  "requestAppearanceWhy": "暂时沿用当前主题和语言，你可以重试以获取已保存的设置。"
+  "requestAppearanceWhy": "暂时沿用当前主题和语言，你可以重试以获取已保存的设置。",
+  "pageNotFound": "页面不存在",
+  "pageNotFoundWhy": "此地址没有对应的页面。你可以返回首页，或搜索已保存的知识。",
+  "pageForbidden": "无法访问此内容",
+  "pageReturnHome": "返回首页"
 }

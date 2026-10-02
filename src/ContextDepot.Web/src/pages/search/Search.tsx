@@ -5,6 +5,7 @@ import { SearchFilters } from "@/features/knowledge/SearchFilters";
 import { SearchResults } from "@/features/knowledge/SearchResults";
 import { SearchPreview } from "@/features/knowledge/SearchPreview";
 import { useSearchPage } from "@/features/knowledge/use-search-page";
+import { PageHeader } from "@/components/content/PageHeader";
 import stillLife from "@/assets/home-still-life.png";
 import "@/styles/search.css";
 
@@ -34,12 +35,12 @@ export function Search() {
         }
       }}
     >
-      <div className="search-hero">
-        <img src={stillLife} className="search-hero-art" alt="" />
-        <span className="search-eyebrow">{t("searchKicker")}</span>
-        <h1>{t("searchTitle")}</h1>
-        <p>{t("searchSub")}</p>
-      </div>
+      <PageHeader
+        eyebrow={t("searchKicker")}
+        title={t("searchTitle")}
+        description={t("searchSub")}
+        art={stillLife}
+      />
       <SearchBox
         value={page.query}
         onChange={(value) => page.changeQuery(value)}
@@ -65,7 +66,7 @@ export function Search() {
       )}
       {page.degraded && (
         <RequestFeedback
-          tone="info"
+          tone="warning"
           title={t("dialogDegradedTitle")}
           description={t("dialogDegraded")}
           compact

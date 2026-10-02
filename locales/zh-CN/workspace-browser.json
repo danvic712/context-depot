@@ -9,7 +9,7 @@
   "spacesDirectoryOrder": "按最近活动排序",
   "spacesContextCount": "{{value}} 条上下文",
   "spacesDocumentCount": "{{value}} 篇文档",
-  "spacesSubspaceCount": "{{count}} 个子空间",
+  "spacesSubspaceCount": "{{value}} 个子空间",
   "spacesLoadError": "空间暂时无法加载",
   "spacesDetailError": "无法打开这个空间",
   "spacesEmptyTitle": "从你的第一个空间开始",
@@ -31,6 +31,6 @@
   "spacesContextCount_other": "{{value}} 条上下文",
   "spacesDocumentCount_one": "{{value}} 篇文档",
   "spacesDocumentCount_other": "{{value}} 篇文档",
-  "spacesSubspaceCount_one": "{{count}} 个子空间",
-  "spacesSubspaceCount_other": "{{count}} 个子空间"
+  "spacesSubspaceCount_one": "{{value}} 个子空间",
+  "spacesSubspaceCount_other": "{{value}} 个子空间"
 }

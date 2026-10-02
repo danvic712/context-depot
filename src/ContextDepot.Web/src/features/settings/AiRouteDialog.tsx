@@ -1,18 +1,19 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Messages } from "@/lib/i18n";
 import { isAxiosError } from "axios";
-import { LoaderCircleIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog } from "@/components/ui/dialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  Field,
+  FieldGroup,
+  FieldLabel,
+  FieldDescription,
+} from "@/components/ui/field";
+import { FormDialog } from "@/components/content/FormDialog";
+import { SubmitButton } from "@/components/content/SubmitButton";
 import {
   saveAiRoute,
   validateAiDraft,
@@ -133,112 +134,22 @@ export function AiRouteDialog({
         if (!open && !pending) onClose();
       }}
     >
-      <DialogContent
-        className="settings-dialog"
+      <FormDialog
+        variant="wide"
+        title={t(
+          route.capability === "embedding"
+            ? "settingsEmbeddingTitle"
+            : "settingsChatTitle",
+        )}
+        description={t("settingsAiDialogWhy")}
         closeLabel={t("cancel")}
-        closeDisabled={pending}
-        onEscapeKeyDown={(event) => {
-          if (pending) event.preventDefault();
-        }}
-        onPointerDownOutside={(event) => {
-          event.preventDefault();
-        }}
-      >
-        <DialogTitle className="text-xl font-semibold">
-          {t(
-            route.capability === "embedding"
-              ? "settingsEmbeddingTitle"
-              : "settingsChatTitle",
-          )}
-        </DialogTitle>
-        <DialogDescription className="mt-2 text-sm text-muted-foreground">
-          {t("settingsAiDialogWhy")}
-        </DialogDescription>
-        <form
-          ref={form}
-          className="settings-form"
-          onSubmit={(event) => void submit(event)}
-          noValidate
-          aria-busy={pending}
-        >
-          <p className="settings-inline-note">
-            {t("settingsProtocol")}: <code>openai-compatible</code>
-          </p>
-          <div className="settings-form-grid">
-            {fields
-              .filter(
-                (field) =>
-                  field.key !== "dimensions" ||
-                  route.capability === "embedding",
-              )
-              .map((field) => (
-                <div className="settings-field" key={field.key}>
-                  <label htmlFor={`ai-${field.key}`}>
-                    {field.label === "API Key" ? field.label : t(field.label)}
-                  </label>
-                  <Input
-                    id={`ai-${field.key}`}
-                    type={field.type}
-                    disabled={pending}
-                    value={draft[field.key] ?? ""}
-                    maxLength={field.type !== "number" ? field.max : undefined}
-                    min={field.type === "number" ? 1 : undefined}
-                    max={field.type === "number" ? field.max : undefined}
-                    step={field.type === "number" ? 1 : undefined}
-                    autoComplete={
-                      field.type === "password" ? "new-password" : "off"
-                    }
-                    spellCheck={false}
-                    autoCapitalize="none"
-                    aria-invalid={invalid.includes(field.key)}
-                    aria-describedby={
-                      invalid.includes(field.key)
-                        ? `ai-${field.key}-error`
-                        : field.key === "apiKey"
-                          ? "ai-key-hint"
-                          : undefined
-                    }
-                    onChange={(event) =>
-                      setDraft((previous) => ({
-                        ...previous,
-                        [field.key]:
-                          field.type === "number"
-                            ? event.target.value === ""
-                              ? null
-                              : Number(event.target.value)
-                            : event.target.value,
-                      }))
-                    }
-                  />
-                  {field.key === "apiKey" && (
-                    <p id="ai-key-hint" className="settings-field-hint">
-                      {t(
-                        route.hasApiKey
-                          ? "settingsApiKeyKeep"
-                          : "settingsApiKeyRequired",
-                      )}
-                    </p>
-                  )}
-                  {invalid.includes(field.key) && (
-                    <p
-                      id={`ai-${field.key}-error`}
-                      className="settings-field-error"
-                    >
-                      {t(`settingsInvalid_${field.key}`)}
-                    </p>
-                  )}
-                </div>
-              ))}
-          </div>
-          {profileChanged && (
-            <p className="settings-inline-note">{t("settingsProfileChange")}</p>
-          )}
-          {failure && (
-            <p className="settings-field-error" role="alert">
-              {t(failure)}
-            </p>
-          )}
-          <DialogFooter>
+        pending={pending}
+        error={failure ? t(failure) : undefined}
+        preventDismiss
+        formRef={form}
+        onSubmit={(event) => void submit(event)}
+        footer={
+          <>
             <Button
               variant="outline"
               type="button"
@@ -247,15 +158,90 @@ export function AiRouteDialog({
             >
               {t("cancel")}
             </Button>
-            <Button type="submit" disabled={pending}>
-              {pending && (
-                <LoaderCircleIcon className="animate-spin" aria-hidden="true" />
-              )}
-              {t(pending ? "settingsSaving" : "settingsSaveAi")}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
+            <SubmitButton
+              pending={pending}
+              label={t("settingsSaveAi")}
+              pendingLabel={t("settingsSaving")}
+            />
+          </>
+        }
+      >
+        <p className="settings-inline-note">
+          {t("settingsProtocol")}: <code>openai-compatible</code>
+        </p>
+        <FieldGroup className="settings-form-grid">
+          {fields
+            .filter(
+              (field) =>
+                field.key !== "dimensions" || route.capability === "embedding",
+            )
+            .map((field) => (
+              <Field
+                data-invalid={invalid.includes(field.key)}
+                data-disabled={pending}
+                key={field.key}
+              >
+                <FieldLabel htmlFor={`ai-${field.key}`}>
+                  {field.label === "API Key" ? field.label : t(field.label)}
+                </FieldLabel>
+                <Input
+                  id={`ai-${field.key}`}
+                  type={field.type}
+                  disabled={pending}
+                  value={draft[field.key] ?? ""}
+                  maxLength={field.type !== "number" ? field.max : undefined}
+                  min={field.type === "number" ? 1 : undefined}
+                  max={field.type === "number" ? field.max : undefined}
+                  step={field.type === "number" ? 1 : undefined}
+                  autoComplete={
+                    field.type === "password" ? "new-password" : "off"
+                  }
+                  spellCheck={false}
+                  autoCapitalize="none"
+                  aria-invalid={invalid.includes(field.key)}
+                  aria-describedby={
+                    invalid.includes(field.key)
+                      ? `ai-${field.key}-error`
+                      : field.key === "apiKey"
+                        ? "ai-key-hint"
+                        : undefined
+                  }
+                  onChange={(event) =>
+                    setDraft((previous) => ({
+                      ...previous,
+                      [field.key]:
+                        field.type === "number"
+                          ? event.target.value === ""
+                            ? null
+                            : Number(event.target.value)
+                          : event.target.value,
+                    }))
+                  }
+                />
+                {field.key === "apiKey" && (
+                  <FieldDescription id="ai-key-hint">
+                    {t(
+                      route.hasApiKey
+                        ? "settingsApiKeyKeep"
+                        : "settingsApiKeyRequired",
+                    )}
+                  </FieldDescription>
+                )}
+                {invalid.includes(field.key) && (
+                  <p
+                    id={`ai-${field.key}-error`}
+                    className="settings-field-error"
+                  >
+                    {t(`settingsInvalid_${field.key}`)}
+                  </p>
+                )}
+              </Field>
+            ))}
+        </FieldGroup>
+        {profileChanged && (
+          <p className="settings-inline-note">{t("settingsProfileChange")}</p>
+        )}
+      </FormDialog>
     </Dialog>
   );
 }

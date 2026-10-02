@@ -1,3 +1,5 @@
+import { PageHeaderSkeleton } from "@/components/content/PageHeader";
+import { WorkspaceCardSkeleton } from "@/features/spaces/WorkspaceCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   HomeDashboardLayout,
@@ -7,18 +9,9 @@ import {
 
 export function WorkspaceSkeleton() {
   return (
-    <div className="home-space-grid" aria-hidden="true">
+    <div className="workspace-grid" aria-hidden="true">
       {Array.from({ length: 4 }, (_, index) => (
-        <div className="home-space-tile home-space-skeleton" key={index}>
-          <Skeleton className="size-9" />
-          <Skeleton className="h-5 w-2/3" />
-          <div className="home-skeleton-lines">
-            <Skeleton className="h-3 w-full" />
-            <Skeleton className="h-3 w-3/4" />
-          </div>
-          <Skeleton className="h-3 w-1/2" />
-          <Skeleton className="h-3 w-3/4" />
-        </div>
+        <WorkspaceCardSkeleton key={index} />
       ))}
     </div>
   );
@@ -81,17 +74,7 @@ function GuideSkeleton() {
 }
 
 export function HomeHeroSkeleton() {
-  return (
-    <div aria-hidden="true">
-      <Skeleton className="home-eyebrow-skeleton" />
-      <div className="home-hero-title">
-        <Skeleton className="home-title-skeleton" />
-      </div>
-      <div className="home-hero-subtitle">
-        <Skeleton className="home-subtitle-skeleton" />
-      </div>
-    </div>
-  );
+  return <PageHeaderSkeleton welcome />;
 }
 
 export function HomeSkeleton() {

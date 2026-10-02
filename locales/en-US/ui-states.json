@@ -18,5 +18,9 @@
   "requestStale": "The last loaded content is still available.",
   "requestRetrying": "Retrying",
   "requestAppearanceError": "Display settings could not be loaded",
-  "requestAppearanceWhy": "Your current theme and language are still in use. Retry to load your saved settings."
+  "requestAppearanceWhy": "Your current theme and language are still in use. Retry to load your saved settings.",
+  "pageNotFound": "Page not found",
+  "pageNotFoundWhy": "This address does not match a page. Return home or search your knowledge.",
+  "pageForbidden": "Access is unavailable",
+  "pageReturnHome": "Return home"
 }

@@ -1,12 +1,7 @@
+import { KnowledgeTypeIcon } from "./KnowledgeTypeIcon";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  ArrowLeftIcon,
-  FileTextIcon,
-  LayersIcon,
-  XIcon,
-  ArrowUpRightIcon,
-} from "lucide-react";
+import { ArrowLeftIcon, XIcon, ArrowUpRightIcon } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -204,7 +199,7 @@ export default function KnowledgeSearchDialog({
           {resource.data?.degraded && (
             <RequestFeedback
               className="search-feedback-inline"
-              tone="info"
+              tone="warning"
               title={t("dialogDegradedTitle")}
               description={t("dialogDegraded")}
               compact
@@ -277,11 +272,7 @@ export default function KnowledgeSearchDialog({
                         }}
                         className="search-result-item"
                       >
-                        {hit.type === "context" ? (
-                          <LayersIcon aria-hidden="true" />
-                        ) : (
-                          <FileTextIcon aria-hidden="true" />
-                        )}
+                        <KnowledgeTypeIcon type={hit.type} />
                         <SearchResultText hit={hit} query={query} />
                       </CommandItem>
                     ))}

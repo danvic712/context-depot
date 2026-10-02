@@ -1,3 +1,4 @@
+import { knowledgeTypes } from "./knowledge-types";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -85,9 +86,7 @@ export function SearchResultText({
         <Highlight text={hit.title} query={query} />
       </strong>
       <div className="search-result-meta">
-        <Badge variant="outline">
-          {t(hit.type === "document" ? "dialogDocuments" : "dialogContexts")}
-        </Badge>
+        <Badge variant="outline">{t(knowledgeTypes[hit.type].label)}</Badge>
         {hit.type === "context" && (
           <span>{t(`${hit.kind}Kind`, { defaultValue: hit.kind })}</span>
         )}

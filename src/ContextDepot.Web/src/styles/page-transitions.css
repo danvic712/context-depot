@@ -1,12 +1,12 @@
 .shell-ready {
-  animation: app-reveal 220ms ease-out;
+  animation: app-reveal var(--motion-normal) ease-out;
 }
 .startup-loading .frame,
 .startup-loading .rail {
-  animation: loading-reveal 120ms ease-out 120ms both;
+  animation: loading-reveal var(--motion-fast) ease-out var(--motion-fast) both;
 }
 .frame > .page > .route-content {
-  animation: page-enter 180ms ease-out;
+  animation: page-enter var(--motion-normal) ease-out;
 }
 .frame > .page.home > .route-content {
   animation: none;

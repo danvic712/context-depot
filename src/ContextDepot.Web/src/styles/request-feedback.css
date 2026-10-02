@@ -3,11 +3,11 @@
   align-items: start;
   gap: 14px;
   padding: 20px;
-  border-radius: 12px;
+  border-radius: var(--radius-card);
 }
 .request-feedback[data-compact] {
   padding: 14px 16px;
-  gap: 12px;
+  gap: var(--space-3);
 }
 .request-feedback-copy {
   display: flex;
@@ -25,7 +25,7 @@
 @media (max-width: 640px) {
   .request-feedback {
     grid-template-columns: 20px minmax(0, 1fr);
-    gap: 12px;
+    gap: var(--space-3);
     padding: 16px;
   }
   .request-feedback [data-slot="alert-action"] {

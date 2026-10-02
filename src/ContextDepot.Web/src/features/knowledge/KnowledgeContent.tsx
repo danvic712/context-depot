@@ -1,3 +1,4 @@
+import { knowledgeTypes } from "./knowledge-types";
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { MarkdownBody } from "./MarkdownBody";
@@ -17,7 +18,7 @@ export function KnowledgeContent({
     <>
       <header className="knowledge-heading search-preview-heading">
         <Badge variant="secondary">
-          {t(detail.type === "document" ? "dialogDocuments" : "dialogContexts")}
+          {t(knowledgeTypes[detail.type].label)}
         </Badge>
         <Title tabIndex={headingLevel === 1 ? -1 : undefined}>
           {detail.title}

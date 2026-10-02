@@ -15,11 +15,13 @@ export function Notice({
   title,
   detail,
   children,
+  heading = false,
 }: {
   icon: LucideIcon;
   title: string;
   detail: string;
   children?: ReactNode;
+  heading?: boolean;
 }) {
   return (
     <Empty className="notice">
@@ -27,27 +29,10 @@ export function Notice({
         <EmptyMedia variant="icon">
           <Icon aria-hidden="true" />
         </EmptyMedia>
-        <EmptyTitle>{title}</EmptyTitle>
+        <EmptyTitle>{heading ? <h1>{title}</h1> : title}</EmptyTitle>
         <EmptyDescription>{detail}</EmptyDescription>
       </EmptyHeader>
       {children && <EmptyContent>{children}</EmptyContent>}
     </Empty>
-  );
-}
-export function Heading({
-  kicker,
-  title,
-  sub,
-}: {
-  kicker: string;
-  title: string;
-  sub: string;
-}) {
-  return (
-    <div className="page-heading">
-      <span className="kicker">{kicker}</span>
-      <h1>{title}</h1>
-      <p>{sub}</p>
-    </div>
   );
 }

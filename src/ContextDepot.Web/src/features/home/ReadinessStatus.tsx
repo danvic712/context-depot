@@ -1,3 +1,4 @@
+import "@/styles/status.css";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Popover } from "radix-ui";
 import { useTranslation } from "react-i18next";
@@ -50,7 +51,16 @@ export function ReadinessStatus() {
       <Popover.Trigger asChild>
         <button
           type="button"
-          className={`rail-status readiness-${status}`}
+          className="rail-status"
+          data-tone={
+            status === "healthy"
+              ? "success"
+              : status === "degraded"
+                ? "warning"
+                : status === "unhealthy"
+                  ? "danger"
+                  : "neutral"
+          }
           aria-label={`${t("homeReadinessHint")}: ${t(labels[status])}`}
         >
           <span className="status-dot" aria-hidden="true" />

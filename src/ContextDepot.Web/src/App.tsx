@@ -20,8 +20,7 @@ import { useTranslation } from "react-i18next";
 import type { Lang } from "@/lib/i18n";
 import { useAppearanceSettings } from "./hooks/use-appearance-settings";
 import { RequestFeedback } from "./components/feedback/RequestFeedback";
-import { Sidebar } from "./components/layout/Sidebar";
-import { Header } from "./components/layout/Header";
+import { AppShell } from "./components/layout/AppShell";
 import { RouteLoading } from "./components/feedback/RouteFeedback";
 import type { AppContext, PageHandle } from "./hooks/use-app-context";
 import { normalizeKnowledgeParams } from "./features/knowledge/query-params";
@@ -79,12 +78,6 @@ export default function App() {
     navigation.state === "loading"
       ? navigation.location?.pathname === "/search"
       : page === "search";
-  const knowledgeLayout =
-    navigation.state === "loading"
-      ? /^\/(contexts|documents)\/[^/]+$/.test(
-          navigation.location?.pathname ?? "",
-        )
-      : page === "context" || page === "document";
   useEffect(() => {
     if (params.toString() !== rawParams.toString()) {
       setParams(params, {
@@ -133,7 +126,7 @@ export default function App() {
     onLanguage: changeLang,
   };
   return (
-    <div className="shell shell-ready">
+    <>
       {searchDialog && (
         <Suspense fallback={null}>
           <KnowledgeSearchDialog
@@ -156,52 +149,47 @@ export default function App() {
         </Suspense>
       )}
       <ScrollRestoration />
-      <Sidebar />
-      <div className={`frame${homeLayout ? " frame-home" : ""}`}>
-        <Header
-          theme={theme}
-          lang={lang}
-          languagePending={languagePending}
-          appearancePending={appearancePending}
-          onTheme={changeTheme}
-          onLanguage={changeLang}
-          onSearch={() =>
-            page === "search"
-              ? document.getElementById("knowledge-search")?.focus()
-              : openSearch()
-          }
-        />
-        {appearanceError && (
-          <RequestFeedback
-            className="appearance-error"
-            title={t("requestAppearanceError")}
-            description={t("requestAppearanceWhy")}
-            onRetry={refreshAppearance}
-            pending={appearanceRefreshPending}
-            compact
-          />
-        )}
-        <main
-          className={`page ${homeLayout ? "home" : searchLayout ? "search" : navigation.state === "loading" ? "loading" : page}`}
-          aria-busy={navigation.state === "loading"}
-        >
-          {navigation.state === "loading" ? (
-            <RouteLoading
-              home={homeLayout}
-              search={searchLayout}
-              knowledge={knowledgeLayout}
+      <AppShell
+        preferences={context}
+        home={homeLayout}
+        page={
+          homeLayout
+            ? "home"
+            : searchLayout
+              ? "search"
+              : navigation.state === "loading"
+                ? "loading"
+                : page
+        }
+        pending={navigation.state === "loading"}
+        onSearch={() =>
+          page === "search"
+            ? document.getElementById("knowledge-search")?.focus()
+            : openSearch()
+        }
+        feedback={
+          appearanceError && (
+            <RequestFeedback
+              className="appearance-error"
+              title={t("requestAppearanceError")}
+              description={t("requestAppearanceWhy")}
+              onRetry={refreshAppearance}
+              pending={appearanceRefreshPending}
+              compact
             />
-          ) : (
-            <div className="route-content" key={location.pathname}>
-              <Outlet key={itemId} context={context} />
-            </div>
-          )}
-        </main>
-        <footer>
-          <span>ContextDepot</span>
-          <span>{t("footerTagline")}</span>
-        </footer>
-      </div>
-    </div>
+          )
+        }
+      >
+        {navigation.state === "loading" ? (
+          <RouteLoading
+            pathname={navigation.location?.pathname ?? location.pathname}
+          />
+        ) : (
+          <div className="route-content" key={location.pathname}>
+            <Outlet key={itemId} context={context} />
+          </div>
+        )}
+      </AppShell>
+    </>
   );
 }

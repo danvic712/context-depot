@@ -1,7 +1,10 @@
+import { isRouteErrorResponse, useNavigate, useRouteError } from "react-router";
+import { AppShell } from "@/components/layout/AppShell";
+import { useAppearanceSettings } from "@/hooks/use-appearance-settings";
+import { PageState } from "./PageState";
+import { SpacesSkeleton } from "@/features/spaces/SpacesSkeleton";
+import { SettingsSkeleton } from "@/features/settings/SettingsSkeleton";
 import { useTranslation } from "react-i18next";
-import { SearchIcon } from "lucide-react";
-import { Notice } from "@/components/content/PageElements";
-import { Button } from "@/components/ui/button";
 import { SidebarSkeleton } from "@/components/layout/Sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HomeSkeleton } from "@/features/home/HomeSkeleton";
@@ -9,31 +12,30 @@ import { SearchPageSkeleton } from "@/features/knowledge/SearchSkeleton";
 import { KnowledgeReaderSkeleton } from "@/features/knowledge/KnowledgeReaderSkeleton";
 import "@/styles/header.css";
 
-export function RouteLoading({
-  home = false,
-  search = false,
-  knowledge = false,
-}: {
-  home?: boolean;
-  search?: boolean;
-  knowledge?: boolean;
-}) {
-  const { t } = useTranslation();
-  if (knowledge) return <KnowledgeReaderSkeleton label={t("loading")} />;
-  if (home)
-    return (
-      <div role="status" aria-label={t("loading")}>
-        <HomeSkeleton />
-      </div>
-    );
-  if (search)
-    return (
-      <div role="status" aria-label={t("loading")}>
-        <SearchPageSkeleton />
-      </div>
-    );
+function RouteSkeleton({ pathname }: { pathname: string }) {
+  if (/^\/(contexts|documents)\/[^/]+$/.test(pathname))
+    return <KnowledgeReaderSkeleton />;
+  if (pathname === "/") return <HomeSkeleton />;
+  if (pathname === "/search") return <SearchPageSkeleton />;
+  if (pathname === "/settings") return <SettingsSkeleton />;
+  if (/^\/spaces(?:\/[^/]+)?$/.test(pathname))
+    return <SpacesSkeleton detail={pathname !== "/spaces"} />;
   return (
-    <Skeleton className="h-64 w-full" role="status" aria-label={t("loading")} />
+    <div aria-hidden="true">
+      <Skeleton className="h-16 w-2/3" />
+      <Skeleton className="mt-6 h-48 w-full" />
+    </div>
+  );
+}
+
+export function RouteLoading({ pathname }: { pathname: string }) {
+  const { t } = useTranslation();
+  if (/^\/(contexts|documents)\/[^/]+$/.test(pathname))
+    return <KnowledgeReaderSkeleton label={t("loading")} />;
+  return (
+    <div role="status" aria-label={t("loading")}>
+      <RouteSkeleton pathname={pathname} />
+    </div>
   );
 }
 
@@ -44,7 +46,6 @@ export function AppLoading({
 }) {
   const home = pathname === "/";
   const search = pathname === "/search";
-  const knowledge = /^\/(contexts|documents)\/[^/]+$/.test(pathname);
   return (
     <div className="shell startup-loading" aria-busy="true">
       <SidebarSkeleton />
@@ -66,18 +67,7 @@ export function AppLoading({
           role="status"
           aria-label="Loading / 加载中"
         >
-          {knowledge ? (
-            <KnowledgeReaderSkeleton />
-          ) : home ? (
-            <HomeSkeleton />
-          ) : search ? (
-            <SearchPageSkeleton />
-          ) : (
-            <div aria-hidden="true">
-              <Skeleton className="mb-6 h-10 w-48" />
-              <Skeleton className="h-64 w-full" />
-            </div>
-          )}
+          <RouteSkeleton pathname={pathname} />
         </main>
         <footer aria-hidden="true">
           <Skeleton className="h-3 w-24" />
@@ -90,17 +80,29 @@ export function AppLoading({
   );
 }
 
+export function PageRouteError() {
+  const error = useRouteError();
+  const kind =
+    isRouteErrorResponse(error) && error.status === 404
+      ? "notFound"
+      : isRouteErrorResponse(error) && error.status === 403
+        ? "forbidden"
+        : "error";
+  return <PageState kind={kind} />;
+}
+
 export function RouteError() {
-  const { t } = useTranslation();
+  const preferences = useAppearanceSettings();
+  const navigate = useNavigate();
   return (
-    <main className="page">
-      <Notice
-        icon={SearchIcon}
-        title={t("pageLoadError")}
-        detail={t("pageLoadErrorWhy")}
-      >
-        <Button onClick={() => window.location.reload()}>{t("reload")}</Button>
-      </Notice>
-    </main>
+    <AppShell
+      preferences={preferences}
+      page="error"
+      onSearch={() => {
+        void navigate("/search");
+      }}
+    >
+      <PageRouteError />
+    </AppShell>
   );
 }

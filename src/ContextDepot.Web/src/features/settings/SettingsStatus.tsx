@@ -1,6 +1,10 @@
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { CopyIcon } from "lucide-react";
+import {
+  StatusBadge,
+  type StatusTone,
+} from "@/components/feedback/StatusBadge";
 import { Button } from "@/components/ui/button";
 
 const states = {
@@ -16,12 +20,25 @@ const states = {
   repairing: "settingsState_repairing",
   pending: "settingsState_pending",
 } as const;
+const tones: Record<string, StatusTone> = {
+  available: "success",
+  active: "success",
+  complete: "success",
+  configured: "neutral",
+  unavailable: "danger",
+  revoked: "neutral",
+  unconfigured: "warning",
+  degraded: "warning",
+  pending: "warning",
+  repairing: "warning",
+  unknown: "neutral",
+};
 export function SettingsStatus({ state }: { state: string }) {
   const { t } = useTranslation();
   return (
-    <span className="settings-status" data-state={state}>
+    <StatusBadge tone={tones[state] ?? "neutral"}>
       {t(states[state as keyof typeof states] ?? states.unknown)}
-    </span>
+    </StatusBadge>
   );
 }
 export function CopySetting({

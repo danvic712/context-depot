@@ -32,7 +32,7 @@ export function DialogContent({
       />
       <Primitive.Content
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-7 shadow-xl max-h-[calc(100dvh-2rem)] overflow-y-auto",
+          "fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-[var(--radius-dialog)] border bg-background p-7 shadow-xl max-h-[calc(100dvh-2rem)] overflow-y-auto",
           className,
         )}
         {...props}
@@ -40,7 +40,8 @@ export function DialogContent({
         {children}
         {showCloseButton && (
           <Primitive.Close
-            className="absolute right-4 top-4 flex size-8 items-center justify-center rounded-md border hover:bg-accent"
+            data-slot="dialog-close"
+            className="absolute right-3 top-3 flex size-11 items-center justify-center rounded-md border hover:bg-accent"
             aria-label={closeLabel}
             disabled={closeDisabled}
           >

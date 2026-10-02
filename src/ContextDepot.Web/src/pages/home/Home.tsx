@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { ArrowRightIcon } from "lucide-react";
 import { useAppContext } from "@/hooks/use-app-context";
+import { PageHeader } from "@/components/content/PageHeader";
 import { Button } from "@/components/ui/button";
 import { SearchBox } from "@/features/knowledge/SearchBox";
 import { getKnowledge, getWorkspaces } from "@/features/home/home-api";
@@ -44,15 +45,12 @@ export function Home() {
         {knowledgePending ? (
           <HomeHeroSkeleton />
         ) : (
-          <div className="home-hero-ready">
-            <span className="home-eyebrow">{t("homeEyebrow")}</span>
-            <h1 className="home-hero-title">
-              {t(knowledgeEmpty ? "homeEmptyHero" : "hero")}
-            </h1>
-            <p className="home-hero-subtitle">
-              {t(knowledgeEmpty ? "homeEmptyHeroSub" : "heroSub")}
-            </p>
-          </div>
+          <PageHeader
+            variant="welcome"
+            eyebrow={t("homeEyebrow")}
+            title={t(knowledgeEmpty ? "homeEmptyHero" : "hero")}
+            description={t(knowledgeEmpty ? "homeEmptyHeroSub" : "heroSub")}
+          />
         )}
       </HomeHeroLayout>
       <HomeDashboardLayout guide={<HomeGuide />}>

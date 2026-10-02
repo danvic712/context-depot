@@ -10,7 +10,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 var(--content-inset);
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .frame-home .topbar {
@@ -31,7 +31,7 @@
 .brand-lockup {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: var(--space-5);
   min-width: 0;
 }
 
@@ -56,18 +56,18 @@
 .top-controls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex-shrink: 0;
 }
 
 .top-controls .preference-trigger {
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   box-shadow: none;
   transition:
-    border-color 180ms ease,
-    background-color 180ms ease,
-    color 180ms ease,
-    transform 150ms ease;
+    border-color var(--motion-normal) ease,
+    background-color var(--motion-normal) ease,
+    color var(--motion-normal) ease,
+    transform var(--motion-fast) ease;
 }
 
 .preference-trigger:active:not(:disabled) {
@@ -75,7 +75,7 @@
 }
 
 .preference-chevron {
-  transition: transform 180ms ease;
+  transition: transform var(--motion-normal) ease;
 }
 
 .preference-trigger[data-state="open"] .preference-chevron {
@@ -85,14 +85,14 @@
 .preference-menu {
   width: 180px;
   max-width: calc(100vw - 24px);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
 }
 
 .preference-option {
   min-height: 36px;
   transition:
-    background-color 150ms ease,
-    color 150ms ease;
+    background-color var(--motion-fast) ease,
+    color var(--motion-fast) ease;
 }
 
 @media (max-width: 900px) {
@@ -104,7 +104,7 @@
 
 @media (max-width: 640px) {
   .topbar {
-    gap: 8px;
+    gap: var(--space-2);
   }
 
   .brand-lockup strong {
@@ -123,11 +123,11 @@
 }
 
 .preference-menu[data-state="open"] {
-  animation: preference-enter 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: preference-enter var(--motion-fast) cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .preference-menu[data-state="closed"] {
-  animation: preference-exit 120ms ease-in;
+  animation: preference-exit var(--motion-fast) ease-in;
 }
 
 @keyframes preference-enter {

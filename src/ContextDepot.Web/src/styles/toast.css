@@ -12,9 +12,9 @@
 .toaster[data-sonner-toaster] [data-sonner-toast] {
   transition:
     transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 200ms ease,
+    opacity var(--motion-normal) ease,
     height 320ms ease,
-    box-shadow 200ms ease;
+    box-shadow var(--motion-normal) ease;
 }
 
 .toaster[data-sonner-toaster] [data-sonner-toast][data-mounted="false"],

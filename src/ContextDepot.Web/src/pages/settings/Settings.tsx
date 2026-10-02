@@ -12,9 +12,10 @@ import {
 import { useTranslation } from "react-i18next";
 import { useAppContext } from "@/hooks/use-app-context";
 import type { Lang } from "@/lib/i18n";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { AppSelect } from "@/components/ui/AppSelect";
 import { Button } from "@/components/ui/button";
-import { Heading } from "@/components/content/PageElements";
+import { PageHeader } from "@/components/content/PageHeader";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { AccessKeySettings } from "@/features/settings/AccessKeySettings";
 import { AiSettings } from "@/features/settings/AiSettings";
@@ -82,10 +83,10 @@ export function Settings() {
   }, []);
   return (
     <>
-      <Heading
-        kicker={t("settingsKicker")}
+      <PageHeader
+        eyebrow={t("settingsKicker")}
         title={t("settingsTitle")}
-        sub={t("settingsSub")}
+        description={t("settingsSub")}
       />
       <nav className="section-nav" aria-label={t("settings")}>
         {sections.map(([id, label]) => (
@@ -109,23 +110,27 @@ export function Settings() {
           <div className="settings-appearance-grid">
             <Field>
               <FieldLabel>{t("theme")}</FieldLabel>
-              <div
+              <ToggleGroup
+                type="single"
                 className="settings-theme-options"
-                role="group"
+                value={theme}
+                disabled={appearancePending}
                 aria-label={t("theme")}
+                onValueChange={(value) => {
+                  if (
+                    value === "light" ||
+                    value === "dark" ||
+                    value === "system"
+                  )
+                    onTheme(value);
+                }}
               >
                 {(["light", "dark", "system"] as const).map((value) => (
-                  <button
-                    type="button"
-                    key={value}
-                    aria-pressed={theme === value}
-                    disabled={appearancePending}
-                    onClick={() => onTheme(value)}
-                  >
+                  <ToggleGroupItem key={value} value={value}>
                     {t(value)}
-                  </button>
+                  </ToggleGroupItem>
                 ))}
-              </div>
+              </ToggleGroup>
               <FieldDescription>{t("deploymentDefault")}</FieldDescription>
             </Field>
             <Field>

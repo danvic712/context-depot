@@ -7,7 +7,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { RequestFeedback } from "@/components/feedback/RequestFeedback";
 import { useRequestResource } from "@/hooks/use-request-resource";
 import { getSpace } from "@/features/spaces/spaces-api";
-import { SpaceCounts, SpaceDirectory } from "@/features/spaces/SpaceDirectory";
+import { SpaceDirectory } from "@/features/spaces/SpaceDirectory";
+import { WorkspaceCounts } from "@/features/spaces/WorkspaceCard";
+import { PageHeader } from "@/components/content/PageHeader";
 import { useSpaceDirectory } from "@/features/spaces/use-space-directory";
 import "@/styles/spaces.css";
 
@@ -64,22 +66,25 @@ export function SpaceDetail() {
       )}
       {space && (
         <>
-          <header className="spaces-heading space-detail-heading">
-            <div>
+          <PageHeader
+            eyebrow={
               <span className="space-detail-icon">
                 <FolderOpenIcon aria-hidden="true" />
               </span>
-              <h1>{space.name}</h1>
-              <p>{space.description || t("spaceNoDescription")}</p>
-              <span className="space-detail-path">{space.path}</span>
-            </div>
-            <Button asChild variant="outline">
-              <Link to={search} state={{ focusSearch: true }}>
-                <SearchIcon aria-hidden="true" />
-                {t("spacesSearchHere")}
-              </Link>
-            </Button>
-          </header>
+            }
+            title={space.name}
+            description={space.description || t("spaceNoDescription")}
+            actions={
+              <Button asChild variant="outline">
+                <Link to={search} state={{ focusSearch: true }}>
+                  <SearchIcon aria-hidden="true" />
+                  {t("spacesSearchHere")}
+                </Link>
+              </Button>
+            }
+          >
+            <span className="space-detail-path">{space.path}</span>
+          </PageHeader>
           <section
             className="space-knowledge"
             aria-labelledby="space-knowledge-title"
@@ -88,7 +93,7 @@ export function SpaceDetail() {
               <h2 id="space-knowledge-title">{t("spacesKnowledgeTitle")}</h2>
               <p>{t("spacesKnowledgeDescription")}</p>
             </div>
-            <SpaceCounts space={space} />
+            <WorkspaceCounts space={space} />
           </section>
           <SpaceDirectory resource={children} />
         </>

@@ -23,7 +23,10 @@ const items = [
 
 export function Sidebar() {
   const { t } = useTranslation();
-  const handle = useMatches().at(-1)?.handle as PageHandle;
+  const handle = (useMatches().at(-1)?.handle ?? {
+    page: "home",
+    navigation: "home",
+  }) as PageHandle;
   const { state } = useLocation();
   const navigation = useNavigation();
   let active: NavigationItem = handle.navigation;

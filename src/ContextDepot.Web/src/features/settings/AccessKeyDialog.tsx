@@ -1,19 +1,21 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Messages } from "@/lib/i18n";
 import { isAxiosError } from "axios";
-import { LoaderCircleIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog } from "@/components/ui/dialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  Field,
+  FieldLabel,
+  FieldSet,
+  FieldLegend,
+  FieldDescription,
+} from "@/components/ui/field";
+import { FormDialog } from "@/components/content/FormDialog";
+import { SubmitButton } from "@/components/content/SubmitButton";
 import { CopySetting } from "./SettingsStatus";
 import {
   createAccessKey,
@@ -114,32 +116,54 @@ export function AccessKeyDialog({
     <Dialog
       open
       onOpenChange={(open) => {
-        if (!open && !pending) onClose();
+        if (!open && !pending && !issued) onClose();
       }}
     >
-      <DialogContent
-        className="settings-dialog"
-        closeLabel={t("cancel")}
-        closeDisabled={pending}
-        onEscapeKeyDown={(event) => {
-          if (pending) event.preventDefault();
-        }}
-        onPointerDownOutside={(event) => {
-          if (pending || issued) event.preventDefault();
-        }}
-      >
-        <DialogTitle className="text-xl font-semibold">
-          {t(issued ? "settingsKeyIssued" : titleKeys[action])}
-        </DialogTitle>
-        <DialogDescription className="mt-2 text-sm text-muted-foreground">
-          {issued
-            ? t("settingsKeyOnce")
+      <FormDialog
+        variant="wide"
+        title={t(issued ? "settingsKeyIssued" : titleKeys[action])}
+        description={t(
+          issued
+            ? "settingsKeyOnce"
             : action === "rotate"
-              ? t("settingsRotateWhy")
+              ? "settingsRotateWhy"
               : action === "revoke"
-                ? t("settingsRevokeWhy")
-                : t("settingsGrantsWhy")}
-        </DialogDescription>
+                ? "settingsRevokeWhy"
+                : "settingsGrantsWhy",
+        )}
+        closeLabel={t("cancel")}
+        pending={pending}
+        error={failure ? t(failure) : undefined}
+        preventDismiss={!!issued}
+        showCloseButton={!issued}
+        formRef={form}
+        onSubmit={issued ? undefined : (event) => void submit(event)}
+        footer={
+          issued ? (
+            <Button ref={done} onClick={onClose}>
+              {t("settingsKeyDone")}
+            </Button>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={pending}
+                onClick={onClose}
+              >
+                {t("cancel")}
+              </Button>
+              <SubmitButton
+                pending={pending}
+                label={t(titleKeys[action])}
+                pendingLabel={t("settingsSaving")}
+                variant={action === "revoke" ? "destructive" : "default"}
+                disabled={editsGrants && !workspaces.length}
+              />
+            </>
+          )
+        }
+      >
         {issued ? (
           <div className="settings-issued">
             <p>
@@ -152,21 +176,17 @@ export function AccessKeyDialog({
             <p className="settings-inline-note">
               {t("settingsHeaderName")} <code>X-ContextDepot-Key</code>
             </p>
-            <Button ref={done} className="w-full" onClick={onClose}>
-              {t("settingsKeyDone")}
-            </Button>
           </div>
         ) : (
-          <form
-            ref={form}
-            className="settings-form"
-            onSubmit={(event) => void submit(event)}
-            noValidate
-            aria-busy={pending}
-          >
+          <>
             {action === "create" && (
-              <div className="settings-field">
-                <label htmlFor="key-name">{t("settingsKeyName")}</label>
+              <Field
+                data-invalid={invalid.includes("name")}
+                data-disabled={pending}
+              >
+                <FieldLabel htmlFor="key-name">
+                  {t("settingsKeyName")}
+                </FieldLabel>
                 <Input
                   id="key-name"
                   value={name}
@@ -184,7 +204,7 @@ export function AccessKeyDialog({
                     {t("settingsKeyNameInvalid")}
                   </p>
                 )}
-              </div>
+              </Field>
             )}
             {accessKey && (
               <p className="settings-selected-key">
@@ -193,9 +213,16 @@ export function AccessKeyDialog({
               </p>
             )}
             {editsGrants && (
-              <fieldset className="settings-workspaces" disabled={pending}>
-                <legend>{t("settingsGrantedWorkspaces")}</legend>
-                <p>{t("settingsGrantsExact")}</p>
+              <FieldSet
+                className="settings-workspaces"
+                disabled={pending}
+                data-invalid={invalid.includes("grants")}
+                data-disabled={pending}
+              >
+                <FieldLegend variant="label">
+                  {t("settingsGrantedWorkspaces")}
+                </FieldLegend>
+                <FieldDescription>{t("settingsGrantsExact")}</FieldDescription>
                 {!workspaces.length && (
                   <p>
                     {t("settingsNoWorkspaces")}{" "}
@@ -234,39 +261,11 @@ export function AccessKeyDialog({
                     {t("settingsGrantsInvalid")}
                   </p>
                 )}
-              </fieldset>
+              </FieldSet>
             )}
-            {failure && (
-              <p className="settings-field-error" role="alert">
-                {t(failure)}
-              </p>
-            )}
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={pending}
-                onClick={onClose}
-              >
-                {t("cancel")}
-              </Button>
-              <Button
-                type="submit"
-                variant={action === "revoke" ? "destructive" : "default"}
-                disabled={pending || (editsGrants && !workspaces.length)}
-              >
-                {pending && (
-                  <LoaderCircleIcon
-                    className="animate-spin"
-                    aria-hidden="true"
-                  />
-                )}
-                {t(pending ? "settingsSaving" : titleKeys[action])}
-              </Button>
-            </DialogFooter>
-          </form>
+          </>
         )}
-      </DialogContent>
+      </FormDialog>
     </Dialog>
   );
 }

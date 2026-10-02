@@ -11,8 +11,8 @@
   "spacesContextCount_other": "{{value}} Contexts",
   "spacesDocumentCount_one": "{{value}} document",
   "spacesDocumentCount_other": "{{value}} documents",
-  "spacesSubspaceCount_one": "{{count}} subspace",
-  "spacesSubspaceCount_other": "{{count}} subspaces",
+  "spacesSubspaceCount_one": "{{value}} subspace",
+  "spacesSubspaceCount_other": "{{value}} subspaces",
   "spacesLoadError": "Spaces could not be loaded",
   "spacesDetailError": "This space could not be opened",
   "spacesEmptyTitle": "Start with your first space",
@@ -32,5 +32,5 @@
   "spacesKnowledgeDescription": "Counts include valid Contexts and documents directly in this space, excluding subspaces.",
   "spacesContextCount": "{{value}} Contexts",
   "spacesDocumentCount": "{{value}} documents",
-  "spacesSubspaceCount": "{{count}} subspaces"
+  "spacesSubspaceCount": "{{value}} subspaces"
 }

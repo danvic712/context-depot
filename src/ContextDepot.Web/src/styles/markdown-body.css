@@ -51,7 +51,7 @@
   font-family: ui-monospace, monospace;
   font-size: 0.9em;
   background: var(--subtle);
-  border-radius: 4px;
+  border-radius: var(--radius-compact);
   padding: 2px 4px;
 }
 .markdown-body pre {
@@ -59,7 +59,7 @@
   overflow-x: auto;
   padding: 16px;
   margin: 16px 0;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--subtle);
 }
 .markdown-body pre code {

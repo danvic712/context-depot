@@ -1,12 +1,10 @@
-import {
-  ArrowRightIcon,
-  FileTextIcon,
-  FolderIcon,
-  MessageSquareTextIcon,
-} from "lucide-react";
+import { ArrowRightIcon, FolderIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router";
 import { KnowledgeSkeleton, WorkspaceSkeleton } from "./HomeSkeleton";
+import { WorkspaceCard } from "@/features/spaces/WorkspaceCard";
+import { NewSpaceCard } from "@/features/spaces/NewSpaceCard";
+import { knowledgeTypes } from "@/features/knowledge/knowledge-types";
 import { CreateWorkspaceDialog } from "./CreateWorkspaceDialog";
 import type { KnowledgeSummary, WorkspaceSummary } from "./home-api";
 import { RequestFeedback } from "@/components/feedback/RequestFeedback";
@@ -58,7 +56,6 @@ export function WorkspaceTiles({
   onCreated: () => void | Promise<void>;
 }) {
   const { t } = useTranslation();
-  const location = useLocation();
   if (empty && !pending)
     return (
       <div className="home-empty-spaces">
@@ -70,45 +67,17 @@ export function WorkspaceTiles({
             <h3>{t("homeSpacesEmptyTitle")}</h3>
             <p>{t("homeSpacesEmpty")}</p>
           </div>
-          <CreateWorkspaceDialog onCreated={onCreated} compact />
+          <CreateWorkspaceDialog onCreated={onCreated} />
         </div>
       </div>
     );
   if (pending) return <WorkspaceSkeleton />;
   return (
-    <div className="home-space-grid">
+    <div className="workspace-grid">
       {items.map((space) => (
-        <Link
-          key={space.id}
-          to={`/spaces/${space.id}`}
-          className="home-space-tile"
-          state={{
-            from: location.pathname + location.search,
-            navigation: "home",
-          }}
-        >
-          <span className="home-space-icon">
-            <FolderIcon aria-hidden="true" />
-          </span>
-          <strong title={space.name}>{space.name}</strong>
-          <span
-            className="home-space-description"
-            title={space.description ?? undefined}
-          >
-            {space.description || t("spaceNoDescription")}
-          </span>
-          <span className="home-space-path" title={space.path}>
-            {space.path}
-          </span>
-          <span className="home-space-meta" title={t("spaceCountsHint")}>
-            {t("spaceKnowledgeCounts", {
-              contexts: space.contextCount,
-              documents: space.documentCount,
-            })}
-          </span>
-        </Link>
+        <WorkspaceCard key={space.id} space={space} navigation="home" />
       ))}
-      <CreateWorkspaceDialog onCreated={onCreated} />
+      <NewSpaceCard onCreated={onCreated} />
     </div>
   );
 }
@@ -143,8 +112,7 @@ export function RecentKnowledge({
   return (
     <ul className="home-knowledge-list">
       {items.map((item) => {
-        const Icon =
-          item.type === "context" ? MessageSquareTextIcon : FileTextIcon;
+        const Icon = knowledgeTypes[item.type].icon;
         return (
           <li key={`${item.type}:${item.id}`}>
             <Link

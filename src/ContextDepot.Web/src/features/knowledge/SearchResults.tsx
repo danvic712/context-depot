@@ -1,6 +1,7 @@
+import { KnowledgeTypeIcon } from "./KnowledgeTypeIcon";
 import type { RefObject } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronRightIcon, FileTextIcon, LayersIcon } from "lucide-react";
+import { ChevronRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RequestFeedback } from "@/components/feedback/RequestFeedback";
 import type { Resource } from "@/hooks/use-request-resource";
@@ -119,11 +120,7 @@ export function SearchResults({
                     }}
                   >
                     <span className="search-result-icon">
-                      {hit.type === "context" ? (
-                        <LayersIcon aria-hidden="true" />
-                      ) : (
-                        <FileTextIcon aria-hidden="true" />
-                      )}
+                      <KnowledgeTypeIcon type={hit.type} />
                     </span>
                     <SearchResultText hit={hit} query={query} />
                     <ChevronRightIcon
