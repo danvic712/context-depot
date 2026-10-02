@@ -8,7 +8,7 @@ describe("knowledge URL filters", () => {
         "q=keep&type=unknown&workspace=missing&view=unknown&state=bad&preview=2",
       ),
     );
-    expect(result.toString()).toBe("q=keep");
+    expect(result.toString()).toBe("q=keep&workspace=missing");
   });
   test("document filters cannot retain a Context kind", () => {
     const result = normalizeKnowledgeParams(
@@ -26,5 +26,35 @@ describe("knowledge URL filters", () => {
     expect(result.get("kind")).toBe("preference");
     expect(result.get("q")).toBe("copy");
     expect(result.get("state")).toBe("degraded");
+  });
+  test("accepts all seven Context kinds and full nested workspace paths", () => {
+    for (const kind of [
+      "fact",
+      "preference",
+      "decision",
+      "goal",
+      "state",
+      "event",
+      "observation",
+    ]) {
+      const params = new URLSearchParams({
+        kind,
+        workspace: " projects/research/search ",
+        selected: "context:resource",
+        read: "1",
+      });
+      const result = normalizeKnowledgeParams(params);
+      expect(result.get("kind")).toBe(kind);
+      expect(result.get("type")).toBe("contexts");
+      expect(result.get("workspace")).toBe("projects/research/search");
+      expect(result.get("selected")).toBe("context:resource");
+      expect(result.get("read")).toBe("1");
+    }
+  });
+  test("drops empty scopes and malformed selected resources", () => {
+    const result = normalizeKnowledgeParams(
+      new URLSearchParams("workspace=+&kind=0&selected=wrong:id&read=2"),
+    );
+    expect(result.size).toBe(0);
   });
 });

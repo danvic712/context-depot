@@ -9,6 +9,7 @@ import {
   type SearchHit,
   type KnowledgePreview,
   type SearchWorkspace,
+  type ContextKind,
 } from "./search-api";
 
 export function useKnowledgeSearch(
@@ -16,9 +17,11 @@ export function useKnowledgeSearch(
   workspace: string | undefined,
   preview: boolean,
   retry: number,
+  kind?: ContextKind,
+  immediate = false,
 ) {
   const normalized = query.trim();
-  const key = JSON.stringify([normalized, workspace, preview]);
+  const key = JSON.stringify([normalized, workspace, preview, kind]);
   const load = useCallback(
     (signal: AbortSignal): Promise<SearchResponse> =>
       preview
@@ -27,6 +30,9 @@ export function useKnowledgeSearch(
               .filter(
                 (item) =>
                   (workspace === undefined || item.workspaceId === workspace) &&
+                  (!kind ||
+                    (item.type === "context" &&
+                      item.kind.toLowerCase() === kind)) &&
                   `${item.title} ${item.summary} ${item.body}`
                     .toLowerCase()
                     .includes(normalized.toLowerCase()),
@@ -40,11 +46,17 @@ export function useKnowledgeSearch(
                 kind: item.kind.toLowerCase(),
               })),
             degraded: false,
+            limit: 50,
           })
-        : searchKnowledge(normalized, workspace, signal),
-    [normalized, workspace, preview],
+        : searchKnowledge(normalized, workspace, signal, kind),
+    [normalized, workspace, preview, kind],
   );
-  return useRequestResource(key, retry, normalized ? load : null, 220);
+  return useRequestResource(
+    key,
+    retry,
+    normalized ? load : null,
+    immediate ? 0 : 220,
+  );
 }
 export function useSearchWorkspaces(preview: boolean, retry: number) {
   const load = useCallback(

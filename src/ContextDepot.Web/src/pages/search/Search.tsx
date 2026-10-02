@@ -1,135 +1,126 @@
-import { ItemGroup } from "@/components/ui/item";
-import { useAppContext } from "@/hooks/use-app-context";
 import { useTranslation } from "react-i18next";
-import { SearchIcon } from "lucide-react";
-import "@/styles/search.css";
-import { Notice, Heading } from "@/components/content/PageElements";
-import { AppSelect } from "@/components/ui/AppSelect";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { StatePreview } from "@/components/feedback/StatePreview";
+import { Badge } from "@/components/ui/badge";
+import { RequestFeedback } from "@/components/feedback/RequestFeedback";
 import { SearchBox } from "@/features/knowledge/SearchBox";
-import { SampleRow } from "@/features/knowledge/KnowledgeRow";
-import { sampleSpaces } from "@/features/knowledge/sample-data";
+import { SearchFilters } from "@/features/knowledge/SearchFilters";
+import { SearchResults } from "@/features/knowledge/SearchResults";
+import { SearchPreview } from "@/features/knowledge/SearchPreview";
+import { useSearchPage } from "@/features/knowledge/use-search-page";
+import stillLife from "@/assets/home-still-life.png";
+import "@/styles/search.css";
 
 export function Search() {
-  const {
-    preview,
-    state,
-    onRetry,
-    query,
-    params,
-    results,
-    onSearch,
-    onFilter,
-  } = useAppContext();
   const { t } = useTranslation();
-  const hasCriteria = Boolean(
-    query ||
-    params.get("type") ||
-    params.get("kind") ||
-    params.get("workspace"),
-  );
+  const page = useSearchPage();
   return (
-    <>
-      <Heading
-        kicker={t("searchKicker")}
-        title={t("searchTitle")}
-        sub={t("searchSub")}
+    <div
+      className="search-workbench"
+      data-reading={page.reading || undefined}
+      onKeyDown={(event) => {
+        if (
+          event.key === "Escape" &&
+          page.paneRef.current?.contains(event.target as Node)
+        ) {
+          event.preventDefault();
+          page.back();
+        } else if (
+          event.key === "ArrowDown" &&
+          (event.target as HTMLElement).id === "knowledge-search" &&
+          page.hits.length
+        ) {
+          event.preventDefault();
+          page.listRef.current
+            ?.querySelector<HTMLButtonElement>("[data-selected]")
+            ?.focus();
+        }
+      }}
+    >
+      <div className="search-hero">
+        <img src={stillLife} className="search-hero-art" alt="" />
+        <span className="search-eyebrow">{t("searchKicker")}</span>
+        <h1>{t("searchTitle")}</h1>
+        <p>{t("searchSub")}</p>
+        {page.preview && <Badge variant="secondary">{t("sampleHint")}</Badge>}
+      </div>
+      <SearchBox
+        value={page.query}
+        onChange={(value) => page.changeQuery(value)}
+        onSearch={(value) => page.changeQuery(value, true)}
       />
-      <SearchBox key={query} value={query} onSearch={onSearch} />
-      {preview && (
-        <FieldGroup className="filters">
-          <Field>
-            <FieldLabel htmlFor="filter-type">{t("typeLabel")}</FieldLabel>
-            <AppSelect
-              id="filter-type"
-              label={t("typeLabel")}
-              value={params.get("type") ?? "all"}
-              onChange={(value) => onFilter("type", value)}
-              options={[
-                { value: "all", label: t("allTypes") },
-                { value: "contexts", label: t("contexts") },
-                { value: "documents", label: t("documentsFilter") },
-              ]}
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="filter-kind">{t("kindLabel")}</FieldLabel>
-            <AppSelect
-              id="filter-kind"
-              label={t("kindLabel")}
-              value={params.get("kind") ?? "all"}
-              onChange={(value) => onFilter("kind", value)}
-              disabled={params.get("type") === "documents"}
-              options={[
-                { value: "all", label: t("allKinds") },
-                { value: "decision", label: t("decisionKind") },
-                { value: "preference", label: t("preferenceKind") },
-              ]}
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="filter-space">
-              {t("workspaceLabel")}
-            </FieldLabel>
-            <AppSelect
-              id="filter-space"
-              label={t("workspaceLabel")}
-              value={params.get("workspace") ?? "all"}
-              onChange={(value) => onFilter("workspace", value)}
-              options={[
-                { value: "all", label: t("allSpaces") },
-                ...sampleSpaces.map((space) => ({
-                  value: space.id,
-                  label: space.name,
-                })),
-              ]}
-            />
-          </Field>
-        </FieldGroup>
+      <SearchFilters
+        params={page.params}
+        hits={page.resource.data?.items}
+        spaces={page.spaces.data}
+        pending={page.spaces.pending}
+        onFilter={page.filter}
+        onReset={page.reset}
+      />
+      {page.spaces.error && (
+        <RequestFeedback
+          title={t("dialogWorkspaceError")}
+          failure={page.spaces.error}
+          description={t("dialogWorkspaceErrorWhy")}
+          pending={page.spaces.pending}
+          onRetry={page.retrySpaces}
+          compact
+        />
       )}
-      {preview && state === "degraded" && (
-        <StatePreview state={state} onRetry={onRetry} />
+      {page.degraded && (
+        <RequestFeedback
+          tone="info"
+          title={t("dialogDegradedTitle")}
+          description={t("dialogDegraded")}
+          compact
+        />
       )}
-      <section className="results">
-        <h2>
-          {t("search")}
-          {preview &&
-            hasCriteria &&
-            (state === "success" || state === "degraded") && (
-              <small> · {results.length}</small>
-            )}
-        </h2>
-        {preview && state !== "success" && state !== "degraded" ? (
-          <StatePreview state={state} onRetry={onRetry} />
-        ) : preview && hasCriteria ? (
-          results.length ? (
-            <ItemGroup className="divide-y border-y">
-              {results.map((item) => (
-                <SampleRow key={item.id} item={item} />
-              ))}
-            </ItemGroup>
-          ) : (
-            <Notice
-              icon={SearchIcon}
-              title={t("noSampleResults")}
-              detail={t("changeSearch")}
-            />
-          )
-        ) : (
-          <Notice
-            icon={SearchIcon}
-            title={query ? t("searchWait") : t("searchStart")}
-            detail={
-              preview
-                ? t("previewSearchHint")
-                : query
-                  ? t("searchWhy")
-                  : t("searchStartWhy")
-            }
-          />
-        )}
-      </section>
-    </>
+      <div className="search-panes">
+        <SearchResults
+          resource={page.resource}
+          hits={page.hits}
+          query={page.query}
+          selected={
+            page.selected ? `${page.selected.type}:${page.selected.id}` : ""
+          }
+          onSelect={page.select}
+          onRetry={page.retrySearch}
+          onReset={
+            page.params.has("type") ||
+            page.params.has("kind") ||
+            page.params.has("workspace")
+              ? page.reset
+              : undefined
+          }
+          scopeMissing={
+            page.params.has("workspace") &&
+            page.resource.error?.kind === "notFound"
+          }
+          onClearScope={() => page.filter("workspace", "all")}
+          scrollRef={page.listRef}
+        />
+        <SearchPreview
+          item={page.selected}
+          resource={page.detail}
+          searchPending={page.resource.pending && !!page.query.trim()}
+          onBack={page.back}
+          onRetry={page.retryPreview}
+          paneRef={page.paneRef}
+        />
+      </div>
+      <div className="search-keyboard-hints" aria-hidden="true">
+        <span>
+          <kbd>↑</kbd>
+          <kbd>↓</kbd>
+          {t("dialogNavigate")}
+        </span>
+        <span>
+          <kbd>Enter</kbd>
+          {t("dialogPreview")}
+        </span>
+        <span>
+          <kbd>Esc</kbd>
+          {t("dialogBack")}
+        </span>
+      </div>
+    </div>
   );
 }

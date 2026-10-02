@@ -8,4 +8,5 @@ public sealed record SemanticCandidateQuery(
     IReadOnlyList<ContextKind>? Kinds,
     int TopK,
     DateTimeOffset Now,
-    int OversampleFactor = 3);
+    int OversampleFactor = 3,
+    bool IncludeDocuments = true);

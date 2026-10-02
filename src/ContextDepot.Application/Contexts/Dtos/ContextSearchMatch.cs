@@ -1,4 +1,5 @@
 using ContextDepot.Application.Retrieval.Enums;
+using System.Text.Json.Serialization;
 using ContextDepot.Domain.Contexts.Enums;
 using SearchMatchType = ContextDepot.Application.Retrieval.Enums.MatchType;
 
@@ -11,4 +12,5 @@ public sealed record ContextSearchMatch(
     string? Key,
     string? Title,
     string Content,
-    SearchMatchType MatchType);
+    SearchMatchType MatchType,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? Ordinal = null);

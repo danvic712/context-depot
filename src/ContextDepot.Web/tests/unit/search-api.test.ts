@@ -10,33 +10,34 @@ import {
 } from "../../src/features/knowledge/search-api";
 
 const response = {
-  contexts: [
+  items: [
     {
-      contextId: "same",
+      id: "same",
+      type: "document",
       workspace: "projects",
-      kind: "decision",
-      key: "choice",
-      title: null,
-      content: "Current decision",
-    },
-  ],
-  documents: [
-    {
-      documentId: "same",
-      workspace: "projects",
+      kind: "document",
       title: "Design",
-      path: "design.md",
       excerpt: "First matching chunk",
     },
     {
-      documentId: "same",
+      id: "same",
+      type: "context",
       workspace: "projects",
+      kind: "decision",
+      title: "choice",
+      excerpt: "Current decision",
+    },
+    {
+      id: "same",
+      type: "document",
+      workspace: "projects",
+      kind: "document",
       title: "Design",
-      path: "design.md",
       excerpt: "Second matching chunk",
     },
   ],
-  retrieval: { retrievalDegraded: true },
+  degraded: true,
+  limit: 15,
 };
 const detail = {
   id: "same",
@@ -47,18 +48,26 @@ const detail = {
   updatedAt: "2026-10-01T00:00:00Z",
 };
 
-describe("Knowledge dialog API", () => {
+describe("Knowledge search API", () => {
   test("deduplicates document chunks without conflating IDs across types", () => {
     const result = parseSearch(response);
     expect(result.items).toHaveLength(2);
-    expect(result.items[0]!.title).toBe("choice");
-    expect(result.items[1]!.excerpt).toBe("First matching chunk");
+    expect(result.items[1]!.title).toBe("choice");
+    expect(result.items[0]!.excerpt).toBe("First matching chunk");
+    expect(result.limit).toBe(15);
     expect(hitKey(result.items[0]!)).not.toBe(hitKey(result.items[1]!));
     expect(result.degraded).toBe(true);
   });
   test("rejects malformed collections and preview timestamps instead of showing empty success", () => {
-    expect(() => parseSearch({ ...response, documents: null })).toThrow();
-    expect(() => parseSearch({ ...response, retrieval: {} })).toThrow();
+    expect(() => parseSearch({ ...response, items: null })).toThrow();
+    expect(() => parseSearch({ ...response, degraded: undefined })).toThrow();
+    expect(() => parseSearch({ ...response, limit: 0 })).toThrow();
+    expect(() =>
+      parseSearch({
+        ...response,
+        items: [{ ...response.items[0], type: "unknown" }],
+      }),
+    ).toThrow();
     expect(() => parsePreview({ ...detail, type: "unknown" })).toThrow();
     expect(() => parsePreview({ ...detail, updatedAt: "invalid" })).toThrow();
     expect(parsePreview(detail).content).toBe("# Full source");
@@ -85,15 +94,18 @@ describe("Knowledge dialog API", () => {
       const result = await searchKnowledge(
         "decision & notes",
         "projects/notes",
+        undefined,
+        "decision",
       );
       await searchKnowledge("decision", undefined);
-      const document = await getKnowledgePreview(result.items[1]!);
+      const document = await getKnowledgePreview(result.items[0]!);
       const spaces = await getSearchWorkspaces();
       expect(document.content).toBe("# Full source");
       expect(spaces[0]!.path).toBe("projects/notes");
       const first = new URL(paths[0]!, "http://localhost");
       expect(first.searchParams.get("query")).toBe("decision & notes");
       expect(first.searchParams.get("workspace")).toBe("projects/notes");
+      expect(first.searchParams.get("kind")).toBe("decision");
       expect(paths[1]).not.toContain("workspace");
       expect(paths[2]).toBe("/api/knowledge/document/same");
       await searchKnowledge("decision", "all");

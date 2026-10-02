@@ -21,7 +21,9 @@ internal sealed class SemanticCandidateSearcher(ISemanticRetrievalRepository rep
         {
             var queryVector = await embeddingCache.GetOrCreateAsync(queryText, cancellationToken);
             var contexts = await repository.FindContextCandidatesAsync(query, queryVector, cancellationToken);
-            var documents = await repository.FindDocumentCandidatesAsync(query, queryVector, cancellationToken);
+            var documents = query.IncludeDocuments
+                ? await repository.FindDocumentCandidatesAsync(query, queryVector, cancellationToken)
+                : Array.Empty<SemanticDocumentCandidateRecord>();
             return (contexts, documents, true, false);
         }
         catch (OperationCanceledException)

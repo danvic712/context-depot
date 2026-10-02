@@ -5,14 +5,27 @@ import { Button } from "@/components/ui/button";
 import { SidebarSkeleton } from "@/components/layout/Sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HomeSkeleton } from "@/features/home/HomeSkeleton";
+import { SearchPageSkeleton } from "@/features/knowledge/SearchSkeleton";
 import "@/styles/header.css";
 
-export function RouteLoading({ home = false }: { home?: boolean }) {
+export function RouteLoading({
+  home = false,
+  search = false,
+}: {
+  home?: boolean;
+  search?: boolean;
+}) {
   const { t } = useTranslation();
   if (home)
     return (
       <div role="status" aria-label={t("loading")}>
         <HomeSkeleton />
+      </div>
+    );
+  if (search)
+    return (
+      <div role="status" aria-label={t("loading")}>
+        <SearchPageSkeleton />
       </div>
     );
   return (
@@ -26,6 +39,7 @@ export function AppLoading({
   pathname?: string;
 }) {
   const home = pathname === "/";
+  const search = pathname === "/search";
   return (
     <div className="shell startup-loading" aria-busy="true">
       <SidebarSkeleton />
@@ -43,12 +57,14 @@ export function AppLoading({
           </div>
         </div>
         <main
-          className={`page${home ? " home" : ""}`}
+          className={`page${home ? " home" : search ? " search" : ""}`}
           role="status"
           aria-label="Loading / 加载中"
         >
           {home ? (
             <HomeSkeleton />
+          ) : search ? (
+            <SearchPageSkeleton />
           ) : (
             <div aria-hidden="true">
               <Skeleton className="mb-6 h-10 w-48" />

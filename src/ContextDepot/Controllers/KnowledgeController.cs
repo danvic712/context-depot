@@ -1,5 +1,4 @@
 using ContextDepot.Application.Overview;
-using ContextDepot.Application.Contexts.Dtos;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ContextDepot.Controllers;
@@ -15,9 +14,10 @@ public sealed class KnowledgeController(OverviewAppService service, KnowledgeSea
         Ok(await service.ListKnowledgeAsync(limit, sort, cancellationToken));
 
     [HttpGet("search")]
-    public async Task<ActionResult<ContextSearchResult>> SearchAsync(
-        CancellationToken cancellationToken, [FromQuery] string? query = null, [FromQuery] string? workspace = null) =>
-        Ok(await search.SearchAsync(query ?? string.Empty, workspace, cancellationToken));
+    public async Task<ActionResult<KnowledgeSearchResponse>> SearchAsync(
+        CancellationToken cancellationToken, [FromQuery] string? query = null, [FromQuery] string? workspace = null,
+        [FromQuery] string? kind = null) =>
+        Ok(await search.SearchAsync(query ?? string.Empty, workspace, cancellationToken, kind));
 
     [HttpGet("workspaces")]
     public async Task<ActionResult<IReadOnlyList<KnowledgeWorkspace>>> WorkspacesAsync(CancellationToken cancellationToken) =>

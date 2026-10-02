@@ -81,7 +81,9 @@ public sealed class ContextQueryAppService : IContextQueryAppService
             timeProvider.GetUtcNow(),
             Math.Min(1_000, Math.Max(limit * 10, 100)));
         var lexicalContexts = await repository.FindLexicalContextCandidatesAsync(searchQuery, cancellationToken);
-        var lexicalDocuments = await repository.FindLexicalDocumentCandidatesAsync(searchQuery, cancellationToken);
+        var lexicalDocuments = request.IncludeDocuments
+            ? await repository.FindLexicalDocumentCandidatesAsync(searchQuery, cancellationToken)
+            : Array.Empty<DocumentSearchCandidateRecord>();
         var workspacePaths = new Dictionary<Guid, string>(workspaceScope.Paths);
         foreach (var candidate in lexicalContexts)
         {
@@ -130,7 +132,8 @@ public sealed class ContextQueryAppService : IContextQueryAppService
                     request.Kinds,
                     options.Semantic.CandidateTopKPerSource,
                     searchQuery.Now,
-                    options.Semantic.OversampleFactor),
+                    options.Semantic.OversampleFactor,
+                    IncludeDocuments: request.IncludeDocuments),
                 query,
                 new QueryEmbeddingCache(embeddingGenerator),
                 logger,
@@ -177,6 +180,9 @@ public sealed class ContextQueryAppService : IContextQueryAppService
             .OrderByDescending(match => match.Score)
             .ThenBy(match => match.Context is null ? 1 : 0)
             .Take(limit)
+            .Select((match, index) => (
+                Context: match.Context is null ? null : match.Context with { Ordinal = request.IncludeResultOrder ? index : null },
+                Document: match.Document is null ? null : match.Document with { Ordinal = request.IncludeResultOrder ? index : null }))
             .ToArray();
         return new ContextSearchResult(
             selected.Where(match => match.Context is not null).Select(match => match.Context!).ToArray(),

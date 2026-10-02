@@ -37,7 +37,7 @@ async function english() {
 }
 
 describe("Application routes", () => {
-  test("a direct search link renders its query and matching preview results", async () => {
+  test("a direct search link preserves its query and filters while results load", async () => {
     await english();
     const router = createMemoryRouter(appRoutes, {
       initialEntries: ["/search?preview=1&q=notes&type=documents"],
@@ -48,7 +48,11 @@ describe("Application routes", () => {
       expect(router.state.matches.at(-1)?.route.id).toBe("search");
       const html = renderToStaticMarkup(<RouterProvider router={router} />);
       expect(html).toContain('value="notes"');
-      expect(html).toContain("Working notes.md");
+      expect(html).toContain('data-slot="skeleton"');
+      expect(html).toContain(
+        'aria-label="Filter types in this returned batch"',
+      );
+      expect(html).not.toContain("Working notes.md");
       expect(html).not.toContain("Architecture overview.md");
     } finally {
       router.dispose();
@@ -300,14 +304,14 @@ describe("Sidebar navigation", () => {
       await ready(router);
       expect(
         renderToStaticMarkup(<RouterProvider router={router} />),
-      ).toContain("Working notes.md");
+      ).toContain('class="search-workbench"');
       const navigation = router.navigate("/settings?preview=1");
       const html = renderToStaticMarkup(<RouterProvider router={router} />);
       expect(menu(html)).toContain("rail-link pending rail-settings");
       expect(menu(html)).toContain('role="status"');
       expect(html).toContain('aria-busy="true"');
       expect(html).toContain('data-slot="skeleton"');
-      expect(html).not.toContain("Working notes.md");
+      expect(html).not.toContain('class="search-workbench"');
       release();
       await navigation;
       const loaded = renderToStaticMarkup(<RouterProvider router={router} />);
@@ -338,6 +342,56 @@ describe("Sidebar navigation", () => {
     const html = renderToStaticMarkup(<AppLoading pathname="/settings" />);
     expect(html).not.toContain("home-dashboard");
     expect(html).toContain('role="status"');
+  });
+
+  test("startup on Search preserves its filters and two-pane layout", () => {
+    const html = renderToStaticMarkup(<AppLoading pathname="/search" />);
+    expect(html).toContain('class="page search"');
+    expect(html).toContain("search-page-skeleton");
+    expect(html).toContain('class="search-hero"');
+    expect(html).toContain('class="search-box"');
+    expect(html).toContain("search-type-field");
+    expect(html).toContain("search-kind-field");
+    expect(html).toContain("search-workspace-field");
+    expect(html).toContain('class="search-panes"');
+    expect(html).toContain('class="search-results-pane"');
+    expect(html).toContain('class="search-preview-pane"');
+    expect(html.match(/search-result-skeleton/g)).toHaveLength(3);
+    expect(html).not.toContain("<button");
+  });
+
+  test("navigation to Search uses its layout while the destination loads", async () => {
+    await english();
+    let release!: () => void;
+    const deferred = new Promise<null>((resolve) => {
+      release = () => resolve(null);
+    });
+    const routes = appRoutes.map((route) => ({
+      ...route,
+      children: route.children?.map((child) =>
+        child.id === "search" ? { ...child, loader: () => deferred } : child,
+      ),
+    }));
+    const router = createMemoryRouter(routes, {
+      initialEntries: ["/?preview=1"],
+    });
+    try {
+      await ready(router);
+      const navigation = router.navigate("/search?preview=1&q=notes");
+      const html = renderToStaticMarkup(<RouterProvider router={router} />);
+      expect(html).toContain('class="page search"');
+      expect(html).toContain("search-page-skeleton");
+      expect(html).toContain('aria-label="Loading"');
+      expect(html).not.toContain("home-dashboard");
+      release();
+      await navigation;
+      const loaded = renderToStaticMarkup(<RouterProvider router={router} />);
+      expect(loaded).not.toContain("search-page-skeleton");
+      expect(loaded).toContain('class="search-workbench"');
+    } finally {
+      release();
+      router.dispose();
+    }
   });
 
   test("navigation to home uses the home skeleton before the destination loads", async () => {

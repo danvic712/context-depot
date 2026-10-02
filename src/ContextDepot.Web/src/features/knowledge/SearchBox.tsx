@@ -1,7 +1,7 @@
 import "@/styles/search-box.css";
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowRightIcon, SearchIcon } from "lucide-react";
+import { ArrowRightIcon, SearchIcon, XIcon } from "lucide-react";
 import { Field, FieldGroup, FieldLabel } from "../../components/ui/field";
 import {
   InputGroup,
@@ -14,12 +14,17 @@ export function SearchBox({
   value,
   onSearch,
   home = false,
+  onChange,
 }: {
   home?: boolean;
   value: string;
   onSearch: (q: string) => void;
+  onChange?: (q: string) => void;
 }) {
-  const [input, setInput] = useState(value);
+  const [draft, setDraft] = useState(value);
+  const input = onChange ? value : draft;
+  const change = (value: string) =>
+    onChange ? onChange(value) : setDraft(value);
   const { t } = useTranslation();
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -34,13 +39,14 @@ export function SearchBox({
       <FieldGroup>
         <Field>
           <FieldLabel htmlFor="knowledge-search">
-            {t("searchPlaceholder")}
+            {t(home ? "searchPlaceholder" : "dialogSearchTitle")}
           </FieldLabel>
           <InputGroup className="search-input-group">
             <InputGroupInput
               id="knowledge-search"
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => change(e.target.value)}
+              maxLength={4000}
               placeholder={t("searchPlaceholder")}
             />
             <InputGroupAddon align="inline-start">
@@ -51,12 +57,17 @@ export function SearchBox({
               {input && (
                 <InputGroupButton
                   type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label={t("clear")}
+                  title={t("clear")}
                   onClick={() => {
-                    setInput("");
-                    if (!home) onSearch("");
+                    change("");
+                    if (!home && !onChange) onSearch("");
+                    document.getElementById("knowledge-search")?.focus();
                   }}
                 >
-                  {t("clear")}
+                  <XIcon aria-hidden="true" />
                 </InputGroupButton>
               )}
               <InputGroupButton type="submit" variant="default" size="sm">

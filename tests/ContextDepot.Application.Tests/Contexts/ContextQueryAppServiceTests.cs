@@ -6,6 +6,7 @@ using ContextDepot.Application.Embeddings;
 using ContextDepot.Application.Retrieval;
 using ContextDepot.Application.Retrieval.Dtos;
 using ContextDepot.Application.SemanticRetrieval;
+using ContextDepot.Application.SemanticRetrieval.Dtos;
 using ContextDepot.Application.SemanticRetrieval.Contracts;
 using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Application.Shared.Runtime.Contracts;
@@ -192,6 +193,50 @@ public sealed class ContextQueryAppServiceTests
             service.SearchAsync(new ContextSearchRequest(" "), CancellationToken.None));
         await Assert.ThrowsAsync<ContextDepotApplicationException>(() =>
             service.SearchAsync(new ContextSearchRequest("database", Limit: 51), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ContextOnlySearchSkipsLexicalAndSemanticDocumentsBeforeTheLimit()
+    {
+        var candidate = ContextCandidate(Guid.NewGuid(), "Database is configured.");
+        var repository = new Mock<IContextQueryRepository>();
+        repository.Setup(x => x.FindLexicalContextCandidatesAsync(It.Is<ContextSearchQuery>(q => q.Kinds!.Contains(ContextKind.Fact)), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new ContextSearchCandidateRecord(candidate, "projects")]);
+        var generator = new Mock<IEmbeddingGenerator<string, Embedding<float>>>();
+        generator.Setup(x => x.GenerateAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<EmbeddingGenerationOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GeneratedEmbeddings<Embedding<float>>([new(new[] { 1f, 0f, 0f })]));
+        var semantic = new Mock<ISemanticRetrievalRepository>();
+        semantic.Setup(x => x.FindContextCandidatesAsync(It.Is<SemanticCandidateQuery>(q => !q.IncludeDocuments), It.IsAny<ReadOnlyMemory<float>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        var result = await CreateService(repository, new Mock<IWorkspaceAppService>(), semantic, generator)
+            .SearchAsync(new ContextSearchRequest("database", Kinds: [ContextKind.Fact], Limit: 1, IncludeDocuments: false), default);
+        Assert.Equal(candidate.Id, Assert.Single(result.Contexts).ContextId);
+        Assert.Empty(result.Documents);
+        repository.Verify(x => x.FindLexicalDocumentCandidatesAsync(It.IsAny<ContextSearchQuery>(), It.IsAny<CancellationToken>()), Times.Never);
+        semantic.Verify(x => x.FindDocumentCandidatesAsync(It.IsAny<SemanticCandidateQuery>(), It.IsAny<ReadOnlyMemory<float>>(), It.IsAny<CancellationToken>()), Times.Never);
+        semantic.VerifyAll();
+    }
+
+    [Fact]
+    public async Task MixedResultsCarryGlobalOrderOnlyWhenRequested()
+    {
+        var workspace = Guid.NewGuid();
+        var candidate = ContextCandidate(workspace, "Database information.");
+        var document = new BootstrapDocumentChunkCandidate(Guid.NewGuid(), DepotId, Guid.NewGuid(), workspace, 0,
+            "database.md", "database", "", "database database database", "hash", DateTimeOffset.UtcNow);
+        var repository = new Mock<IContextQueryRepository>();
+        repository.Setup(x => x.FindLexicalContextCandidatesAsync(It.IsAny<ContextSearchQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new ContextSearchCandidateRecord(candidate, "projects")]);
+        repository.Setup(x => x.FindLexicalDocumentCandidatesAsync(It.IsAny<ContextSearchQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new DocumentSearchCandidateRecord(document, "projects")]);
+        var service = CreateService(repository, new Mock<IWorkspaceAppService>());
+        var ordered = await service.SearchAsync(new ContextSearchRequest("database", IncludeResultOrder: true), default);
+        Assert.Equal(0, Assert.Single(ordered.Documents).Ordinal);
+        Assert.Equal(1, Assert.Single(ordered.Contexts).Ordinal);
+        var original = await service.SearchAsync(new ContextSearchRequest("database"), default);
+        Assert.Null(Assert.Single(original.Contexts).Ordinal);
+        Assert.Null(Assert.Single(original.Documents).Ordinal);
+        Assert.DoesNotContain("Ordinal", System.Text.Json.JsonSerializer.Serialize(original));
     }
 
     private static ContextQueryAppService CreateService(

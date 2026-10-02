@@ -2,14 +2,11 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ArrowLeftIcon,
-  CopyIcon,
-  CheckIcon,
   FileTextIcon,
   LayersIcon,
-  SearchIcon,
   XIcon,
+  ArrowUpRightIcon,
 } from "lucide-react";
-import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -29,17 +26,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AppSelect } from "@/components/ui/AppSelect";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import {
-  Empty,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-  EmptyDescription,
-} from "@/components/ui/empty";
 import { RequestFeedback } from "@/components/feedback/RequestFeedback";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { MarkdownBody } from "./MarkdownBody";
+import {
+  SearchEmpty,
+  SearchSkeleton,
+  SearchResultText,
+  SearchPreviewContent,
+  SearchCopyButton,
+} from "./SearchContent";
 import { hitKey, type KnowledgeType } from "./search-api";
 import {
   useKnowledgeSearch,
@@ -48,46 +43,24 @@ import {
 } from "./use-knowledge-search";
 import "@/styles/knowledge-search-dialog.css";
 
-function SearchEmpty({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
-  return (
-    <Empty>
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <SearchIcon aria-hidden="true" />
-        </EmptyMedia>
-        <EmptyTitle>{title}</EmptyTitle>
-        <EmptyDescription>{description}</EmptyDescription>
-      </EmptyHeader>
-    </Empty>
-  );
-}
-function SearchSkeleton() {
-  return (
-    <div className="search-skeleton" aria-hidden="true">
-      <Skeleton className="h-5 w-2/3" />
-      <Skeleton className="h-3 w-1/3" />
-      <Skeleton className="h-14 w-full" />
-    </div>
-  );
-}
 export default function KnowledgeSearchDialog({
   initialQuery,
   preview,
   onClose,
   onRestoreFocus,
+  onOpenPage,
 }: {
   initialQuery: string;
   preview: boolean;
   onClose: () => void;
   onRestoreFocus: () => void;
+  onOpenPage: (criteria: {
+    query: string;
+    workspace?: string;
+    type: "all" | KnowledgeType;
+  }) => void;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [open, setOpen] = useState(true);
   const [workspaceRetry, setWorkspaceRetry] = useState(0);
   const [query, setQuery] = useState(initialQuery);
@@ -97,8 +70,6 @@ export default function KnowledgeSearchDialog({
   const [mobilePreview, setMobilePreview] = useState(false);
   const [retry, setRetry] = useState(0);
   const [previewRetry, setPreviewRetry] = useState(0);
-  const [copiedKey, setCopiedKey] = useState("");
-  const [copyPending, setCopyPending] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const resource = useKnowledgeSearch(query, workspace, preview, retry);
   const workspaces = useSearchWorkspaces(preview, workspaceRetry);
@@ -106,7 +77,6 @@ export default function KnowledgeSearchDialog({
   const visible = hits.filter((item) => type === "all" || item.type === type);
   const item = visible.find((hit) => hitKey(hit) === selected) ?? visible[0];
   const detail = useKnowledgePreview(item, preview, previewRetry);
-  const copied = Boolean(detail.data && copiedKey === hitKey(detail.data));
   const pending = resource.pending;
   const counts = {
     all: hits.length,
@@ -117,20 +87,6 @@ export default function KnowledgeSearchDialog({
   function changeQuery(value: string) {
     setQuery(value);
     setMobilePreview(false);
-    setCopiedKey("");
-  }
-  async function copy() {
-    if (!detail.data || copyPending) return;
-    setCopyPending(true);
-    try {
-      await navigator.clipboard.writeText(detail.data.content);
-      setCopiedKey(hitKey(detail.data));
-      toast.success(t("dialogCopied"));
-    } catch {
-      toast.error(t("dialogCopyError"));
-    } finally {
-      setCopyPending(false);
-    }
   }
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -153,7 +109,6 @@ export default function KnowledgeSearchDialog({
           value={item ? hitKey(item) : ""}
           onValueChange={(value) => {
             setSelected(value);
-            setCopiedKey("");
           }}
           className="knowledge-search-command"
           label={t("dialogSearchTitle")}
@@ -331,27 +286,16 @@ export default function KnowledgeSearchDialog({
                         ) : (
                           <FileTextIcon aria-hidden="true" />
                         )}
-                        <div className="search-result-text">
-                          <strong>{hit.title}</strong>
-                          <div className="search-result-meta">
-                            <Badge variant="outline">
-                              {hit.type === "document"
-                                ? t("dialogDocuments")
-                                : t(`${hit.kind}Kind`, {
-                                    defaultValue: hit.kind,
-                                  })}
-                            </Badge>
-                            <span>{hit.workspace}</span>
-                          </div>
-                          <p>{hit.excerpt}</p>
-                        </div>
+                        <SearchResultText hit={hit} query={query} />
                       </CommandItem>
                     ))}
                   </CommandGroup>
                 )}
               </CommandList>
               {resource.data && (
-                <p className="search-limit-note">{t("dialogLimit")}</p>
+                <p className="search-limit-note">
+                  {t("searchBatchLimit", { count: resource.data.limit })}
+                </p>
               )}
             </section>
             <section
@@ -388,21 +332,7 @@ export default function KnowledgeSearchDialog({
                   <SearchSkeleton />
                 ) : (
                   <>
-                    <div className="search-preview-heading">
-                      <Badge variant="secondary">
-                        {item.type === "document"
-                          ? t("dialogDocuments")
-                          : t("dialogContexts")}
-                      </Badge>
-                      <h2>{detail.data.title}</h2>
-                      <p>
-                        {detail.data.workspace} ·{" "}
-                        {new Intl.DateTimeFormat(i18n.resolvedLanguage, {
-                          dateStyle: "medium",
-                        }).format(new Date(detail.data.updatedAt))}
-                      </p>
-                    </div>
-                    <MarkdownBody content={detail.data.content} />
+                    <SearchPreviewContent detail={detail.data} />
                   </>
                 )}
               </div>
@@ -427,16 +357,15 @@ export default function KnowledgeSearchDialog({
             <Button
               variant="outline"
               size="sm"
-              disabled={!detail.data || copyPending}
-              onClick={() => void copy()}
+              onClick={() => onOpenPage({ query, workspace, type })}
             >
-              {copied ? (
-                <CheckIcon data-icon="inline-start" />
-              ) : (
-                <CopyIcon data-icon="inline-start" />
-              )}
-              {t(copied ? "dialogCopied" : "dialogCopy")}
+              {t("searchOpenPage")}
+              <ArrowUpRightIcon data-icon="inline-end" />
             </Button>
+            <SearchCopyButton
+              detail={detail.error ? undefined : detail.data}
+              pending={detail.pending}
+            />
           </div>
         </Command>
       </DialogContent>

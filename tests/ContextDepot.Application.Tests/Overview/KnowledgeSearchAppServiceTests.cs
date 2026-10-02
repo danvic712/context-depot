@@ -8,6 +8,8 @@ using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Application.Workspaces;
 using ContextDepot.Application.Workspaces.Contracts;
 using ContextDepot.Domain.Documents.Enums;
+using ContextDepot.Domain.Contexts.Enums;
+using MatchType = ContextDepot.Application.Retrieval.Enums.MatchType;
 using Microsoft.Extensions.Options;
 using Moq;
 
@@ -33,13 +35,59 @@ public sealed class KnowledgeSearchAppServiceTests
     {
         using var cancellation = new CancellationTokenSource();
         contexts.Setup(x => x.SearchAsync(It.Is<ContextSearchRequest>(r => r.Query == "decision" &&
-            r.Limit == Math.Min(50, max) && !r.IncludeDescendants &&
+            r.Limit == Math.Min(50, max) && !r.IncludeDescendants && r.IncludeDocuments && r.IncludeResultOrder &&
             (string.IsNullOrEmpty(workspace) ? r.Workspaces == null : r.Workspaces!.SequenceEqual(new[] { workspace }))), cancellation.Token))
             .ReturnsAsync(new ContextSearchResult([], [], new(false, false, "lexical")));
         var result = await Create(max).SearchAsync("decision", workspace, cancellation.Token);
-        Assert.Empty(result.Contexts);
+        Assert.Empty(result.Items);
+        Assert.Equal(Math.Min(50, max), result.Limit);
         contexts.VerifyAll();
         documents.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task SearchPreservesMixedRankOrderAndDeduplicatesDocumentChunks()
+    {
+        var id = Guid.NewGuid();
+        contexts.Setup(x => x.SearchAsync(It.IsAny<ContextSearchRequest>(), default)).ReturnsAsync(
+            new ContextSearchResult(
+                [new(id, "projects", ContextKind.Decision, "choice", null, "Decision", MatchType.Lexical, 1)],
+                [new(id, "projects", "design.md", "Design", "", "Best chunk", MatchType.Lexical, 0),
+                 new(id, "projects", "design.md", "Design", "", "Other chunk", MatchType.Lexical, 2)],
+                new(true, false, "lexical-degraded")));
+        var result = await Create().SearchAsync("decision", null, default);
+        Assert.Equal(new[] { "document", "context" }, result.Items.Select(x => x.Type));
+        Assert.Equal("Best chunk", result.Items[0].Excerpt);
+        Assert.Equal("choice", result.Items[1].Title);
+        Assert.True(result.Degraded);
+    }
+
+    [Theory]
+    [InlineData("fact", ContextKind.Fact)]
+    [InlineData("preference", ContextKind.Preference)]
+    [InlineData("decision", ContextKind.Decision)]
+    [InlineData("goal", ContextKind.Goal)]
+    [InlineData("state", ContextKind.State)]
+    [InlineData("event", ContextKind.Event)]
+    [InlineData("observation", ContextKind.Observation)]
+    public async Task KindFiltersBeforeRetrievalAndExcludesDocuments(string kind, ContextKind expected)
+    {
+        contexts.Setup(x => x.SearchAsync(It.Is<ContextSearchRequest>(r => !r.IncludeDocuments &&
+            r.IncludeResultOrder && r.Kinds!.SequenceEqual(new[] { expected })), default))
+            .ReturnsAsync(new ContextSearchResult([], [], new(false, false, "lexical")));
+        await Create().SearchAsync("decision", null, default, kind);
+        contexts.VerifyAll();
+    }
+
+    [Theory]
+    [InlineData("invalid")]
+    [InlineData("0")]
+    [InlineData("fact,decision")]
+    public async Task InvalidKindCannotSilentlySearchAllKnowledge(string kind)
+    {
+        var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => Create().SearchAsync("query", null, default, kind));
+        Assert.Equal(ApplicationErrorCodes.InvalidSearchQuery, error.ErrorCode);
+        contexts.VerifyNoOtherCalls();
     }
 
     [Fact]

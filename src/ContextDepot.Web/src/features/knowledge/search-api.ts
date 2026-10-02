@@ -1,6 +1,16 @@
 import { httpRequest } from "@/lib/http-client";
 
 export type KnowledgeType = "context" | "document";
+export const contextKinds = [
+  "fact",
+  "preference",
+  "decision",
+  "goal",
+  "state",
+  "event",
+  "observation",
+] as const;
+export type ContextKind = (typeof contextKinds)[number];
 export interface SearchHit {
   id: string;
   type: KnowledgeType;
@@ -12,6 +22,7 @@ export interface SearchHit {
 export interface SearchResponse {
   items: SearchHit[];
   degraded: boolean;
+  limit: number;
 }
 export interface KnowledgePreview {
   id: string;
@@ -43,36 +54,35 @@ function rows(value: unknown): unknown[] {
 }
 export function parseSearch(data: unknown): SearchResponse {
   const value = record(data);
-  const retrieval = record(value.retrieval);
-  if (typeof retrieval.retrievalDegraded !== "boolean")
+  if (
+    typeof value.degraded !== "boolean" ||
+    !Number.isInteger(value.limit) ||
+    (value.limit as number) < 1 ||
+    (value.limit as number) > 50
+  )
     throw new Error("search.invalid_response");
-  const contexts = rows(value.contexts).map((row): SearchHit => {
+  const items = rows(value.items).map((row): SearchHit => {
     const item = record(row);
+    if (item.type !== "context" && item.type !== "document")
+      throw new Error("search.invalid_response");
     return {
-      id: text(item.contextId),
-      type: "context",
-      title: text(item.title ?? item.key ?? item.kind),
-      workspace: text(item.workspace),
-      excerpt: text(item.content),
-      kind: text(item.kind),
-    };
-  });
-  const documents = rows(value.documents).map((row): SearchHit => {
-    const item = record(row);
-    return {
-      id: text(item.documentId),
-      type: "document",
-      title: text(item.title || item.path),
+      id: text(item.id),
+      type: item.type,
+      title: text(item.title),
       workspace: text(item.workspace),
       excerpt: text(item.excerpt),
-      kind: "document",
+      kind: text(item.kind),
     };
   });
   // A document can match several chunks. Keep one result per resource, preserving relevance order.
   const unique = new Map<string, SearchHit>();
-  for (const item of [...contexts, ...documents])
+  for (const item of items)
     if (!unique.has(hitKey(item))) unique.set(hitKey(item), item);
-  return { items: [...unique.values()], degraded: retrieval.retrievalDegraded };
+  return {
+    items: [...unique.values()],
+    degraded: value.degraded,
+    limit: value.limit as number,
+  };
 }
 export function parsePreview(data: unknown): KnowledgePreview {
   const item = record(data);
@@ -94,11 +104,12 @@ export function searchKnowledge(
   query: string,
   workspace: string | undefined,
   signal?: AbortSignal,
+  kind?: ContextKind,
 ) {
   return httpRequest({
     method: "GET",
     url: "/knowledge/search",
-    params: { query, workspace },
+    params: { query, workspace, kind },
     signal,
     parse: parseSearch,
   });

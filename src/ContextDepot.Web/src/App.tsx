@@ -81,6 +81,10 @@ export default function App() {
     navigation.state === "loading"
       ? navigation.location?.pathname === "/"
       : page === "home";
+  const searchLayout =
+    navigation.state === "loading"
+      ? navigation.location?.pathname === "/search"
+      : page === "search";
   useEffect(() => {
     if (params.toString() !== rawParams.toString()) {
       setParams(params, {
@@ -191,12 +195,16 @@ export default function App() {
     const key = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        if (!document.querySelector("[role=dialog]")) openSearch();
+        if (!document.querySelector("[role=dialog]")) {
+          if (page === "search")
+            document.getElementById("knowledge-search")?.focus();
+          else openSearch();
+        }
       }
     };
     addEventListener("keydown", key);
     return () => removeEventListener("keydown", key);
-  }, [openSearch]);
+  }, [openSearch, page]);
   useEffect(() => {
     if (
       page === "search" &&
@@ -264,11 +272,22 @@ export default function App() {
             preview={preview}
             onClose={() => setSearchDialog(null)}
             onRestoreFocus={() => searchOrigin.current?.focus()}
+            onOpenPage={({ query, workspace, type }) => {
+              const next = new URLSearchParams();
+              if (query.trim()) next.set("q", query.trim());
+              if (workspace) next.set("workspace", workspace);
+              if (type !== "all")
+                next.set("type", type === "context" ? "contexts" : "documents");
+              setSearchDialog(null);
+              navigate(`/search${next.size ? `?${next}` : ""}`, {
+                state: { focusSearch: true },
+              });
+            }}
           />
         </Suspense>
       )}
       <ScrollRestoration />
-      <Sidebar linkTo={previewPath} onSearch={() => openSearch()} />
+      <Sidebar linkTo={previewPath} />
       <div className={`frame${homeLayout ? " frame-home" : ""}`}>
         <Header
           theme={theme}
@@ -277,7 +296,11 @@ export default function App() {
           appearancePending={appearancePending}
           onTheme={changeTheme}
           onLanguage={changeLang}
-          onSearch={() => openSearch()}
+          onSearch={() =>
+            page === "search"
+              ? document.getElementById("knowledge-search")?.focus()
+              : openSearch()
+          }
         />
         {appearanceError && (
           <RequestFeedback
@@ -289,7 +312,7 @@ export default function App() {
             compact
           />
         )}
-        {(page !== "home" || preview) && (
+        {((page !== "home" && page !== "search") || preview) && (
           <div className={`preview-control ${preview ? "is-preview" : ""}`}>
             <span>{preview ? t("sampleHint") : ""}</span>
             {preview && handle.previewControls && (
@@ -323,11 +346,11 @@ export default function App() {
           </div>
         )}
         <main
-          className={`page ${homeLayout ? "home" : navigation.state === "loading" ? "loading" : page}`}
+          className={`page ${homeLayout ? "home" : searchLayout ? "search" : navigation.state === "loading" ? "loading" : page}`}
           aria-busy={navigation.state === "loading"}
         >
           {navigation.state === "loading" ? (
-            <RouteLoading home={homeLayout} />
+            <RouteLoading home={homeLayout} search={searchLayout} />
           ) : (
             <div className="route-content" key={location.pathname}>
               <Outlet key={itemId} context={context} />

@@ -7,4 +7,6 @@ public sealed record ContextSearchRequest(
     IReadOnlyList<string>? Workspaces = null,
     bool IncludeDescendants = false,
     IReadOnlyList<ContextKind>? Kinds = null,
-    int? Limit = null);
+    int? Limit = null,
+    bool IncludeDocuments = true,
+    bool IncludeResultOrder = false);

@@ -29,10 +29,9 @@ const items = [
 
 interface Props {
   linkTo: (path: string) => To;
-  onSearch?: () => void;
 }
 
-export function Sidebar({ linkTo, onSearch }: Props) {
+export function Sidebar({ linkTo }: Props) {
   const { t } = useTranslation();
   const handle = useMatches().at(-1)?.handle as PageHandle;
   const { state } = useLocation();
@@ -66,21 +65,6 @@ export function Sidebar({ linkTo, onSearch }: Props) {
             <Link
               key={item}
               to={linkTo(path)}
-              onClick={
-                item === "search" && onSearch
-                  ? (event) => {
-                      if (
-                        !event.metaKey &&
-                        !event.ctrlKey &&
-                        !event.shiftKey &&
-                        !event.altKey
-                      ) {
-                        event.preventDefault();
-                        onSearch();
-                      }
-                    }
-                  : undefined
-              }
               aria-current={active === item ? "page" : undefined}
               className={cn(
                 "rail-link",
