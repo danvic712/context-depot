@@ -20,5 +20,10 @@ export function useSettingsResource<T>(
       window.removeEventListener("focus", onFocus);
     };
   }, [poll, refresh]);
-  return { ...resource, refresh };
+  return {
+    ...resource,
+    data:
+      resource.error && !resource.error.retryable ? undefined : resource.data,
+    refresh,
+  };
 }

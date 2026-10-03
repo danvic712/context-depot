@@ -3,7 +3,18 @@
 }
 
 .search-input-group {
-  min-height: 62px;
+  min-height: 56px;
+  border-radius: var(--radius-card);
+  background: var(--elevated);
+  box-shadow: var(--shadow-control);
+}
+.search-box [data-slot="field-label"] {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.search-box [data-slot="field"] {
+  gap: var(--space-2);
 }
 
 .search-input-group [data-slot="input-group-control"] {

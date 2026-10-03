@@ -8,7 +8,6 @@ export function PageHeader({
   title,
   description,
   actions,
-  art,
   variant = "standard",
   children,
 }: {
@@ -16,7 +15,6 @@ export function PageHeader({
   title: string;
   description: string;
   actions?: ReactNode;
-  art?: string;
   variant?: "standard" | "welcome";
   children?: ReactNode;
 }) {
@@ -25,10 +23,8 @@ export function PageHeader({
       className={cn(
         "page-heading",
         variant === "welcome" && "page-heading-welcome",
-        art && "page-heading-illustrated",
       )}
     >
-      {art && <img className="page-heading-art" src={art} alt="" />}
       <div className="page-heading-copy">
         {eyebrow && <div className="page-eyebrow">{eyebrow}</div>}
         <h1>{title}</h1>

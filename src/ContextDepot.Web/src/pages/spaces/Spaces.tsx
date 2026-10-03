@@ -1,6 +1,5 @@
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/content/PageHeader";
-import stillLife from "@/assets/home-still-life.png";
 import { NewSpaceCard } from "@/features/spaces/NewSpaceCard";
 import { SpaceDirectory } from "@/features/spaces/SpaceDirectory";
 import { useSpaceDirectory } from "@/features/spaces/use-space-directory";
@@ -15,7 +14,6 @@ export function Spaces() {
         eyebrow={t("spacesKicker")}
         title={t("spacesTitle")}
         description={t("spacesSub")}
-        art={stillLife}
       />
       <SpaceDirectory
         resource={spaces}

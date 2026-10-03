@@ -1,6 +1,8 @@
 import { httpRequest } from "@/lib/http-client";
 import {
   parseWorkspace,
+  parseKnowledge,
+  type KnowledgeSummary,
   type WorkspaceSummary,
 } from "@/features/home/home-api";
 
@@ -17,6 +19,13 @@ export interface SpaceDirectory {
 export interface SpaceDetail {
   workspace: Space;
   ancestors: { id: string; name: string; path: string }[];
+}
+export interface SpaceKnowledge {
+  asOf: string;
+  items: KnowledgeSummary[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
 }
 
 function record(value: unknown): Record<string, unknown> {
@@ -99,5 +108,38 @@ export function getSpace(id: string, signal: AbortSignal) {
     url: `/workspaces/${encodeURIComponent(id)}`,
     signal,
     parse: parseSpaceDetail,
+  });
+}
+
+export function getSpaceKnowledge(
+  id: string,
+  page: number,
+  signal: AbortSignal,
+) {
+  return httpRequest({
+    url: `/workspaces/${encodeURIComponent(id)}/knowledge`,
+    params: { page, pageSize: 12 },
+    signal,
+    parse: (data): SpaceKnowledge => {
+      const value = record(data);
+      const asOf = text(value.asOf);
+      const pageSize = count(value.pageSize, 1);
+      const totalCount = count(value.totalCount);
+      if (
+        !Array.isArray(value.items) ||
+        !Number.isFinite(Date.parse(asOf)) ||
+        pageSize > 60 ||
+        value.items.length > pageSize ||
+        value.items.length > totalCount
+      )
+        throw new Error("Invalid workspace knowledge");
+      return {
+        asOf,
+        items: value.items.map(parseKnowledge),
+        totalCount,
+        page: count(value.page, 1),
+        pageSize,
+      };
+    },
   });
 }

@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 @theme inline {
@@ -53,12 +53,20 @@
   --motion-slow: 280ms;
   --target-min: 44px;
   --workspace-card-min: 220px;
-  --font-display: "Noto Serif SC", "Songti SC", "STSong", Georgia, serif;
+  --font-ui: "Geist", "Noto Sans SC", sans-serif;
+  --font-display: var(--font-ui);
+  --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+  --shadow-control: 0 2px 4px
+    color-mix(in srgb, var(--foreground) 3%, transparent);
+  --shadow-dialog: 0 24px 80px
+    color-mix(in srgb, var(--foreground) 12%, transparent);
   --header-height: 64px;
   --page-gutter: clamp(20px, 3vw, 48px);
 }
 :root {
-  font-family: "Inter", "Noto Sans SC", sans-serif;
+  font-family: var(--font-ui);
+  font-size: 16px;
+  line-height: 1.6;
   color: var(--foreground);
   background: var(--canvas);
   font-synthesis: none;
@@ -114,6 +122,7 @@
   body {
     margin: 0;
     min-width: 320px;
+    font-size: 14px;
   }
   button {
     cursor: pointer;
@@ -137,11 +146,11 @@
 }
 
 #root {
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .shell {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   grid-template-columns: 96px minmax(0, 1fr);
   background: var(--canvas);
@@ -150,7 +159,7 @@
 .frame {
   --content-inset: max(
     var(--page-gutter),
-    calc((100% - 1800px) / 2 + var(--page-gutter))
+    calc((100% - 1480px) / 2 + var(--page-gutter))
   );
   min-width: 0;
   display: flex;
@@ -160,7 +169,7 @@
 .page {
   width: 100%;
   margin: 0 auto;
-  padding: 24px var(--content-inset) 80px;
+  padding: 24px var(--content-inset) 64px;
   flex: 1;
 }
 
@@ -172,22 +181,88 @@ p {
 }
 
 h1 {
-  font:
-    500 clamp(40px, 4vw, 62px)/1.07 "Inter",
-    "Noto Sans SC",
-    sans-serif;
+  font: 600 clamp(28px, 2.5vw, 36px)/1.25 var(--font-display);
   letter-spacing: -0.025em;
   margin: 15px 0 13px;
   max-width: 900px;
 }
 
-footer {
+.frame > footer {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  padding: 20px var(--content-inset) 26px;
+  padding: 16px var(--content-inset) 24px;
   color: var(--muted);
   font-size: 11px;
+}
+
+code,
+pre {
+  font-family: var(--font-mono);
+}
+time,
+kbd {
+  font-variant-numeric: tabular-nums;
+}
+.skip-link {
+  position: fixed;
+  top: 12px;
+  left: 108px;
+  z-index: 60;
+  padding: 10px 16px;
+  border-radius: var(--radius-control);
+  color: var(--primary-foreground);
+  background: var(--primary);
+  transform: translateY(-200%);
+}
+.skip-link:focus {
+  transform: translateY(0);
+}
+.app-button {
+  border-radius: var(--radius-control);
+  transition:
+    color var(--motion-fast),
+    background-color var(--motion-fast),
+    border-color var(--motion-fast),
+    transform var(--motion-fast);
+}
+.app-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.app-button[data-variant="outline"] {
+  background: var(--surface);
+  box-shadow: none;
+}
+.app-button[data-variant="outline"]:hover {
+  background: var(--selection);
+}
+[data-slot="input"],
+[data-slot="textarea"],
+[data-slot="select-trigger"] {
+  border-radius: var(--radius-control);
+  background: var(--elevated);
+  box-shadow: none;
+}
+[data-slot="dialog-content"],
+[data-slot="alert-dialog-content"] {
+  box-shadow: var(--shadow-dialog);
+}
+[data-slot="dialog-close"] {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  padding: 6px;
+  background: var(--surface);
+}
+[data-slot="empty"] {
+  gap: var(--space-5);
+}
+[data-slot="empty-title"] {
+  font-size: 16px;
+  font-weight: 500;
+}
+[data-slot="empty-description"] {
+  font-size: 13px;
+  line-height: 1.8;
 }
 
 @media (max-width: 640px) {
@@ -202,11 +277,14 @@ footer {
   .page {
     padding: 14px 20px 50px;
   }
-  footer {
+  .frame > footer {
     padding: 10px 20px 20px;
   }
-  footer span:last-child {
+  .frame > footer span:last-child {
     display: none;
+  }
+  .skip-link {
+    left: 20px;
   }
 }
 

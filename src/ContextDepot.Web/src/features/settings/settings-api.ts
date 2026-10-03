@@ -34,6 +34,7 @@ export interface IssuedKey {
   secret: string;
 }
 export interface AiRoute {
+  providerId: string | null;
   capability: "embedding" | "chat";
   providerName: string | null;
   protocol: string;
@@ -46,6 +47,35 @@ export interface AiRoute {
   runtimeState: string;
   indexState: string;
   isApplied: boolean;
+}
+export interface AiProvider {
+  id: string;
+  name: string;
+  protocol: string;
+  endpoint: string | null;
+  hasApiKey: boolean;
+  updatedAt: string;
+}
+export interface AiProviderSettings {
+  providers: AiProvider[];
+  routes: AiRoute[];
+}
+export interface AiModelDraft {
+  enabled: boolean;
+  model: string;
+  dimensions: number | null;
+  timeoutSeconds: number;
+}
+export interface AiProviderDraft {
+  id: string | null;
+  name: string;
+  endpoint: string;
+  apiKey: string;
+  updatedAt: string | null;
+  embedding: AiModelDraft;
+  chat: AiModelDraft;
+  embeddingUpdatedAt: string;
+  chatUpdatedAt: string;
 }
 export interface AiDraft {
   providerName: string;
@@ -156,6 +186,7 @@ export function parseAiRoute(data: unknown): AiRoute {
   if (v.protocol !== "openai-compatible")
     throw new Error("Invalid AI protocol");
   return {
+    providerId: v.providerId == null ? null : string(v.providerId),
     capability: v.capability,
     providerName: nullable(v.providerName),
     protocol: string(v.protocol),
@@ -174,6 +205,91 @@ export function parseAiRoute(data: unknown): AiRoute {
     indexState: string(v.indexState),
     isApplied: boolean(v.isApplied),
   };
+}
+export function parseAiProviders(data: unknown): AiProviderSettings {
+  const value = object(data);
+  const providers = array(value.providers, (item) => {
+    const provider = object(item);
+    if (provider.protocol !== "openai-compatible")
+      throw new Error("Invalid provider protocol");
+    return {
+      id: string(provider.id),
+      name: string(provider.name),
+      protocol: string(provider.protocol),
+      endpoint: nullable(provider.endpoint),
+      hasApiKey: boolean(provider.hasApiKey),
+      updatedAt: date(provider.updatedAt),
+    };
+  });
+  const routes = array(value.routes, parseAiRoute);
+  if (
+    routes.length !== 2 ||
+    new Set(routes.map((route) => route.capability)).size !== 2 ||
+    new Set(providers.map((provider) => provider.id)).size !==
+      providers.length ||
+    routes.some(
+      (route) =>
+        route.providerId &&
+        !providers.some((provider) => provider.id === route.providerId),
+    )
+  )
+    throw new Error("Invalid provider settings");
+  return { providers, routes };
+}
+export function getAiProviders(signal: AbortSignal) {
+  return httpRequest({
+    url: "/settings/ai/providers",
+    signal,
+    parse: parseAiProviders,
+  });
+}
+export function saveAiProvider(draft: AiProviderDraft, signal: AbortSignal) {
+  const model = ({ enabled, ...value }: AiModelDraft) =>
+    enabled ? value : null;
+  return httpRequest({
+    method: "PUT",
+    headers: { "X-ContextDepot-Management": "web" },
+    url: "/settings/ai/providers",
+    signal,
+    timeout: 60_000,
+    data: {
+      ...draft,
+      embedding: model(draft.embedding),
+      chat: model(draft.chat),
+    },
+    parse: parseAiProviders,
+  });
+}
+export function validateAiProviderDraft(
+  draft: AiProviderDraft,
+  hasApiKey: boolean,
+) {
+  const errors = new Set<string>();
+  for (const capability of ["embedding", "chat"] as const) {
+    const model = draft[capability];
+    const issues = validateAiDraft(
+      {
+        providerName: draft.name,
+        endpoint: draft.endpoint,
+        apiKey: draft.apiKey,
+        updatedAt: draft.updatedAt ?? draft.embeddingUpdatedAt,
+        model: model.enabled ? model.model : "unused",
+        dimensions: model.enabled ? model.dimensions : 1,
+        timeoutSeconds: model.enabled ? model.timeoutSeconds : 30,
+      },
+      capability,
+      hasApiKey,
+    );
+    for (const issue of issues)
+      errors.add(
+        issue === "providerName"
+          ? "name"
+          : ["model", "dimensions", "timeoutSeconds"].includes(issue)
+            ? `${capability}.${issue}`
+            : issue,
+      );
+  }
+  return [...errors];
 }
 export function getSettingsOverview(signal: AbortSignal) {
   return httpRequest({

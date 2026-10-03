@@ -50,23 +50,25 @@ export function KnowledgeReaderView({
           pending={resource.pending}
         />
       </div>
-      {resource.error ? (
-        <div className="knowledge-reader-error">
-          <h1 tabIndex={-1}>{t(errorTitle)}</h1>
-          <RequestFeedback
-            title={t("knowledgeLoadError")}
-            failure={resource.error}
-            pending={resource.pending}
-            onRetry={onRetry}
-          />
-        </div>
-      ) : resource.data ? (
-        <KnowledgeContent detail={resource.data} headingLevel={1} />
-      ) : (
-        <div role="status" aria-label={t("loading")}>
-          <KnowledgeContentSkeleton />
-        </div>
-      )}
+      <article className="knowledge-reader-document">
+        {resource.error ? (
+          <div className="knowledge-reader-error">
+            <h1 tabIndex={-1}>{t(errorTitle)}</h1>
+            <RequestFeedback
+              title={t("knowledgeLoadError")}
+              failure={resource.error}
+              pending={resource.pending}
+              onRetry={onRetry}
+            />
+          </div>
+        ) : resource.data ? (
+          <KnowledgeContent detail={resource.data} headingLevel={1} />
+        ) : (
+          <div role="status" aria-label={t("loading")}>
+            <KnowledgeContentSkeleton />
+          </div>
+        )}
+      </article>
     </section>
   );
 }

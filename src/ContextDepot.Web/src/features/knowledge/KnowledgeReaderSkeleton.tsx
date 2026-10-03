@@ -29,7 +29,9 @@ export function KnowledgeReaderSkeleton({
         <Skeleton className="h-9 w-32" />
         <Skeleton className="h-9 w-28" />
       </div>
-      <KnowledgeContentSkeleton />
+      <div className="knowledge-reader-document">
+        <KnowledgeContentSkeleton />
+      </div>
     </section>
   );
 }

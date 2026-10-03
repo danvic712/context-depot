@@ -60,6 +60,16 @@ public sealed class WorkspaceBrowserRepositoryTests
         Assert.Equal(new[] { root.Id, child.Id }, detail.Ancestors.Select(x => x.Id));
         Assert.Equal(new[] { "Root", "Child" }, detail.Ancestors.Select(x => x.Name));
         Assert.Null(await repository.GetAsync(depot.Id, other.Id, now, default));
+        var knowledge = await repository.ListKnowledgeAsync(depot.Id, root.Id, 1, 1, now, default);
+        Assert.NotNull(knowledge);
+        Assert.Equal(2, knowledge.TotalCount);
+        Assert.Equal(document.Id, Assert.Single(knowledge.Items).Id);
+        Assert.Equal("document", knowledge.Items[0].Type);
+        var contextsPage = await repository.ListKnowledgeAsync(depot.Id, root.Id, 2, 1, now, default);
+        Assert.Equal(active.Id, Assert.Single(contextsPage!.Items).Id);
+        Assert.Equal("root", contextsPage.Items[0].Workspace.Path);
+        Assert.Empty((await repository.ListKnowledgeAsync(depot.Id, root.Id, 3, 1, now, default))!.Items);
+        Assert.Null(await repository.ListKnowledgeAsync(depot.Id, other.Id, 1, 12, now, default));
         await transaction.RollbackAsync();
     }
 }

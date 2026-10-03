@@ -1,5 +1,5 @@
 .knowledge-search-dialog {
-  width: min(1080px, calc(100vw - 48px));
+  width: min(1000px, calc(100vw - 48px));
   max-width: none;
   height: min(740px, calc(100dvh - 64px));
   padding: 0;
@@ -43,7 +43,7 @@
 }
 .search-dialog-body {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   flex: 1;
   min-height: 0;
   border-top: 1px solid var(--border);
@@ -57,6 +57,7 @@
 }
 .search-dialog-preview {
   border-left: 1px solid var(--border);
+  background: var(--surface);
 }
 .search-pane-label {
   display: flex;
@@ -79,7 +80,8 @@
 .search-result-item {
   align-items: flex-start;
   gap: var(--space-3);
-  padding: 16px 12px;
+  padding: 14px 12px;
+  border-radius: var(--radius-control);
   cursor: pointer;
   margin-bottom: 4px;
 }
@@ -89,7 +91,7 @@
 .knowledge-search-dialog .search-result-text {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-2);
   min-width: 0;
 }
 .knowledge-search-dialog .search-result-text strong {
@@ -102,7 +104,7 @@
   align-items: center;
   gap: var(--space-2);
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   overflow-wrap: anywhere;
 }
 .knowledge-search-dialog .search-result-text p {
@@ -144,6 +146,7 @@
 .knowledge-search-dialog .search-preview-scroll .markdown-body {
   font-size: 14px;
   overflow-wrap: anywhere;
+  line-height: 1.8;
 }
 .knowledge-search-dialog .search-preview-scroll .markdown-body pre {
   max-width: 100%;

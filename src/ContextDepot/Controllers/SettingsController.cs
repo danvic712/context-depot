@@ -40,4 +40,12 @@ public sealed class SettingsController(AccessKeyAppService accessKeys, AiSetting
     [HttpPut("ai/{capability}")]
     public async Task<ActionResult<AiRouteDto>> SaveAiAsync(string capability, SaveAiRouteRequest request, CancellationToken cancellationToken) =>
         Ok(await ai.SaveAsync(capability, request, cancellationToken));
+
+    [HttpGet("ai/providers")]
+    public async Task<ActionResult<AiProviderSettingsDto>> GetProvidersAsync(CancellationToken cancellationToken) =>
+        Ok(await ai.GetProvidersAsync(cancellationToken));
+
+    [HttpPut("ai/providers")]
+    public async Task<ActionResult<AiProviderSettingsDto>> SaveProviderAsync(SaveAiProviderRequest request, CancellationToken cancellationToken) =>
+        Ok(await ai.SaveProviderAsync(request, cancellationToken));
 }

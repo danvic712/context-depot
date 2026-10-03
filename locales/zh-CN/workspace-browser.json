@@ -26,11 +26,15 @@
   "spacesBreadcrumb": "空间路径",
   "spacesSearchHere": "搜索此空间",
   "spacesKnowledgeTitle": "空间中的知识",
-  "spacesKnowledgeDescription": "仅统计当前空间的有效上下文和文档，不包含子空间。",
+  "spacesKnowledgeDescription": "浏览直接保存在当前空间中的有效知识。",
   "spacesContextCount_one": "{{value}} 条上下文",
   "spacesContextCount_other": "{{value}} 条上下文",
   "spacesDocumentCount_one": "{{value}} 篇文档",
   "spacesDocumentCount_other": "{{value}} 篇文档",
   "spacesSubspaceCount_one": "{{value}} 个子空间",
-  "spacesSubspaceCount_other": "{{value}} 个子空间"
+  "spacesSubspaceCount_other": "{{value}} 个子空间",
+  "spacesKnowledgeError": "空间知识暂时无法加载",
+  "spacesKnowledgeEmpty": "这个空间还没有知识",
+  "spacesKnowledgeEmptyWhy": "通过 MCP 保存上下文或文档。子空间中的知识在各自空间查看。",
+  "spacesKnowledgePagination": "空间知识分页"
 }

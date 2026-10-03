@@ -39,7 +39,7 @@ export function SearchBox({
       <FieldGroup>
         <Field>
           <FieldLabel htmlFor="knowledge-search">
-            {t(home ? "searchPlaceholder" : "dialogSearchTitle")}
+            {t("dialogSearchTitle")}
           </FieldLabel>
           <InputGroup className="search-input-group">
             <InputGroupInput

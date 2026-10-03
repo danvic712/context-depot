@@ -19,6 +19,11 @@ public sealed class WorkspacesController(OverviewAppService service, WorkspaceBr
     public async Task<ActionResult<WorkspaceDetail>> GetAsync(Guid id, CancellationToken cancellationToken) =>
         Ok(await browser.GetAsync(id, cancellationToken));
 
+    [HttpGet("{id:guid}/knowledge")]
+    public async Task<ActionResult<WorkspaceKnowledge>> ListKnowledgeAsync(Guid id, CancellationToken cancellationToken,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 12) =>
+        Ok(await browser.ListKnowledgeAsync(id, page, pageSize, cancellationToken));
+
     [HttpGet]
     public async Task<ActionResult<ResourceCollection<WorkspaceSummary>>> ListAsync(
         CancellationToken cancellationToken, [FromQuery] int limit = 3, [FromQuery] string sort = "-activityAt") =>

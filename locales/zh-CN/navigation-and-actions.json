@@ -1,4 +1,5 @@
 {
+  "skipToContent": "跳转到主要内容",
   "cancel": "取消",
   "primaryNavigation": "主导航",
   "home": "首页",
@@ -11,5 +12,6 @@
   "clear": "清除",
   "timelineWhy": "具备近期知识查询能力后，时间线才会开放。",
   "back": "返回",
+  "backToTop": "回到顶部",
   "footerTagline": "保存 · 整理 · 复用"
 }

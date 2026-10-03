@@ -23,4 +23,13 @@ public sealed class WorkspaceBrowserAppService(
     public async Task<WorkspaceDetail> GetAsync(Guid id, CancellationToken cancellationToken) =>
         await repository.GetAsync(currentDepot.DepotId, id, timeProvider.GetUtcNow(), cancellationToken)
         ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspaceNotFound);
+
+    public async Task<WorkspaceKnowledge> ListKnowledgeAsync(Guid id, int page, int pageSize, CancellationToken cancellationToken)
+    {
+        if (page is < 1 or > 100000 || pageSize is < 1 or > 60)
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidResourceQuery);
+        return await repository.ListKnowledgeAsync(currentDepot.DepotId, id, page, pageSize,
+            timeProvider.GetUtcNow(), cancellationToken)
+            ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspaceNotFound);
+    }
 }

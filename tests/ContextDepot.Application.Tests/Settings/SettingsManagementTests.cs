@@ -143,6 +143,36 @@ public sealed class SettingsManagementTests
     }
 
     private static SaveAiRouteRequest ValidAi() => new(" Provider ", "https://example.test/v1", " model ", 3, 30, "example-key", DateTimeOffset.UtcNow);
+
+    [Fact]
+    public async Task ProviderSaveNormalizesSharedConnectionAndTwoDifferentModelsAtomically()
+    {
+        var revision = DateTimeOffset.UtcNow;
+        var request = new SaveAiProviderRequest(null, " Provider ", "https://example.test/v1", " example-key ", null,
+            new(" embed-model ", 3, 30), new(" chat-model ", null, 60), revision, revision);
+        var result = new AiProviderSettingsDto([], []);
+        ai.Setup(x => x.SaveProviderAsync(It.Is<SaveAiProviderRequest>(value =>
+            value.Name == "Provider" && value.ApiKey == "example-key" && value.Embedding!.Model == "embed-model" &&
+            value.Chat!.Model == "chat-model" && value.Embedding.Dimensions == 3 && value.Chat.Dimensions == null), default))
+            .ReturnsAsync(result);
+        Assert.Same(result, await AiService().SaveProviderAsync(request, default));
+        Assert.DoesNotContain("example-key", request.ToString());
+        ai.VerifyAll();
+    }
+
+    [Theory]
+    [InlineData("https://user:secret@example.test", 3, null)]
+    [InlineData("https://example.test?key=secret", 3, null)]
+    [InlineData("https://example.test", 0, null)]
+    [InlineData("https://example.test", 3, 3)]
+    public async Task InvalidProviderCannotPartiallySaveEitherModel(string endpoint, int dimensions, int? chatDimensions)
+    {
+        var revision = DateTimeOffset.UtcNow;
+        var request = new SaveAiProviderRequest(null, "Provider", endpoint, "example-key", null,
+            new("embed", dimensions, 30), new("chat", chatDimensions, 30), revision, revision);
+        await Assert.ThrowsAsync<ContextDepotApplicationException>(() => AiService().SaveProviderAsync(request, default));
+        ai.VerifyNoOtherCalls();
+    }
     private AccessKeyAppService KeyService() => new(keys.Object, secrets.Object, depot.Object, access.Object, ids.Object, TimeProvider.System);
     private AiSettingsAppService AiService() => new(ai.Object, depot.Object, access.Object);
 }

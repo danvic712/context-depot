@@ -120,6 +120,13 @@ export const appRoutes: RouteObject[] = [
         ),
       },
       {
+        path: "404",
+        id: "not-found-page",
+        ErrorBoundary: PageRouteError,
+        handle: { page: "notFound", title: "pageNotFound", navigation: "home" },
+        Component: PageNotFound,
+      },
+      {
         path: "*",
         id: "not-found",
         ErrorBoundary: PageRouteError,

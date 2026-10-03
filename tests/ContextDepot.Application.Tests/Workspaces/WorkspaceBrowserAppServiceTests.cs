@@ -64,4 +64,15 @@ public sealed class WorkspaceBrowserAppServiceTests
         Assert.Equal(ApplicationErrorCodes.WorkspaceNotFound, error.ErrorCode);
         repository.Verify(x => x.GetAsync(depotId, id, now, default), Times.Once);
     }
+
+    [Fact]
+    public async Task KnowledgeListUsesCurrentDepotAndDoesNotExpandToChildSpaces()
+    {
+        var id = Guid.CreateVersion7();
+        repository.Setup(x => x.ListKnowledgeAsync(depotId, id, 2, 12, now, default))
+            .ReturnsAsync(new WorkspaceKnowledge(now, [], 0, 2, 12));
+        var result = await CreateService().ListKnowledgeAsync(id, 2, 12, default);
+        Assert.Equal(2, result.Page);
+        repository.VerifyAll();
+    }
 }

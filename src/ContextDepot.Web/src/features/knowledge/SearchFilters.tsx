@@ -31,7 +31,7 @@ export function SearchFilters({
   return (
     <FieldGroup className="search-filters">
       <Field className="search-type-field">
-        <FieldLabel className="sr-only">{t("typeLabel")}</FieldLabel>
+        <FieldLabel>{t("typeLabel")}</FieldLabel>
         <ToggleGroup
           type="single"
           variant="outline"
@@ -66,9 +66,7 @@ export function SearchFilters({
         </ToggleGroup>
       </Field>
       <Field className="search-kind-field">
-        <FieldLabel htmlFor="filter-kind" className="sr-only">
-          {t("kindLabel")}
-        </FieldLabel>
+        <FieldLabel htmlFor="filter-kind">{t("kindLabel")}</FieldLabel>
         <AppSelect
           id="filter-kind"
           label={t("kindLabel")}
@@ -85,7 +83,7 @@ export function SearchFilters({
         />
       </Field>
       <Field className="search-workspace-field">
-        <FieldLabel htmlFor="filter-workspace" className="sr-only">
+        <FieldLabel htmlFor="filter-workspace">
           {t("workspaceLabel")}
         </FieldLabel>
         <AppSelect

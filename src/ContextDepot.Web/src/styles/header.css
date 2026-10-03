@@ -4,7 +4,8 @@
   top: 0;
   z-index: 20;
   flex-shrink: 0;
-  background: var(--canvas);
+  background: color-mix(in srgb, var(--canvas) 94%, transparent);
+  backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -14,18 +15,7 @@
 }
 
 .frame-home .topbar {
-  background: color-mix(in srgb, var(--canvas) 88%, transparent);
-  border-bottom-color: transparent;
-  backdrop-filter: blur(16px);
-}
-
-.frame-home .topbar::after {
-  content: "";
-  position: absolute;
-  inset: 100% 0 auto;
-  height: 16px;
-  background: linear-gradient(to bottom, var(--canvas), transparent);
-  pointer-events: none;
+  border-bottom-color: var(--border);
 }
 
 .brand-lockup {
@@ -37,7 +27,7 @@
 
 .brand-lockup strong {
   flex-shrink: 0;
-  font-size: 16px;
+  font-size: 15px;
   letter-spacing: -0.03em;
 }
 
@@ -68,6 +58,10 @@
     background-color var(--motion-normal) ease,
     color var(--motion-normal) ease,
     transform var(--motion-fast) ease;
+}
+.top-controls [data-slot="button"] {
+  height: 36px;
+  font-size: 12px;
 }
 
 .preference-trigger:active:not(:disabled) {
@@ -112,7 +106,8 @@
   }
 
   .top-controls .preference-trigger {
-    width: 36px;
+    width: 44px;
+    height: 44px;
     padding: 0;
   }
 
@@ -177,7 +172,8 @@
     display: none;
   }
   .top-controls .header-search {
-    width: 36px;
+    width: 44px;
+    height: 44px;
     padding: 0;
   }
 }

@@ -88,7 +88,7 @@ public sealed partial class OverviewRepository(ContextDepotDbContext db) : IOver
         return new WorkspaceTopology(nodes).Paths;
     }
 
-    private static string ContextTitle(string? title, string? key, string content)
+    internal static string ContextTitle(string? title, string? key, string content)
     {
         if (!string.IsNullOrWhiteSpace(title)) return title;
         if (!string.IsNullOrWhiteSpace(key)) return key;

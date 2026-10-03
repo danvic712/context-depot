@@ -1,7 +1,7 @@
 import { knowledgeTypes } from "./knowledge-types";
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
-import { MarkdownBody } from "./MarkdownBody";
+import { MarkdownContent } from "@/components/content/MarkdownContent";
 import type { KnowledgePreview } from "./search-api";
 import "@/styles/knowledge-content.css";
 
@@ -35,7 +35,7 @@ export function KnowledgeContent({
           </time>
         </p>
       </header>
-      <MarkdownBody content={detail.content} />
+      <MarkdownContent content={detail.content} nested />
     </>
   );
 }

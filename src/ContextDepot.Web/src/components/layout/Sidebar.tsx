@@ -29,7 +29,8 @@ export function Sidebar() {
   }) as PageHandle;
   const { state } = useLocation();
   const navigation = useNavigation();
-  let active: NavigationItem = handle.navigation;
+  let active: NavigationItem | undefined =
+    handle.page === "notFound" ? undefined : handle.navigation;
   if (
     (handle.page === "context" || handle.page === "document") &&
     (state?.navigation === "home" ||

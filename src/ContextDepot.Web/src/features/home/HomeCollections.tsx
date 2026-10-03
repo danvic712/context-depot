@@ -101,9 +101,11 @@ function relativeTime(timestamp: string, locale: string, now = Date.now()) {
 export function RecentKnowledge({
   items,
   pending,
+  navigation = "home",
 }: {
   items: KnowledgeSummary[];
   pending: boolean;
+  navigation?: "home" | "spaces";
 }) {
   const { t, i18n } = useTranslation();
   const location = useLocation();
@@ -119,7 +121,7 @@ export function RecentKnowledge({
               to={`/${item.type === "context" ? "contexts" : "documents"}/${item.id}`}
               state={{
                 from: location.pathname + location.search,
-                navigation: "home",
+                navigation,
               }}
               className="home-knowledge-row"
             >

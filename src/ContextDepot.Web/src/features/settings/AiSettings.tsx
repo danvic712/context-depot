@@ -1,123 +1,153 @@
 import { useState } from "react";
-import { BotIcon, PencilIcon, SlidersHorizontalIcon } from "lucide-react";
+import {
+  PencilIcon,
+  PlusIcon,
+  PlugIcon,
+  SlidersHorizontalIcon,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { SettingsSection } from "@/pages/settings/SettingsSection";
-import { getAiSettings, type AiRoute } from "./settings-api";
+import { getAiProviders, type AiProvider } from "./settings-api";
 import { useSettingsResource } from "./use-settings-resource";
 import { SettingsResourceState } from "./SettingsResourceState";
 import { SettingsStatus } from "./SettingsStatus";
-import { AiRouteDialog } from "./AiRouteDialog";
+import { AiProviderDialog } from "./AiProviderDialog";
 
 export function AiSettings({ onChanged }: { onChanged: () => void }) {
   const { t } = useTranslation();
-  const resource = useSettingsResource(getAiSettings, true);
-  const [editing, setEditing] = useState<AiRoute>();
+  const resource = useSettingsResource(getAiProviders, true);
+  const [editing, setEditing] = useState<AiProvider | "new">();
+  const providers = resource.data?.providers ?? [];
+  const routes = resource.data?.routes ?? [];
   return (
     <SettingsSection
       id="ai"
       title={t("settingsAiTitle")}
       detail={t("settingsAiWhy")}
       icon={SlidersHorizontalIcon}
+      action={
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!resource.data || resource.pending || !!resource.error}
+          onClick={() => setEditing("new")}
+        >
+          <PlusIcon aria-hidden="true" />
+          {t("settingsAddProvider")}
+        </Button>
+      }
     >
       <SettingsResourceState resource={resource} onRetry={resource.refresh} />
       {resource.data && (
-        <div className="settings-ai-grid">
-          {["embedding", "chat"].map((capability) => {
-            const route = resource.data?.find(
-              (item) => item.capability === capability,
-            );
-            if (!route) return null;
-            return (
-              <article className="settings-ai-route" key={route.capability}>
-                <div className="settings-ai-heading">
-                  <div>
-                    <h3>
+        <>
+          {!providers.length && (
+            <div className="settings-empty">
+              <PlugIcon aria-hidden="true" />
+              <div>
+                <h3>{t("settingsNoProviders")}</h3>
+                <p>{t("settingsNoProvidersWhy")}</p>
+              </div>
+            </div>
+          )}
+          {routes.some((route) => !route.providerId) &&
+            providers.length > 0 && (
+              <p className="settings-provider-note">
+                {t("settingsModelsMissing")}
+              </p>
+            )}
+          <div className="settings-provider-list">
+            {providers.map((provider) => {
+              const models = routes.filter(
+                (route) => route.providerId === provider.id,
+              );
+              return (
+                <article className="settings-provider" key={provider.id}>
+                  <div className="settings-provider-heading">
+                    <span className="settings-provider-icon">
+                      <PlugIcon aria-hidden="true" />
+                    </span>
+                    <div>
+                      <h3>{provider.name}</h3>
+                      <code>{provider.endpoint ?? t("unknown")}</code>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      aria-label={t("settingsEditProviderFor", {
+                        name: provider.name,
+                      })}
+                      disabled={resource.pending || !!resource.error}
+                      onClick={() => setEditing(provider)}
+                    >
+                      <PencilIcon aria-hidden="true" />
+                      {t("settingsEditProvider")}
+                    </Button>
+                  </div>
+                  <div className="settings-provider-meta">
+                    <span>OpenAI compatible</span>
+                    <span>
                       {t(
-                        route.capability === "embedding"
-                          ? "settingsEmbeddingTitle"
-                          : "settingsChatTitle",
+                        provider.hasApiKey
+                          ? "settingsApiKeyStored"
+                          : "settingsApiKeyMissing",
                       )}
-                    </h3>
-                    <p>
-                      {t(
-                        route.capability === "embedding"
-                          ? "settingsEmbeddingWhy"
-                          : "settingsChatWhy",
-                      )}
+                    </span>
+                  </div>
+                  {models.length ? (
+                    <div className="settings-provider-models">
+                      {models.map((route) => (
+                        <div
+                          className="settings-provider-model"
+                          key={route.capability}
+                        >
+                          <div>
+                            <span>
+                              {t(
+                                route.capability === "embedding"
+                                  ? "settingsEmbeddingTitle"
+                                  : "settingsChatTitle",
+                              )}
+                            </span>
+                            <strong>
+                              <code>{route.model}</code>
+                            </strong>
+                            <p>
+                              {route.dimensions !== null && (
+                                <>
+                                  {t("settingsDimensions")}:{" "}
+                                  {route.dimensions.toLocaleString()} ·{" "}
+                                </>
+                              )}
+                              {t("settingsSeconds", {
+                                count: route.timeoutSeconds,
+                              })}
+                            </p>
+                          </div>
+                          <SettingsStatus state={route.runtimeState} />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="settings-provider-note">
+                      {t("settingsProviderUnused")}
                     </p>
-                  </div>
-                  <SettingsStatus state={route.runtimeState} />
-                </div>
-                {route.model ? (
-                  <dl className="settings-definition-list">
-                    <div>
-                      <dt>{t("settingsProvider")}</dt>
-                      <dd>{route.providerName}</dd>
-                    </div>
-                    <div>
-                      <dt>{t("settingsModel")}</dt>
-                      <dd>
-                        <code>{route.model}</code>
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>{t("settingsAiEndpoint")}</dt>
-                      <dd>
-                        <code>{route.endpoint}</code>
-                      </dd>
-                    </div>
-                    {route.dimensions !== null && (
-                      <div>
-                        <dt>{t("settingsDimensions")}</dt>
-                        <dd>{route.dimensions.toLocaleString()}</dd>
-                      </div>
-                    )}
-                    <div>
-                      <dt>{t("settingsTimeout")}</dt>
-                      <dd>
-                        {t("settingsSeconds", { count: route.timeoutSeconds })}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>API Key</dt>
-                      <dd>
-                        {t(
-                          route.hasApiKey
-                            ? "settingsApiKeyStored"
-                            : "settingsApiKeyMissing",
-                        )}
-                      </dd>
-                    </div>
-                  </dl>
-                ) : (
-                  <div className="settings-ai-empty">
-                    <BotIcon aria-hidden="true" />
-                    <p>{t("settingsAiUnconfigured")}</p>
-                  </div>
-                )}
-                {route.runtimeState === "pending" && (
-                  <p className="settings-inline-note" role="status">
-                    {t("settingsAiPending")}
-                  </p>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={resource.pending || !!resource.error}
-                  onClick={() => setEditing(route)}
-                >
-                  <PencilIcon aria-hidden="true" />
-                  {t(route.model ? "settingsEditAi" : "settingsConfigureAi")}
-                </Button>
-              </article>
-            );
-          })}
-        </div>
+                  )}
+                  {models.some((route) => route.runtimeState === "pending") && (
+                    <p className="settings-inline-note" role="status">
+                      {t("settingsAiPending")}
+                    </p>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        </>
       )}
-      {editing && (
-        <AiRouteDialog
-          route={editing}
+      {editing && resource.data && (
+        <AiProviderDialog
+          provider={editing === "new" ? undefined : editing}
+          settings={resource.data}
           onClose={() => setEditing(undefined)}
           onSaved={() => {
             resource.refresh();

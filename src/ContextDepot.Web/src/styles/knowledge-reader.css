@@ -1,13 +1,14 @@
 .knowledge-reader {
-  max-width: 960px;
+  width: 100%;
   min-width: 0;
+  margin: 0 auto;
 }
 .knowledge-reader-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 .knowledge-reader-toolbar > :last-child {
   flex-shrink: 0;
@@ -16,14 +17,15 @@
   min-height: 36px;
 }
 .knowledge-reader :is(.knowledge-heading h1, .knowledge-reader-error h1) {
-  font-family: "Noto Serif SC", "Songti SC", "STSong", Georgia, serif;
-  font-size: clamp(28px, 3vw, 42px);
-  font-weight: 500;
+  font-family: var(--font-display);
+  font-size: clamp(26px, 2.5vw, 36px);
+  font-weight: 600;
   line-height: 1.35;
-  letter-spacing: 0;
+  letter-spacing: -0.025em;
   margin: 16px 0;
   text-wrap: balance;
   overflow-wrap: anywhere;
+  max-width: none;
 }
 .knowledge-reader :is(.knowledge-heading h1, .knowledge-reader-error h1):focus {
   outline: none;
@@ -36,11 +38,17 @@
   gap: var(--space-2);
 }
 .knowledge-reader .knowledge-workspace {
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-family: var(--font-mono);
 }
 .knowledge-reader .markdown-body {
-  max-width: none;
   font-size: 16px;
+  line-height: 1.85;
+}
+.knowledge-reader-document {
+  padding: var(--space-8);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
 }
 .knowledge-content-skeleton {
   display: grid;
@@ -48,7 +56,7 @@
 }
 .reader-title-skeleton {
   width: 85%;
-  height: clamp(38px, 4.05vw, 57px);
+  height: clamp(36px, 3.5vw, 49px);
 }
 .reader-body-skeleton {
   display: grid;
@@ -58,6 +66,9 @@
   border-top: 1px solid var(--border);
 }
 @media (max-width: 640px) {
+  .knowledge-reader-document {
+    padding: 24px 20px;
+  }
   .knowledge-reader-toolbar {
     gap: var(--space-2);
     margin-bottom: 24px;

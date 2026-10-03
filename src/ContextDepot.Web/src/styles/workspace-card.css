@@ -4,7 +4,7 @@
     auto-fill,
     minmax(min(100%, var(--workspace-card-min)), 1fr)
   );
-  gap: var(--space-5);
+  gap: var(--space-4);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -16,7 +16,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  min-height: 224px;
+  min-height: 208px;
   min-width: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
@@ -33,7 +33,7 @@
 a.space-card:hover,
 .space-create-card:hover {
   background: var(--elevated);
-  border-color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
   transform: translateY(-2px);
 }
 a.space-card:active,
@@ -56,7 +56,7 @@ a.space-card:active,
   width: 36px;
   height: 36px;
   border-radius: var(--radius-control);
-  background: var(--selection);
+  background: var(--subtle);
   color: var(--primary);
   flex-shrink: 0;
 }
@@ -81,13 +81,16 @@ a.space-card:active,
 }
 .space-card h3,
 .space-create-card > strong {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   line-height: 24px;
-  margin: 10px 0 4px;
+  margin: 16px 0 8px;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
 }
 .space-card-description {
   display: -webkit-box;
@@ -111,7 +114,7 @@ a.space-card:active,
 .space-card-path,
 .space-detail-path {
   color: var(--muted);
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   line-height: 1.8;
 }
@@ -176,5 +179,6 @@ a.space-card:hover .space-card-arrow {
   }
   .space-card {
     padding: var(--space-4);
+    min-height: 196px;
   }
 }

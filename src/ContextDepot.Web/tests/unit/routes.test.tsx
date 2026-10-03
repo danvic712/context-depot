@@ -506,7 +506,33 @@ describe("Header preferences", () => {
 });
 
 describe("Recoverable route states", () => {
-  test("unknown addresses keep the address and shell and provide a working return", async () => {
+  test("the explicit 404 route renders the same recoverable page without redirecting unknown addresses", async () => {
+    await english();
+    const router = createMemoryRouter(appRoutes, {
+      initialEntries: ["/404"],
+    });
+    try {
+      await ready(router);
+      expect(router.state.matches.at(-1)?.route.id).toBe("not-found-page");
+      expect(router.state.location.pathname).toBe("/404");
+      const html = renderToStaticMarkup(<RouterProvider router={router} />);
+      expect(html).toContain("Page not found");
+      expect(html).toContain('data-layout="fullscreen"');
+      expect(html).toContain('href="/search"');
+      await router.navigate("/unknown/record?source=notes#details");
+      expect(router.state.matches.at(-1)?.route.id).toBe("not-found");
+      expect(router.state.location.pathname).toBe("/unknown/record");
+      expect(router.state.location.search).toBe("?source=notes");
+      expect(router.state.location.hash).toBe("#details");
+      await router.navigate("/");
+      expect(router.state.errors).toBeNull();
+      expect(router.state.matches.at(-1)?.route.id).toBe("home");
+    } finally {
+      router.dispose();
+    }
+  });
+
+  test("unknown addresses keep the address and provide a fullscreen state with a working return", async () => {
     await english();
     const router = createMemoryRouter(appRoutes, {
       initialEntries: ["/missing/page?q=notes"],
@@ -516,6 +542,7 @@ describe("Recoverable route states", () => {
       expect(router.state.location.pathname).toBe("/missing/page");
       const html = renderToStaticMarkup(<RouterProvider router={router} />);
       expect(html).toContain("Page not found");
+      expect(html).toContain('data-layout="fullscreen"');
       expect(html).toContain("Return home");
       expect(menu(html)).toContain('href="/settings"');
       expect(html).toContain('class="topbar"');
@@ -529,7 +556,7 @@ describe("Recoverable route states", () => {
   });
 
   test.each([403, 404, 503])(
-    "route HTTP %i preserves navigation and exposes a semantic state",
+    "route HTTP %i exposes the appropriate layout and recovery actions",
     async (status) => {
       await english();
       const routes = appRoutes.map((route) => ({
@@ -559,6 +586,9 @@ describe("Recoverable route states", () => {
               : "Unable to load this page",
         );
         expect(html).toContain('class="topbar"');
+        expect(html).toContain(
+          `data-layout="${status === 403 ? "contained" : "fullscreen"}"`,
+        );
         expect(menu(html)).toContain('href="/search"');
         expect(html).toContain("Return home");
         expect(html.includes("Reload page")).toBe(status === 503);
@@ -570,7 +600,7 @@ describe("Recoverable route states", () => {
     },
   );
 
-  test("a failed lazy module stays inside the shell and another page remains usable", async () => {
+  test("a failed lazy module uses the fullscreen state and another page remains usable", async () => {
     await english();
     const routes = appRoutes.map((route) => ({
       ...route,
@@ -592,6 +622,7 @@ describe("Recoverable route states", () => {
       await ready(router);
       const html = renderToStaticMarkup(<RouterProvider router={router} />);
       expect(html).toContain("Unable to load this page");
+      expect(html).toContain('data-layout="fullscreen"');
       expect(html).toContain('class="topbar"');
       expect(menu(html)).toContain('href="/spaces"');
       expect(html).not.toContain("test module unavailable");
@@ -602,7 +633,7 @@ describe("Recoverable route states", () => {
     }
   });
 
-  test("a root failure also keeps the shell with usable return actions", async () => {
+  test("a root failure provides the fullscreen state with usable return actions", async () => {
     await english();
     const routes = appRoutes.map((route) => ({
       ...route,
@@ -615,6 +646,7 @@ describe("Recoverable route states", () => {
       await ready(router);
       const html = renderToStaticMarkup(<RouterProvider router={router} />);
       expect(html).toContain("Unable to load this page");
+      expect(html).toContain('data-layout="fullscreen"');
       expect(html).toContain('class="topbar"');
       expect(menu(html)).toContain('href="/search"');
       expect(html).toContain("<footer>");

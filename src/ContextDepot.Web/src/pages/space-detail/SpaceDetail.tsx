@@ -11,6 +11,7 @@ import { SpaceDirectory } from "@/features/spaces/SpaceDirectory";
 import { WorkspaceCounts } from "@/features/spaces/WorkspaceCard";
 import { PageHeader } from "@/components/content/PageHeader";
 import { useSpaceDirectory } from "@/features/spaces/use-space-directory";
+import { SpaceKnowledge } from "@/features/spaces/SpaceKnowledge";
 import "@/styles/spaces.css";
 
 export function SpaceDetail() {
@@ -94,6 +95,7 @@ export function SpaceDetail() {
               <p>{t("spacesKnowledgeDescription")}</p>
             </div>
             <WorkspaceCounts space={space} />
+            <SpaceKnowledge spaceId={spaceId} />
           </section>
           <SpaceDirectory resource={children} />
         </>

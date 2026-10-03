@@ -2,7 +2,7 @@
   "loading": "Loading",
   "retry": "Retry",
   "pageLoadError": "Unable to load this page",
-  "pageLoadErrorWhy": "Reload the page to try again. Your saved knowledge has not changed.",
+  "pageLoadErrorWhy": "Something interrupted this page. Reload to try again, or return home and continue from there.",
   "reload": "Reload page",
   "notifications": "Notifications",
   "languageLoadError": "Unable to load the selected language. Your current language is unchanged. Please try again.",
@@ -22,5 +22,13 @@
   "pageNotFound": "Page not found",
   "pageNotFoundWhy": "This address does not match a page. Return home or search your knowledge.",
   "pageForbidden": "Access is unavailable",
-  "pageReturnHome": "Return home"
+  "pageReturnHome": "Return home",
+  "pageSearchKnowledge": "Search knowledge",
+  "pageBrowseSpaces": "Browse spaces",
+  "pageErrorLabel": "Page unavailable",
+  "pageErrorHint": "If this keeps happening, check the connection or try again later.",
+  "pageNotFoundLabel": "Address not found",
+  "pageNotFoundHint": "Check the address, or find your knowledge through search.",
+  "pageForbiddenLabel": "Access restricted",
+  "pageForbiddenHint": "Choose an accessible space, or ask the administrator for access."
 }

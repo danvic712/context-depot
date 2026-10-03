@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import stillLife from "@/assets/home-still-life.png";
 import "@/styles/home.css";
 
 export function HomeHeroLayout({
@@ -11,12 +10,6 @@ export function HomeHeroLayout({
 }) {
   return (
     <div className="home-hero">
-      <img
-        className="home-hero-art"
-        src={stillLife}
-        alt=""
-        fetchPriority="high"
-      />
       <div className="home-hero-copy">{children}</div>
       {search}
     </div>

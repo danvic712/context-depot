@@ -45,29 +45,12 @@ function GuideSkeleton() {
               <Skeleton className="mb-1 h-4 w-3/4" />
               <Skeleton className="h-3 w-full" />
               <Skeleton className="h-3 w-4/5" />
-              {index > 0 && <Skeleton className="mt-1 h-3 w-1/2" />}
             </div>
           </li>
         ))}
       </ol>
       <div className="home-mcp-guide home-skeleton-lines">
-        <Skeleton className="mb-1 h-5 w-2/3" />
-        <Skeleton className="h-3 w-full" />
-        <Skeleton className="h-3 w-3/4" />
-        <dl>
-          {Array.from({ length: 2 }, (_, index) => (
-            <div className="home-skeleton-lines" key={index}>
-              <dt>
-                <Skeleton className="h-3 w-1/3" />
-              </dt>
-              <dd>
-                <Skeleton className="h-3 w-4/5" />
-              </dd>
-            </div>
-          ))}
-        </dl>
-        <Skeleton className="h-3 w-full" />
-        <Skeleton className="h-3 w-3/4" />
+        <Skeleton className="my-3 h-5 w-4/5" />
       </div>
     </HomeGuideLayout>
   );

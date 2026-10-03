@@ -1,4 +1,5 @@
 {
+  "skipToContent": "Skip to content",
   "cancel": "Cancel",
   "primaryNavigation": "Primary navigation",
   "home": "Home",
@@ -11,5 +12,6 @@
   "clear": "Clear",
   "timelineWhy": "Timeline becomes available when a recent knowledge query exists.",
   "back": "Back",
+  "backToTop": "Back to top",
   "footerTagline": "Save · Organize · Reuse"
 }

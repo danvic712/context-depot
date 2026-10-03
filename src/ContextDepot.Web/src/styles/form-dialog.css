@@ -13,7 +13,7 @@
   flex: none;
   padding: var(--space-6);
   padding-right: 76px;
-  border-bottom: 1px solid var(--border);
+  background: var(--surface);
 }
 .form-dialog-header [data-slot="dialog-title"],
 .form-dialog-header h2 {
@@ -38,6 +38,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: var(--space-6);
+  background: var(--elevated);
 }
 .form-dialog-fields[data-slot="field-group"] {
   gap: var(--space-5);

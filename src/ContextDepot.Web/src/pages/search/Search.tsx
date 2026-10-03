@@ -6,7 +6,6 @@ import { SearchResults } from "@/features/knowledge/SearchResults";
 import { SearchPreview } from "@/features/knowledge/SearchPreview";
 import { useSearchPage } from "@/features/knowledge/use-search-page";
 import { PageHeader } from "@/components/content/PageHeader";
-import stillLife from "@/assets/home-still-life.png";
 import "@/styles/search.css";
 
 export function Search() {
@@ -39,7 +38,6 @@ export function Search() {
         eyebrow={t("searchKicker")}
         title={t("searchTitle")}
         description={t("searchSub")}
-        art={stillLife}
       />
       <SearchBox
         value={page.query}

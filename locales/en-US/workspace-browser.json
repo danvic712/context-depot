@@ -29,8 +29,12 @@
   "spacesBreadcrumb": "Workspace path",
   "spacesSearchHere": "Search this space",
   "spacesKnowledgeTitle": "Knowledge in this space",
-  "spacesKnowledgeDescription": "Counts include valid Contexts and documents directly in this space, excluding subspaces.",
+  "spacesKnowledgeDescription": "Browse the current knowledge saved directly in this space.",
   "spacesContextCount": "{{value}} Contexts",
   "spacesDocumentCount": "{{value}} documents",
-  "spacesSubspaceCount": "{{value}} subspaces"
+  "spacesSubspaceCount": "{{value}} subspaces",
+  "spacesKnowledgeError": "Could not load this space’s knowledge",
+  "spacesKnowledgeEmpty": "No knowledge in this space yet",
+  "spacesKnowledgeEmptyWhy": "Save contexts or documents through MCP. Subspaces have their own knowledge.",
+  "spacesKnowledgePagination": "Space knowledge pagination"
 }

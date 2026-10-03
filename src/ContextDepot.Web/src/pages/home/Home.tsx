@@ -1,7 +1,6 @@
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { ArrowRightIcon } from "lucide-react";
-import { useAppContext } from "@/hooks/use-app-context";
 import { PageHeader } from "@/components/content/PageHeader";
 import { Button } from "@/components/ui/button";
 import { SearchBox } from "@/features/knowledge/SearchBox";
@@ -21,7 +20,7 @@ import {
 } from "@/features/home/HomeLayout";
 
 export function Home() {
-  const { onSearch } = useAppContext();
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const spaces = useResourceCollection(getWorkspaces);
   const knowledge = useResourceCollection(getKnowledge);
@@ -41,7 +40,19 @@ export function Home() {
           {t("loading")}
         </span>
       )}
-      <HomeHeroLayout search={<SearchBox value="" onSearch={onSearch} home />}>
+      <HomeHeroLayout
+        search={
+          <SearchBox
+            value=""
+            home
+            onSearch={(query) => {
+              void navigate(`/search?${new URLSearchParams({ q: query })}`, {
+                state: { focusSearch: true },
+              });
+            }}
+          />
+        }
+      >
         {knowledgePending ? (
           <HomeHeroSkeleton />
         ) : (

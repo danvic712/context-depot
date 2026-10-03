@@ -1,10 +1,24 @@
-import Markdown from "react-markdown";
+import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import "@/styles/markdown-body.css";
 
-import { safeMarkdownUrl } from "./markdown-url";
+import { safeMarkdownUrl } from "@/lib/markdown-url";
 
-export function MarkdownBody({ content }: { content: string }) {
+const nestedHeadings: Components = {
+  h1: ({ children }) => <h2>{children}</h2>,
+  h2: ({ children }) => <h3>{children}</h3>,
+  h3: ({ children }) => <h4>{children}</h4>,
+  h4: ({ children }) => <h5>{children}</h5>,
+  h5: ({ children }) => <h6>{children}</h6>,
+};
+
+export function MarkdownContent({
+  content,
+  nested = false,
+}: {
+  content: string;
+  nested?: boolean;
+}) {
   return (
     <article className="markdown-body">
       <Markdown
@@ -12,11 +26,7 @@ export function MarkdownBody({ content }: { content: string }) {
         remarkPlugins={[remarkGfm]}
         urlTransform={safeMarkdownUrl}
         components={{
-          h1: ({ children }) => <h2>{children}</h2>,
-          h2: ({ children }) => <h3>{children}</h3>,
-          h3: ({ children }) => <h4>{children}</h4>,
-          h4: ({ children }) => <h5>{children}</h5>,
-          h5: ({ children }) => <h6>{children}</h6>,
+          ...(nested ? nestedHeadings : {}),
           a: ({ href, children }) =>
             href ? (
               <a href={href} rel="noopener noreferrer">

@@ -6,6 +6,9 @@ import {
   parseIssuedKey,
   validateAiDraft,
   type AiDraft,
+  parseAiProviders,
+  validateAiProviderDraft,
+  type AiProviderDraft,
 } from "../../src/features/settings/settings-api";
 const draft: AiDraft = {
   providerName: "Provider",
@@ -17,6 +20,42 @@ const draft: AiDraft = {
   updatedAt: "2026-10-02T00:00:00Z",
 };
 describe("Settings contracts", () => {
+  test("shared provider validates each selected model and permits keeping one stored key", () => {
+    const provider: AiProviderDraft = {
+      id: "provider",
+      name: "Provider",
+      endpoint: draft.endpoint,
+      apiKey: "",
+      updatedAt: draft.updatedAt,
+      embeddingUpdatedAt: draft.updatedAt,
+      chatUpdatedAt: draft.updatedAt,
+      embedding: {
+        enabled: true,
+        model: "embed-model",
+        dimensions: 3,
+        timeoutSeconds: 30,
+      },
+      chat: {
+        enabled: true,
+        model: "chat-model",
+        dimensions: null,
+        timeoutSeconds: 60,
+      },
+    };
+    expect(validateAiProviderDraft(provider, true)).toEqual([]);
+    expect(validateAiProviderDraft(provider, false)).toContain("apiKey");
+    expect(
+      validateAiProviderDraft(
+        {
+          ...provider,
+          embedding: { ...provider.embedding, dimensions: 0 },
+          chat: { ...provider.chat, model: "" },
+        },
+        true,
+      ),
+    ).toEqual(["embedding.dimensions", "chat.model"]);
+    expect(() => parseAiProviders({ providers: [], routes: [] })).toThrow();
+  });
   test("AI configuration validates both capabilities and key replacement semantics", () => {
     expect(validateAiDraft(draft, "embedding", false)).toEqual([]);
     expect(
