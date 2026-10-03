@@ -14,6 +14,7 @@ public sealed class InferenceProviderConfiguration : IEntityTypeConfiguration<In
         entity.HasKey(provider => provider.Id).HasName("pk_inference_providers");
         entity.Property(provider => provider.Id).HasColumnName("id");
         entity.Property(provider => provider.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
+        entity.Property(provider => provider.Kind).HasColumnName("kind").HasMaxLength(30).IsRequired();
         entity.Property(provider => provider.ProtocolCode).HasColumnName("protocol_code").HasMaxLength(50).IsRequired();
         entity.Property(provider => provider.BaseUrl).HasColumnName("base_url").HasMaxLength(2000).IsRequired();
         entity.Property(provider => provider.ProtectedApiKey).HasColumnName("protected_api_key");

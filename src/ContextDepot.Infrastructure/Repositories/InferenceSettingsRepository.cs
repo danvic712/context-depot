@@ -13,36 +13,38 @@ using Microsoft.Extensions.Logging;
 
 namespace ContextDepot.Infrastructure.Repositories;
 
-public sealed class AiSettingsRepository(ContextDepotDbContext db, ISecretProtector secrets, IIdGenerator ids,
+public sealed class InferenceSettingsRepository(ContextDepotDbContext db, ISecretProtector secrets, IIdGenerator ids,
     TimeProvider clock, InferenceRuntimeSnapshotAccessor snapshots, VectorCollectionInitializer collections,
-    InferenceRuntimeSnapshotRefresher refresher, ILogger<AiSettingsRepository> logger) : IAiSettingsRepository
+    InferenceRuntimeSnapshotRefresher refresher, ILogger<InferenceSettingsRepository> logger) : IInferenceSettingsRepository
 {
-    public async Task<IReadOnlyList<AiRouteDto>> GetAsync(CancellationToken cancellationToken) =>
+    public async Task<IReadOnlyList<InferenceRouteDto>> GetAsync(CancellationToken cancellationToken) =>
         (await db.InferenceRoutes.AsNoTracking().Include(route => route.Provider).OrderBy(route => route.Capability)
             .ToListAsync(cancellationToken)).Select(ToDto).ToArray();
 
-    public async Task<AiProviderSettingsDto> GetProvidersAsync(CancellationToken cancellationToken)
+    public async Task<InferenceProviderSettingsDto> GetProvidersAsync(CancellationToken cancellationToken)
     {
         var providers = await db.InferenceProviders.AsNoTracking().OrderBy(provider => provider.Name)
             .ToArrayAsync(cancellationToken);
-        return new(providers.Select(provider => new AiProviderDto(provider.Id, provider.Name, provider.ProtocolCode,
-            PublicEndpoint(provider.BaseUrl), !string.IsNullOrWhiteSpace(provider.ProtectedApiKey), provider.UpdatedAt)).ToArray(),
+        return new(providers.Select(provider => new InferenceProviderDto(provider.Id, provider.Name, provider.ProtocolCode,
+            PublicEndpoint(provider.BaseUrl), !string.IsNullOrWhiteSpace(provider.ProtectedApiKey), provider.UpdatedAt, provider.Kind)).ToArray(),
             await GetAsync(cancellationToken));
     }
 
-    public async Task<AiProviderSettingsDto> SaveProviderAsync(SaveAiProviderRequest request, CancellationToken cancellationToken)
+    public async Task<InferenceProviderSettingsDto> SaveProviderAsync(SaveInferenceProviderRequest request, CancellationToken cancellationToken)
     {
         var previous = request.Id is Guid id
             ? await db.InferenceProviders.AsNoTracking().SingleOrDefaultAsync(provider => provider.Id == id, cancellationToken)
             : null;
         if (request.Id is not null && (previous is null || previous.UpdatedAt != request.UpdatedAt))
             throw new ContextDepotApplicationException(ApplicationErrorCodes.SettingsConflict);
+        if (previous is not null && previous.Kind != request.Kind)
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidInferenceConfiguration);
         var protectedKey = request.ApiKey is null ? previous?.ProtectedApiKey
             : secrets.Protect(request.ApiKey, SecretProtectionPurpose.InferenceProviderApiKey);
         if (string.IsNullOrWhiteSpace(protectedKey) ||
             !secrets.TryUnprotect(protectedKey, SecretProtectionPurpose.InferenceProviderApiKey, out var apiKey) ||
             string.IsNullOrWhiteSpace(apiKey))
-            throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidAiConfiguration);
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidInferenceConfiguration);
         var fingerprint = request.Embedding is { } model
             ? EmbeddingProfileFingerprint.Compute(request.Name, "openai-compatible", request.Endpoint, model.Model, model.Dimensions!.Value)
             : null;
@@ -74,6 +76,7 @@ public sealed class AiSettingsRepository(ContextDepotDbContext db, ISecretProtec
             }
             refreshEmbedding = request.Embedding is not null || embeddingRoute.ProviderId == provider.Id;
             provider.Name = request.Name;
+            provider.Kind = request.Kind;
             provider.ProtocolCode = "openai-compatible";
             provider.BaseUrl = request.Endpoint;
             provider.ProtectedApiKey = protectedKey;
@@ -95,7 +98,7 @@ public sealed class AiSettingsRepository(ContextDepotDbContext db, ISecretProtec
         return await GetProvidersAsync(cancellationToken);
     }
 
-    private static void AssignModel(InferenceRoute route, AiProviderModelRequest? model,
+    private static void AssignModel(InferenceRoute route, InferenceProviderModelRequest? model,
         InferenceProvider provider, string? fingerprint, DateTimeOffset now)
     {
         if (model is null && route.ProviderId != provider.Id) return;
@@ -114,54 +117,53 @@ public sealed class AiSettingsRepository(ContextDepotDbContext db, ISecretProtec
         route.UpdatedAt = now;
     }
 
-    public async Task<AiRouteDto> SaveAsync(string capability, SaveAiRouteRequest request, CancellationToken cancellationToken)
+    public async Task<InferenceRouteDto> SaveAsync(string capability, SaveInferenceRouteRequest request, CancellationToken cancellationToken)
     {
         await using (var transaction = await db.Database.BeginTransactionAsync(cancellationToken))
         {
-            var routes = await db.InferenceRoutes.FromSqlInterpolated(
-                $"SELECT * FROM public.inference_routes WHERE capability = {capability} FOR UPDATE").ToListAsync(cancellationToken);
-            var route = routes.Single();
-            await db.Entry(route).Reference(item => item.Provider).LoadAsync(cancellationToken);
+            var route = await db.InferenceRoutes.FromSqlInterpolated(
+                $"SELECT * FROM public.inference_routes WHERE capability = {capability} FOR UPDATE").SingleAsync(cancellationToken);
             if (route.UpdatedAt != request.UpdatedAt)
                 throw new ContextDepotApplicationException(ApplicationErrorCodes.SettingsConflict);
-            var protectedKey = request.ApiKey is null ? route.Provider?.ProtectedApiKey
-                : secrets.Protect(request.ApiKey, SecretProtectionPurpose.InferenceProviderApiKey);
-            if (string.IsNullOrWhiteSpace(protectedKey) ||
-                !secrets.TryUnprotect(protectedKey, SecretProtectionPurpose.InferenceProviderApiKey, out var apiKey) ||
-                string.IsNullOrWhiteSpace(apiKey))
-                throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidAiConfiguration);
-            var fingerprint = capability == "embedding"
-                ? EmbeddingProfileFingerprint.Compute(request.ProviderName, "openai-compatible", request.Endpoint, request.Model, request.Dimensions!.Value)
-                : null;
-            // Prepare isolated derived collections before committing. A failure leaves the old route active.
-            if (capability == "embedding")
-                await collections.InitializeAsync(new EmbeddingRouteRuntimeSnapshot(request.ProviderName, "openai-compatible",
-                    new Uri(request.Endpoint), apiKey, request.Model, request.Dimensions!.Value, request.TimeoutSeconds, fingerprint!), cancellationToken);
-            var now = clock.GetUtcNow();
-            var provider = route.Provider;
-            if (provider is null || await db.InferenceRoutes.AnyAsync(other => other.Id != route.Id && other.ProviderId == provider.Id, cancellationToken))
+            InferenceProvider? provider = null;
+            string? fingerprint = null;
+            if (request.ProviderId is Guid providerId)
             {
-                provider = new InferenceProvider { Id = ids.NewId(), CreatedAt = now };
-                db.InferenceProviders.Add(provider);
+                provider = await db.InferenceProviders.FromSqlInterpolated(
+                    $"SELECT * FROM public.inference_providers WHERE id = {providerId} FOR UPDATE").SingleOrDefaultAsync(cancellationToken);
+                if (provider is null || provider.UpdatedAt != request.ProviderUpdatedAt)
+                    throw new ContextDepotApplicationException(ApplicationErrorCodes.SettingsConflict);
+                if (!InferenceProviderKinds.IsSupported(provider.Kind) ||
+                    (capability == "embedding" && !InferenceProviderKinds.SupportsEmbedding(provider.Kind)) ||
+                    !Uri.TryCreate(provider.BaseUrl, UriKind.Absolute, out var endpoint) ||
+                    endpoint.Scheme is not ("http" or "https") || !string.IsNullOrEmpty(endpoint.UserInfo) ||
+                    !string.IsNullOrEmpty(endpoint.Query) || !string.IsNullOrEmpty(endpoint.Fragment) ||
+                    !InferenceProviderKinds.IsValidEndpoint(provider.Kind, endpoint) ||
+                    !secrets.TryUnprotect(provider.ProtectedApiKey ?? "", SecretProtectionPurpose.InferenceProviderApiKey, out var apiKey) ||
+                    string.IsNullOrWhiteSpace(apiKey))
+                    throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidInferenceConfiguration);
+                if (capability == "embedding")
+                {
+                    fingerprint = EmbeddingProfileFingerprint.Compute(provider.Name, provider.ProtocolCode, provider.BaseUrl,
+                        request.Model!, request.Dimensions!.Value);
+                    // Prepare the selected profile before committing; the other capability stays unchanged.
+                    await collections.InitializeAsync(new EmbeddingRouteRuntimeSnapshot(provider.Name, provider.ProtocolCode,
+                        endpoint, apiKey, request.Model!, request.Dimensions.Value, request.TimeoutSeconds, fingerprint), cancellationToken);
+                }
             }
-            provider.Name = request.ProviderName;
-            provider.ProtocolCode = "openai-compatible";
-            provider.BaseUrl = request.Endpoint;
-            provider.ProtectedApiKey = protectedKey;
-            provider.VerificationState = "unverified";
-            provider.UpdatedAt = now;
             route.Provider = provider;
-            route.ProviderId = provider.Id;
+            route.ProviderId = provider?.Id;
             route.ModelName = request.Model;
             route.Dimensions = request.Dimensions;
             route.TimeoutSeconds = request.TimeoutSeconds;
             if (route.EmbeddingProfileFingerprint != fingerprint)
             {
                 route.IndexGeneration++;
-                route.IndexState = capability == "embedding" ? "pending" : "not-applicable";
+                route.IndexState = provider is null ? "unconfigured" : "pending";
             }
+            if (capability == "chat") route.IndexState = "not-applicable";
             route.EmbeddingProfileFingerprint = fingerprint;
-            route.UpdatedAt = now;
+            route.UpdatedAt = clock.GetUtcNow();
             await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
@@ -170,7 +172,6 @@ public sealed class AiSettingsRepository(ContextDepotDbContext db, ISecretProtec
             try { await refresher.RefreshAsync(cancellationToken); }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                // The reload service will retry; the DTO explicitly reports pending activation.
                 logger.LogWarning("Embedding settings were saved but activation is pending. Error type: {ErrorType}", exception.GetType().Name);
             }
         }
@@ -184,7 +185,7 @@ public sealed class AiSettingsRepository(ContextDepotDbContext db, ISecretProtec
         return new UriBuilder(endpoint) { UserName = "", Password = "", Query = "", Fragment = "" }.Uri.AbsoluteUri;
     }
 
-    private AiRouteDto ToDto(InferenceRoute route)
+    private InferenceRouteDto ToDto(InferenceRoute route)
     {
         var snapshot = snapshots.Current;
         var applied = route.Capability == "embedding" && snapshot.State == InferenceRuntimeState.Ready &&
@@ -194,7 +195,7 @@ public sealed class AiSettingsRepository(ContextDepotDbContext db, ISecretProtec
             snapshot.Embedding.ApiKey == key;
         var state = route.Capability == "chat" ? (route.ProviderId is null ? "unconfigured" : "configured")
             : applied ? "active" : route.ProviderId is null ? "unconfigured" : "pending";
-        return new AiRouteDto(route.Capability, route.Provider?.Name, "openai-compatible", PublicEndpoint(route.Provider?.BaseUrl),
+        return new InferenceRouteDto(route.Capability, route.Provider?.Name, "openai-compatible", PublicEndpoint(route.Provider?.BaseUrl),
             route.ModelName, route.Dimensions, route.TimeoutSeconds, !string.IsNullOrWhiteSpace(route.Provider?.ProtectedApiKey),
             route.UpdatedAt, state, route.IndexState, applied, route.ProviderId);
     }

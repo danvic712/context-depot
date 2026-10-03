@@ -48,7 +48,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAppearanceSettingsAppService, AppearanceSettingsAppService>();
         services.AddScoped<AccessKeyAppService>();
         services.AddScoped<SettingsOverviewAppService>();
-        services.AddScoped<AiSettingsAppService>();
+        services.AddScoped<InferenceSettingsAppService>();
         services.AddScoped<IValidator<ThemeRequest>, ThemeRequestValidator>();
         services.AddScoped<IValidator<LanguageRequest>, LanguageRequestValidator>();
         services.AddOptions<AppearanceOptions>()

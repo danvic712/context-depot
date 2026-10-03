@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/content/PageHeader";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { AccessKeySettings } from "@/features/settings/AccessKeySettings";
-import { AiSettings } from "@/features/settings/AiSettings";
+import { InferenceSettings } from "@/features/settings/InferenceSettings";
 import { SettingsResourceState } from "@/features/settings/SettingsResourceState";
 import {
   SettingsStatus,
@@ -35,7 +35,7 @@ const sections = [
   ["appearance", "general", MonitorIcon],
   ["storage", "storage", DatabaseIcon],
   ["retrieval", "retrieval", SearchIcon],
-  ["ai", "settingsAiNav", SparklesIcon],
+  ["inference", "settingsInferenceNav", SparklesIcon],
   ["access-keys", "settingsKeysNav", KeyRoundIcon],
   ["connections", "connections", LinkIcon],
   ["about", "about", InfoIcon],
@@ -269,8 +269,8 @@ export function Settings() {
                     <h3>{t("embedding")}</h3>
                     <p>{t("settingsEmbeddingLinkWhy")}</p>
                   </div>
-                  <a className="settings-text-link" href="#ai">
-                    {t("settingsAiNav")} →
+                  <a className="settings-text-link" href="#inference">
+                    {t("settingsInferenceNav")} →
                   </a>
                 </div>
                 <div className="settings-detail-row">
@@ -291,7 +291,7 @@ export function Settings() {
               </div>
             </div>
           </SettingsSection>
-          <AiSettings onChanged={resource.refresh} />
+          <InferenceSettings onChanged={resource.refresh} />
           <AccessKeySettings />
           <SettingsSection
             id="connections"

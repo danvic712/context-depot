@@ -45,6 +45,7 @@ public sealed class InferenceRuntimeSnapshotLoader(
 
         var provider = route.Provider;
         if (route.ProviderId is null || provider is null ||
+            !InferenceProviderKinds.SupportsEmbedding(provider.Kind) ||
             string.IsNullOrWhiteSpace(provider.Name) ||
             !string.Equals(provider.ProtocolCode, "openai-compatible", StringComparison.Ordinal) ||
             string.IsNullOrWhiteSpace(route.ModelName) ||
@@ -52,7 +53,7 @@ public sealed class InferenceRuntimeSnapshotLoader(
             route.TimeoutSeconds is < 1 or > 300 ||
             string.IsNullOrWhiteSpace(route.EmbeddingProfileFingerprint) ||
             !Uri.TryCreate(provider.BaseUrl, UriKind.Absolute, out var endpoint) ||
-            endpoint.Scheme is not ("http" or "https"))
+            endpoint.Scheme is not ("http" or "https") || !InferenceProviderKinds.IsValidEndpoint(provider.Kind, endpoint))
         {
             return Degraded("invalid-route");
         }

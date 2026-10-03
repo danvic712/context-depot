@@ -8,23 +8,30 @@ import {
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { SettingsSection } from "@/pages/settings/SettingsSection";
-import { getAiProviders, type AiProvider } from "./settings-api";
+import {
+  getInferenceProviders,
+  type InferenceProvider,
+  type InferenceRoute,
+} from "./settings-api";
 import { useSettingsResource } from "./use-settings-resource";
 import { SettingsResourceState } from "./SettingsResourceState";
 import { SettingsStatus } from "./SettingsStatus";
-import { AiProviderDialog } from "./AiProviderDialog";
+import { InferenceProviderDialog } from "./InferenceProviderDialog";
+import { InferenceRoutes } from "./InferenceRoutes";
+import { InferenceRouteDialog } from "./InferenceRouteDialog";
 
-export function AiSettings({ onChanged }: { onChanged: () => void }) {
+export function InferenceSettings({ onChanged }: { onChanged: () => void }) {
   const { t } = useTranslation();
-  const resource = useSettingsResource(getAiProviders, true);
-  const [editing, setEditing] = useState<AiProvider | "new">();
+  const resource = useSettingsResource(getInferenceProviders, true);
+  const [editing, setEditing] = useState<InferenceProvider | "new">();
+  const [editingRoute, setEditingRoute] = useState<InferenceRoute>();
   const providers = resource.data?.providers ?? [];
   const routes = resource.data?.routes ?? [];
   return (
     <SettingsSection
-      id="ai"
-      title={t("settingsAiTitle")}
-      detail={t("settingsAiWhy")}
+      id="inference"
+      title={t("settingsInferenceTitle")}
+      detail={t("settingsInferenceWhy")}
       icon={SlidersHorizontalIcon}
       action={
         <Button
@@ -41,6 +48,11 @@ export function AiSettings({ onChanged }: { onChanged: () => void }) {
       <SettingsResourceState resource={resource} onRetry={resource.refresh} />
       {resource.data && (
         <>
+          <InferenceRoutes
+            settings={resource.data}
+            disabled={resource.pending || !!resource.error}
+            onConfigure={setEditingRoute}
+          />
           {!providers.length && (
             <div className="settings-empty">
               <PlugIcon aria-hidden="true" />
@@ -69,23 +81,48 @@ export function AiSettings({ onChanged }: { onChanged: () => void }) {
                     </span>
                     <div>
                       <h3>{provider.name}</h3>
-                      <code>{provider.endpoint ?? t("unknown")}</code>
+                      <code>
+                        {provider.endpoint ??
+                          t("settingsProviderEndpointMissing")}
+                      </code>
                     </div>
                     <Button
                       variant="outline"
                       size="sm"
-                      aria-label={t("settingsEditProviderFor", {
-                        name: provider.name,
-                      })}
+                      aria-label={t(
+                        provider.hasApiKey
+                          ? "settingsEditProviderFor"
+                          : "settingsConfigureProviderFor",
+                        {
+                          name: provider.name,
+                        },
+                      )}
                       disabled={resource.pending || !!resource.error}
                       onClick={() => setEditing(provider)}
                     >
                       <PencilIcon aria-hidden="true" />
-                      {t("settingsEditProvider")}
+                      {t(
+                        provider.hasApiKey
+                          ? "settingsEditProvider"
+                          : "settingsConfigureProvider",
+                      )}
                     </Button>
                   </div>
                   <div className="settings-provider-meta">
-                    <span>OpenAI compatible</span>
+                    <span>
+                      {provider.kind === "custom"
+                        ? t("settingsProviderCustom")
+                        : resource.data?.presets.find(
+                            (preset) => preset.kind === provider.kind,
+                          )?.name}
+                    </span>
+                    <SettingsStatus
+                      state={
+                        provider.hasApiKey && provider.endpoint
+                          ? "configured"
+                          : "unconfigured"
+                      }
+                    />
                     <span>
                       {t(
                         provider.hasApiKey
@@ -135,7 +172,7 @@ export function AiSettings({ onChanged }: { onChanged: () => void }) {
                   )}
                   {models.some((route) => route.runtimeState === "pending") && (
                     <p className="settings-inline-note" role="status">
-                      {t("settingsAiPending")}
+                      {t("settingsInferencePending")}
                     </p>
                   )}
                 </article>
@@ -144,8 +181,19 @@ export function AiSettings({ onChanged }: { onChanged: () => void }) {
           </div>
         </>
       )}
+      {editingRoute && resource.data && (
+        <InferenceRouteDialog
+          route={editingRoute}
+          settings={resource.data}
+          onClose={() => setEditingRoute(undefined)}
+          onSaved={() => {
+            resource.refresh();
+            onChanged();
+          }}
+        />
+      )}
       {editing && resource.data && (
-        <AiProviderDialog
+        <InferenceProviderDialog
           provider={editing === "new" ? undefined : editing}
           settings={resource.data}
           onClose={() => setEditing(undefined)}

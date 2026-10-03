@@ -14,7 +14,7 @@ public sealed class SettingsManagementTests
     private readonly Guid workspaceId = Guid.CreateVersion7();
     private readonly Mock<IAccessKeyRepository> keys = new(MockBehavior.Strict);
     private readonly Mock<IAccessKeySecretGenerator> secrets = new(MockBehavior.Strict);
-    private readonly Mock<IAiSettingsRepository> ai = new(MockBehavior.Strict);
+    private readonly Mock<IInferenceSettingsRepository> inference = new(MockBehavior.Strict);
     private readonly Mock<ICurrentDepotContext> depot = new();
     private readonly Mock<IWorkspaceAccessContext> access = new();
     private readonly Mock<IIdGenerator> ids = new(MockBehavior.Strict);
@@ -34,9 +34,9 @@ public sealed class SettingsManagementTests
         access.SetupGet(x => x.DepotAccessKeyId).Returns(hasKey ? Guid.CreateVersion7() : null);
         var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => KeyService().ListAsync(default));
         Assert.Equal(ApplicationErrorCodes.SettingsForbidden, error.ErrorCode);
-        error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => AiService().GetAsync(default));
+        error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => InferenceService().GetAsync(default));
         Assert.Equal(ApplicationErrorCodes.SettingsForbidden, error.ErrorCode);
-        keys.VerifyNoOtherCalls(); ai.VerifyNoOtherCalls(); secrets.VerifyNoOtherCalls();
+        keys.VerifyNoOtherCalls(); inference.VerifyNoOtherCalls(); secrets.VerifyNoOtherCalls();
     }
 
     [Fact]
@@ -106,10 +106,11 @@ public sealed class SettingsManagementTests
     [InlineData("/v1")]
     public async Task UnsafeEndpointsDoNotReachPersistence(string endpoint)
     {
-        var request = ValidAi() with { Endpoint = endpoint };
-        var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => AiService().SaveAsync("embedding", request, default));
-        Assert.Equal(ApplicationErrorCodes.InvalidAiConfiguration, error.ErrorCode);
-        ai.VerifyNoOtherCalls();
+        var revision = DateTimeOffset.UtcNow;
+        var request = new SaveInferenceProviderRequest(null, "Provider", endpoint, "example-key", null, null, null, revision, revision);
+        var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => InferenceService().SaveProviderAsync(request, default));
+        Assert.Equal(ApplicationErrorCodes.InvalidInferenceConfiguration, error.ErrorCode);
+        inference.VerifyNoOtherCalls();
     }
 
     [Theory]
@@ -119,45 +120,44 @@ public sealed class SettingsManagementTests
     [InlineData(3, 301)]
     public async Task InvalidDimensionsOrTimeoutDoNotReachPersistence(int dimensions, int timeout)
     {
-        await Assert.ThrowsAsync<ContextDepotApplicationException>(() => AiService().SaveAsync("embedding",
-            ValidAi() with { Dimensions = dimensions, TimeoutSeconds = timeout }, default));
-        ai.VerifyNoOtherCalls();
+        await Assert.ThrowsAsync<ContextDepotApplicationException>(() => InferenceService().SaveAsync("embedding",
+            ValidInference() with { Dimensions = dimensions, TimeoutSeconds = timeout }, default));
+        inference.VerifyNoOtherCalls();
     }
 
     [Fact]
     public async Task ChatDoesNotAcceptVectorDimensions()
     {
-        await Assert.ThrowsAsync<ContextDepotApplicationException>(() => AiService().SaveAsync("chat", ValidAi(), default));
-        ai.VerifyNoOtherCalls();
+        await Assert.ThrowsAsync<ContextDepotApplicationException>(() => InferenceService().SaveAsync("chat", ValidInference(), default));
+        inference.VerifyNoOtherCalls();
     }
 
     [Fact]
-    public async Task ValidChatNormalizesInputAndBlankKeyMeansKeepExisting()
+    public async Task ValidChatNormalizesModelWithoutEditingProviderCredentials()
     {
-        var request = ValidAi() with { Dimensions = null, ApiKey = "  " };
-        var result = new AiRouteDto("chat", "Provider", "openai-compatible", "https://example.test/v1", "model", null, 30, true,
+        var request = ValidInference() with { Dimensions = null };
+        var result = new InferenceRouteDto("chat", "Provider", "openai-compatible", "https://example.test/v1", "model", null, 30, true,
             request.UpdatedAt, "configured", "not-applicable", false);
-        ai.Setup(x => x.SaveAsync("chat", It.Is<SaveAiRouteRequest>(value => value.ApiKey == null && value.ProviderName == "Provider" && value.Model == "model"), default)).ReturnsAsync(result);
-        Assert.Same(result, await AiService().SaveAsync("chat", request, default));
-        Assert.DoesNotContain("example-secret", (request with { ApiKey = "example-secret" }).ToString());
+        inference.Setup(x => x.SaveAsync("chat", It.Is<SaveInferenceRouteRequest>(value => value.ProviderId == request.ProviderId && value.Model == "model"), default)).ReturnsAsync(result);
+        Assert.Same(result, await InferenceService().SaveAsync("chat", request, default));
     }
 
-    private static SaveAiRouteRequest ValidAi() => new(" Provider ", "https://example.test/v1", " model ", 3, 30, "example-key", DateTimeOffset.UtcNow);
+    private static SaveInferenceRouteRequest ValidInference() => new(Guid.CreateVersion7(), " model ", 3, 30, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
 
     [Fact]
     public async Task ProviderSaveNormalizesSharedConnectionAndTwoDifferentModelsAtomically()
     {
         var revision = DateTimeOffset.UtcNow;
-        var request = new SaveAiProviderRequest(null, " Provider ", "https://example.test/v1", " example-key ", null,
+        var request = new SaveInferenceProviderRequest(null, " Provider ", "https://example.test/v1", " example-key ", null,
             new(" embed-model ", 3, 30), new(" chat-model ", null, 60), revision, revision);
-        var result = new AiProviderSettingsDto([], []);
-        ai.Setup(x => x.SaveProviderAsync(It.Is<SaveAiProviderRequest>(value =>
+        var result = new InferenceProviderSettingsDto([], []);
+        inference.Setup(x => x.SaveProviderAsync(It.Is<SaveInferenceProviderRequest>(value =>
             value.Name == "Provider" && value.ApiKey == "example-key" && value.Embedding!.Model == "embed-model" &&
             value.Chat!.Model == "chat-model" && value.Embedding.Dimensions == 3 && value.Chat.Dimensions == null), default))
             .ReturnsAsync(result);
-        Assert.Same(result, await AiService().SaveProviderAsync(request, default));
+        Assert.Same(result, await InferenceService().SaveProviderAsync(request, default));
         Assert.DoesNotContain("example-key", request.ToString());
-        ai.VerifyAll();
+        inference.VerifyAll();
     }
 
     [Theory]
@@ -168,11 +168,41 @@ public sealed class SettingsManagementTests
     public async Task InvalidProviderCannotPartiallySaveEitherModel(string endpoint, int dimensions, int? chatDimensions)
     {
         var revision = DateTimeOffset.UtcNow;
-        var request = new SaveAiProviderRequest(null, "Provider", endpoint, "example-key", null,
+        var request = new SaveInferenceProviderRequest(null, "Provider", endpoint, "example-key", null,
             new("embed", dimensions, 30), new("chat", chatDimensions, 30), revision, revision);
-        await Assert.ThrowsAsync<ContextDepotApplicationException>(() => AiService().SaveProviderAsync(request, default));
-        ai.VerifyNoOtherCalls();
+        await Assert.ThrowsAsync<ContextDepotApplicationException>(() => InferenceService().SaveProviderAsync(request, default));
+        inference.VerifyNoOtherCalls();
     }
     private AccessKeyAppService KeyService() => new(keys.Object, secrets.Object, depot.Object, access.Object, ids.Object, TimeProvider.System);
-    private AiSettingsAppService AiService() => new(ai.Object, depot.Object, access.Object);
+
+    [Theory]
+    [InlineData("deepseek", "https://api.deepseek.com/v1/", true)]
+    [InlineData("unknown", "https://example.test/v1/", false)]
+    [InlineData("azure-openai", "https://resource.openai.azure.com/", false)]
+    [InlineData("azure-openai", "https://resource.openai.azure.com/openai/deployments/model?api-version=1", false)]
+    public async Task UnsupportedProviderCapabilitiesAndAzureLegacyEndpointsNeverReachPersistence(string kind, string endpoint, bool embedding)
+    {
+        var revision = DateTimeOffset.UtcNow;
+        var request = new SaveInferenceProviderRequest(null, "Provider", endpoint, "example-key", null,
+            embedding ? new("model", 3, 30) : null, new("deployment", null, 30), revision, revision, kind);
+        var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => InferenceService().SaveProviderAsync(request, default));
+        Assert.Equal(ApplicationErrorCodes.InvalidInferenceConfiguration, error.ErrorCode);
+        inference.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [InlineData("openai", "https://api.openai.com/v1/", true)]
+    [InlineData("azure-openai", "https://resource.openai.azure.com/openai/v1/", true)]
+    [InlineData("deepseek", "https://api.deepseek.com/v1/", false)]
+    public async Task PresetConnectionsSupportTheirCapabilities(string kind, string endpoint, bool embedding)
+    {
+        var revision = DateTimeOffset.UtcNow;
+        var request = new SaveInferenceProviderRequest(null, "Provider", endpoint, "example-key", null,
+            embedding ? new("deployment", 3, 30) : null, new("deployment", null, 30), revision, revision, kind);
+        var result = new InferenceProviderSettingsDto([], []);
+        inference.Setup(x => x.SaveProviderAsync(It.Is<SaveInferenceProviderRequest>(value => value.Kind == kind), default)).ReturnsAsync(result);
+        Assert.Same(result, await InferenceService().SaveProviderAsync(request, default));
+    }
+
+    private InferenceSettingsAppService InferenceService() => new(inference.Object, depot.Object, access.Object);
 }

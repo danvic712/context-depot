@@ -118,7 +118,6 @@
 .settings-appearance-grid,
 .settings-storage-grid,
 .settings-retrieval-grid,
-.settings-ai-grid,
 .settings-connections-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -219,37 +218,6 @@
 }
 .settings-section-content .request-feedback {
   margin-bottom: 14px;
-}
-.settings-ai-route {
-  min-width: 0;
-  padding: 20px;
-  border-radius: var(--radius-control);
-  background: var(--subtle);
-}
-.settings-ai-heading {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-4);
-  align-items: flex-start;
-}
-.settings-ai-heading h3 {
-  font-size: 15px;
-}
-.settings-ai-route > button {
-  margin-top: 16px;
-}
-.settings-ai-empty {
-  min-height: 130px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 14px;
-}
-.settings-ai-empty svg {
-  width: 28px;
-  height: 28px;
-  color: var(--primary);
-  flex: none;
 }
 .settings-key-row {
   display: flex;
@@ -498,8 +466,150 @@
 }
 .settings-provider-model-editor {
   display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+.settings-inference-routes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
-  margin-top: 24px;
+  margin-bottom: 20px;
+}
+.settings-inference-route {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--subtle);
+}
+.settings-inference-route-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.settings-inference-route-heading h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.settings-inference-route > p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.settings-inference-route dl {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0;
+  font-size: 12px;
+}
+.settings-inference-route dl > div {
+  display: grid;
+  grid-template-columns: 75px minmax(0, 1fr);
+  gap: 12px;
+}
+.settings-inference-route dt {
+  color: var(--muted);
+}
+.settings-inference-route dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.settings-inference-route > button {
+  margin-top: auto;
+  align-self: flex-start;
+}
+.settings-provider-picker,
+.settings-provider-section {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.settings-provider-picker > legend,
+.settings-provider-section > legend {
+  padding: 0;
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.settings-provider-section-hint {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.7;
+  margin: 0;
+}
+.settings-provider-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.settings-provider-options label {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast),
+    background var(--duration-fast);
+}
+.settings-provider-options label[data-selected="true"] {
+  border-color: var(--primary);
+  background: var(--subtle);
+}
+.settings-provider-options label:has(input:focus-visible) {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.settings-provider-options input {
+  position: absolute;
+  right: 10px;
+  top: 13px;
+  accent-color: var(--primary);
+  margin: 0;
+}
+.settings-provider-options label > span {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  width: 100%;
+}
+.settings-provider-options strong {
+  font-size: 12px;
+  font-weight: 500;
+  padding-right: 18px;
+}
+.settings-provider-options span > span,
+.settings-provider-type-summary span {
+  font-size: 11px;
+  color: var(--muted);
+}
+.settings-provider-type-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0;
+}
+.settings-provider-type-summary strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+.settings-model-editor[data-disabled="true"] .settings-model-toggle {
+  cursor: default;
+}
+.settings-model-editor[data-disabled="true"] .settings-model-toggle strong {
+  color: var(--muted);
 }
 .settings-model-editor {
   min-width: 0;
@@ -557,6 +667,12 @@
   }
 }
 @media (max-width: 640px) {
+  .settings-inference-routes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .settings-provider-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .settings-provider {
     padding: 16px;
   }
@@ -669,7 +785,6 @@
   .settings-appearance-grid,
   .settings-storage-grid,
   .settings-retrieval-grid,
-  .settings-ai-grid,
   .settings-connections-grid {
     grid-template-columns: 1fr;
     gap: var(--space-5);
@@ -731,12 +846,8 @@
     flex-direction: column;
     gap: 14px;
   }
-  .settings-ai-route {
+  .settings-inference-route {
     padding: 14px;
-  }
-  .settings-ai-heading {
-    flex-wrap: wrap;
-    gap: 10px;
   }
   .settings-definition-list > div {
     grid-template-columns: 90px minmax(0, 1fr);

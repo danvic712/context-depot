@@ -33,7 +33,7 @@ export interface IssuedKey {
   key: AccessKey;
   secret: string;
 }
-export interface AiRoute {
+export interface InferenceRoute {
   providerId: string | null;
   capability: "embedding" | "chat";
   providerName: string | null;
@@ -48,42 +48,62 @@ export interface AiRoute {
   indexState: string;
   isApplied: boolean;
 }
-export interface AiProvider {
+export interface InferenceProvider {
   id: string;
   name: string;
   protocol: string;
   endpoint: string | null;
   hasApiKey: boolean;
   updatedAt: string;
+  kind: InferenceProviderKind;
 }
-export interface AiProviderSettings {
-  providers: AiProvider[];
-  routes: AiRoute[];
+export type InferenceProviderKind =
+  "openai" | "azure-openai" | "deepseek" | "custom";
+export interface InferenceProviderPreset {
+  kind: InferenceProviderKind;
+  name: string;
+  endpoint: string | null;
+  endpointPlaceholder: string;
+  supportsEmbedding: boolean;
 }
-export interface AiModelDraft {
+export interface InferenceProviderSettings {
+  providers: InferenceProvider[];
+  routes: InferenceRoute[];
+  presets: InferenceProviderPreset[];
+}
+export interface InferenceModelDraft {
   enabled: boolean;
   model: string;
   dimensions: number | null;
   timeoutSeconds: number;
 }
-export interface AiProviderDraft {
+export interface InferenceProviderDraft {
   id: string | null;
   name: string;
+  kind: InferenceProviderKind;
   endpoint: string;
   apiKey: string;
   updatedAt: string | null;
-  embedding: AiModelDraft;
-  chat: AiModelDraft;
+  embedding: InferenceModelDraft;
+  chat: InferenceModelDraft;
   embeddingUpdatedAt: string;
   chatUpdatedAt: string;
 }
-export interface AiDraft {
+export interface InferenceDraft {
   providerName: string;
   endpoint: string;
   model: string;
   dimensions: number | null;
   timeoutSeconds: number;
   apiKey: string;
+  updatedAt: string;
+}
+export interface InferenceRouteDraft {
+  providerId: string | null;
+  providerUpdatedAt: string | null;
+  model: string;
+  dimensions: number | null;
+  timeoutSeconds: number;
   updatedAt: string;
 }
 function object(value: unknown): Record<string, unknown> {
@@ -117,7 +137,7 @@ function date(value: unknown): string {
     throw new Error("Invalid settings date");
   return result;
 }
-function state(value: unknown, allowed: string[]): string {
+function state(value: unknown, allowed: readonly string[]): string {
   const result = string(value);
   if (!allowed.includes(result)) throw new Error("Invalid settings state");
   return result;
@@ -179,12 +199,12 @@ export function parseIssuedKey(data: unknown): IssuedKey {
     throw new Error("Invalid issued key");
   return { key, secret };
 }
-export function parseAiRoute(data: unknown): AiRoute {
+export function parseInferenceRoute(data: unknown): InferenceRoute {
   const v = object(data);
   if (v.capability !== "embedding" && v.capability !== "chat")
-    throw new Error("Invalid AI capability");
+    throw new Error("Invalid Inference capability");
   if (v.protocol !== "openai-compatible")
-    throw new Error("Invalid AI protocol");
+    throw new Error("Invalid Inference protocol");
   return {
     providerId: v.providerId == null ? null : string(v.providerId),
     capability: v.capability,
@@ -206,8 +226,26 @@ export function parseAiRoute(data: unknown): AiRoute {
     isApplied: boolean(v.isApplied),
   };
 }
-export function parseAiProviders(data: unknown): AiProviderSettings {
+export function parseInferenceProviders(
+  data: unknown,
+): InferenceProviderSettings {
   const value = object(data);
+  const kinds = ["openai", "azure-openai", "deepseek", "custom"] as const;
+  const presets = array(value.presets, (item) => {
+    const preset = object(item);
+    return {
+      kind: state(preset.kind, kinds) as InferenceProviderKind,
+      name: string(preset.name),
+      endpoint: nullable(preset.endpoint),
+      endpointPlaceholder: string(preset.endpointPlaceholder),
+      supportsEmbedding: boolean(preset.supportsEmbedding),
+    };
+  });
+  if (
+    presets.length !== kinds.length ||
+    new Set(presets.map((p) => p.kind)).size !== kinds.length
+  )
+    throw new Error("Invalid provider presets");
   const providers = array(value.providers, (item) => {
     const provider = object(item);
     if (provider.protocol !== "openai-compatible")
@@ -219,9 +257,10 @@ export function parseAiProviders(data: unknown): AiProviderSettings {
       endpoint: nullable(provider.endpoint),
       hasApiKey: boolean(provider.hasApiKey),
       updatedAt: date(provider.updatedAt),
+      kind: state(provider.kind, kinds) as InferenceProviderKind,
     };
   });
-  const routes = array(value.routes, parseAiRoute);
+  const routes = array(value.routes, parseInferenceRoute);
   if (
     routes.length !== 2 ||
     new Set(routes.map((route) => route.capability)).size !== 2 ||
@@ -234,22 +273,44 @@ export function parseAiProviders(data: unknown): AiProviderSettings {
     )
   )
     throw new Error("Invalid provider settings");
-  return { providers, routes };
+  return { providers, routes, presets };
 }
-export function getAiProviders(signal: AbortSignal) {
+export function applyInferenceProviderPreset(
+  draft: InferenceProviderDraft,
+  preset: InferenceProviderPreset,
+): InferenceProviderDraft {
+  return {
+    ...draft,
+    kind: preset.kind,
+    name: preset.kind === "custom" ? "" : preset.name,
+    endpoint: preset.endpoint ?? "",
+    apiKey: "",
+    embedding: {
+      enabled: false,
+      model: "",
+      dimensions: null,
+      timeoutSeconds: 30,
+    },
+    chat: { enabled: false, model: "", dimensions: null, timeoutSeconds: 30 },
+  };
+}
+export function getInferenceProviders(signal: AbortSignal) {
   return httpRequest({
-    url: "/settings/ai/providers",
+    url: "/settings/inference/providers",
     signal,
-    parse: parseAiProviders,
+    parse: parseInferenceProviders,
   });
 }
-export function saveAiProvider(draft: AiProviderDraft, signal: AbortSignal) {
-  const model = ({ enabled, ...value }: AiModelDraft) =>
+export function saveInferenceProvider(
+  draft: InferenceProviderDraft,
+  signal: AbortSignal,
+) {
+  const model = ({ enabled, ...value }: InferenceModelDraft) =>
     enabled ? value : null;
   return httpRequest({
     method: "PUT",
     headers: { "X-ContextDepot-Management": "web" },
-    url: "/settings/ai/providers",
+    url: "/settings/inference/providers",
     signal,
     timeout: 60_000,
     data: {
@@ -257,17 +318,34 @@ export function saveAiProvider(draft: AiProviderDraft, signal: AbortSignal) {
       embedding: model(draft.embedding),
       chat: model(draft.chat),
     },
-    parse: parseAiProviders,
+    parse: parseInferenceProviders,
   });
 }
-export function validateAiProviderDraft(
-  draft: AiProviderDraft,
+export function validateInferenceProviderDraft(
+  draft: InferenceProviderDraft,
   hasApiKey: boolean,
 ) {
   const errors = new Set<string>();
+  if (!["openai", "azure-openai", "deepseek", "custom"].includes(draft.kind))
+    errors.add("kind");
+  if (draft.kind === "deepseek" && draft.embedding.enabled)
+    errors.add("embedding.unsupported");
+  if (draft.kind === "azure-openai") {
+    try {
+      if (
+        !new URL(draft.endpoint).pathname
+          .replace(/\/$/, "")
+          .toLowerCase()
+          .endsWith("/openai/v1")
+      )
+        errors.add("endpoint");
+    } catch {
+      errors.add("endpoint");
+    }
+  }
   for (const capability of ["embedding", "chat"] as const) {
     const model = draft[capability];
-    const issues = validateAiDraft(
+    const issues = validateInferenceDraft(
       {
         providerName: draft.name,
         endpoint: draft.endpoint,
@@ -305,17 +383,17 @@ export function getAccessKeys(signal: AbortSignal) {
     parse: parseKeys,
   });
 }
-export function getAiSettings(signal: AbortSignal) {
+export function getInferenceSettings(signal: AbortSignal) {
   return httpRequest({
-    url: "/settings/ai",
+    url: "/settings/inference",
     signal,
     parse: (data) => {
-      const routes = array(data, parseAiRoute);
+      const routes = array(data, parseInferenceRoute);
       if (
         routes.length !== 2 ||
         new Set(routes.map((route) => route.capability)).size !== 2
       )
-        throw new Error("Invalid AI routes");
+        throw new Error("Invalid Inference routes");
       return routes;
     },
   });
@@ -366,24 +444,70 @@ export function updateAccessKeyGrants(
     parse: parseAccessKey,
   });
 }
-export function saveAiRoute(
-  capability: AiRoute["capability"],
-  data: AiDraft,
+export function saveInferenceRoute(
+  capability: InferenceRoute["capability"],
+  draft: InferenceRouteDraft,
   signal: AbortSignal,
 ) {
   return httpRequest({
     method: "PUT",
     headers: { "X-ContextDepot-Management": "web" },
-    url: `/settings/ai/${capability}`,
-    data,
+    url: `/settings/inference/${capability}`,
+    data: {
+      ...draft,
+      model: draft.providerId ? draft.model.trim() : null,
+      dimensions: draft.providerId ? draft.dimensions : null,
+    },
     signal,
     timeout: 60_000,
-    parse: parseAiRoute,
+    parse: parseInferenceRoute,
   });
 }
-export function validateAiDraft(
-  draft: AiDraft,
-  capability: AiRoute["capability"],
+export function validateInferenceRouteDraft(
+  draft: InferenceRouteDraft,
+  capability: InferenceRoute["capability"],
+  settings: InferenceProviderSettings,
+) {
+  const errors: string[] = [];
+  if (draft.providerId) {
+    const provider = settings.providers.find(
+      (item) => item.id === draft.providerId,
+    );
+    const preset = settings.presets.find(
+      (item) => item.kind === provider?.kind,
+    );
+    if (
+      !provider?.hasApiKey ||
+      !provider.endpoint ||
+      !draft.providerUpdatedAt ||
+      !preset ||
+      (capability === "embedding" && !preset.supportsEmbedding)
+    )
+      errors.push("providerId");
+    if (!draft.model.trim() || draft.model.trim().length > 300)
+      errors.push("model");
+    if (
+      capability === "embedding" &&
+      (!Number.isInteger(draft.dimensions) ||
+        !draft.dimensions ||
+        draft.dimensions < 1 ||
+        draft.dimensions > 16000)
+    )
+      errors.push("dimensions");
+    if (capability === "chat" && draft.dimensions !== null)
+      errors.push("dimensions");
+  }
+  if (
+    !Number.isInteger(draft.timeoutSeconds) ||
+    draft.timeoutSeconds < 1 ||
+    draft.timeoutSeconds > 300
+  )
+    errors.push("timeoutSeconds");
+  return errors;
+}
+export function validateInferenceDraft(
+  draft: InferenceDraft,
+  capability: InferenceRoute["capability"],
   hasApiKey: boolean,
 ) {
   const errors: string[] = [];

@@ -7,7 +7,7 @@ namespace ContextDepot.Controllers;
 [ApiController]
 [Route("api/settings")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
-public sealed class SettingsController(AccessKeyAppService accessKeys, AiSettingsAppService ai, SettingsOverviewAppService overview) : ControllerBase
+public sealed class SettingsController(AccessKeyAppService accessKeys, InferenceSettingsAppService inference, SettingsOverviewAppService overview) : ControllerBase
 {
     [HttpGet("overview")]
     public async Task<ActionResult<SettingsOverviewDto>> GetOverviewAsync(CancellationToken cancellationToken) =>
@@ -33,19 +33,19 @@ public sealed class SettingsController(AccessKeyAppService accessKeys, AiSetting
     public async Task<ActionResult<AccessKeyDto>> SetGrantsAsync(Guid id, UpdateAccessKeyGrantsRequest request, CancellationToken cancellationToken) =>
         Ok(await accessKeys.SetGrantsAsync(id, request, cancellationToken));
 
-    [HttpGet("ai")]
-    public async Task<ActionResult<IReadOnlyList<AiRouteDto>>> GetAiAsync(CancellationToken cancellationToken) =>
-        Ok(await ai.GetAsync(cancellationToken));
+    [HttpGet("inference")]
+    public async Task<ActionResult<IReadOnlyList<InferenceRouteDto>>> GetInferenceAsync(CancellationToken cancellationToken) =>
+        Ok(await inference.GetAsync(cancellationToken));
 
-    [HttpPut("ai/{capability}")]
-    public async Task<ActionResult<AiRouteDto>> SaveAiAsync(string capability, SaveAiRouteRequest request, CancellationToken cancellationToken) =>
-        Ok(await ai.SaveAsync(capability, request, cancellationToken));
+    [HttpPut("inference/{capability}")]
+    public async Task<ActionResult<InferenceRouteDto>> SaveInferenceAsync(string capability, SaveInferenceRouteRequest request, CancellationToken cancellationToken) =>
+        Ok(await inference.SaveAsync(capability, request, cancellationToken));
 
-    [HttpGet("ai/providers")]
-    public async Task<ActionResult<AiProviderSettingsDto>> GetProvidersAsync(CancellationToken cancellationToken) =>
-        Ok(await ai.GetProvidersAsync(cancellationToken));
+    [HttpGet("inference/providers")]
+    public async Task<ActionResult<InferenceProviderSettingsDto>> GetProvidersAsync(CancellationToken cancellationToken) =>
+        Ok(await inference.GetProvidersAsync(cancellationToken));
 
-    [HttpPut("ai/providers")]
-    public async Task<ActionResult<AiProviderSettingsDto>> SaveProviderAsync(SaveAiProviderRequest request, CancellationToken cancellationToken) =>
-        Ok(await ai.SaveProviderAsync(request, cancellationToken));
+    [HttpPut("inference/providers")]
+    public async Task<ActionResult<InferenceProviderSettingsDto>> SaveProviderAsync(SaveInferenceProviderRequest request, CancellationToken cancellationToken) =>
+        Ok(await inference.SaveProviderAsync(request, cancellationToken));
 }

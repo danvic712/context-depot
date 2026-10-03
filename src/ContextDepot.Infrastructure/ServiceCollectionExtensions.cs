@@ -86,7 +86,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAppearanceSettingsRepository, AppearanceSettingsRepository>();
         services.AddScoped<IAccessKeyRepository, AccessKeyRepository>();
         services.AddScoped<ISettingsOverviewRepository, SettingsOverviewRepository>();
-        services.AddScoped<IAiSettingsRepository, AiSettingsRepository>();
+        services.AddScoped<IInferenceSettingsRepository, InferenceSettingsRepository>();
         services.AddScoped<ContextDepot.Application.Overview.IOverviewRepository, OverviewRepository>();
         services.AddScoped<IDepotRepository, DepotRepository>();
         services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();

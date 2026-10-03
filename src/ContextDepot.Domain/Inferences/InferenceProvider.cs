@@ -6,6 +6,8 @@ public sealed class InferenceProvider
 
     public string Name { get; set; } = string.Empty;
 
+    public string Kind { get; set; } = InferenceProviderKinds.Custom;
+
     public string ProtocolCode { get; set; } = string.Empty;
 
     public string BaseUrl { get; set; } = string.Empty;
