@@ -288,7 +288,7 @@ export default function KnowledgeSearchDialog({
             <section
               className="search-dialog-preview"
               aria-label={t("dialogPreview")}
-              aria-busy={detail.pending}
+              aria-busy={detail.pending || pending}
             >
               <div className="search-pane-label">
                 <span>{t("dialogPreview")}</span>
@@ -351,7 +351,7 @@ export default function KnowledgeSearchDialog({
             </Button>
             <SearchCopyButton
               detail={detail.error ? undefined : detail.data}
-              pending={detail.pending}
+              pending={detail.pending || pending}
             />
           </div>
         </Command>

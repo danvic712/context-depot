@@ -24,6 +24,8 @@ import { AppShell } from "./components/layout/AppShell";
 import { RouteLoading } from "./components/feedback/RouteFeedback";
 import type { AppContext, PageHandle } from "./hooks/use-app-context";
 import { normalizeKnowledgeParams } from "./features/knowledge/query-params";
+import { FeatureBoundary } from "./components/feedback/FeatureBoundary";
+import { SearchDialogFailure } from "./features/knowledge/SearchDialogFailure";
 
 const KnowledgeSearchDialog = lazy(
   () => import("./features/knowledge/KnowledgeSearchDialog"),
@@ -128,25 +130,38 @@ export default function App() {
   return (
     <>
       {searchDialog && (
-        <Suspense fallback={null}>
-          <KnowledgeSearchDialog
-            key={searchDialog.session}
-            initialQuery={searchDialog.query}
-            onClose={() => setSearchDialog(null)}
-            onRestoreFocus={() => searchOrigin.current?.focus()}
-            onOpenPage={({ query, workspace, type }) => {
-              const next = new URLSearchParams();
-              if (query.trim()) next.set("q", query.trim());
-              if (workspace) next.set("workspace", workspace);
-              if (type !== "all")
-                next.set("type", type === "context" ? "contexts" : "documents");
-              setSearchDialog(null);
-              void navigate(`/search${next.size ? `?${next}` : ""}`, {
-                state: { focusSearch: true },
-              });
-            }}
-          />
-        </Suspense>
+        <FeatureBoundary
+          key={searchDialog.session}
+          fallback={
+            <SearchDialogFailure
+              onClose={() => setSearchDialog(null)}
+              onRestoreFocus={() => searchOrigin.current?.focus()}
+            />
+          }
+        >
+          <Suspense fallback={null}>
+            <KnowledgeSearchDialog
+              key={searchDialog.session}
+              initialQuery={searchDialog.query}
+              onClose={() => setSearchDialog(null)}
+              onRestoreFocus={() => searchOrigin.current?.focus()}
+              onOpenPage={({ query, workspace, type }) => {
+                const next = new URLSearchParams();
+                if (query.trim()) next.set("q", query.trim());
+                if (workspace) next.set("workspace", workspace);
+                if (type !== "all")
+                  next.set(
+                    "type",
+                    type === "context" ? "contexts" : "documents",
+                  );
+                setSearchDialog(null);
+                void navigate(`/search${next.size ? `?${next}` : ""}`, {
+                  state: { focusSearch: true },
+                });
+              }}
+            />
+          </Suspense>
+        </FeatureBoundary>
       )}
       <ScrollRestoration />
       <AppShell

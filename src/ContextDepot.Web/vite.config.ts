@@ -32,6 +32,7 @@ export default defineConfig({
       "/api": "http://localhost:5289",
       "/healthz": "http://localhost:5289",
       "/readyz": "http://localhost:5289",
+      "/mcp": "http://localhost:5289",
     },
   },
 });

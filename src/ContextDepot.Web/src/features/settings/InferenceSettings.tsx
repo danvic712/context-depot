@@ -15,6 +15,7 @@ import { InferenceRoutes } from "./InferenceRoutes";
 import { InferenceRouteDialog } from "./InferenceRouteDialog";
 import { InferenceConnections } from "./InferenceConnections";
 import { availableInferenceProviders } from "./inference-connections";
+import { SettingsRefreshButton } from "./SettingsConflictRecovery";
 
 export function InferenceSettings({ onChanged }: { onChanged: () => void }) {
   const { t } = useTranslation();
@@ -39,15 +40,21 @@ export function InferenceSettings({ onChanged }: { onChanged: () => void }) {
       detail={t("settingsInferenceWhy")}
       icon={SlidersHorizontalIcon}
       action={
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={!resource.data || resource.pending || !!resource.error}
-          onClick={() => connect()}
-        >
-          <PlusIcon aria-hidden="true" />
-          {t("settingsConnectProvider")}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <SettingsRefreshButton
+            pending={resource.pending}
+            onRefresh={resource.refresh}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!resource.data || resource.pending || !!resource.error}
+            onClick={() => connect()}
+          >
+            <PlusIcon aria-hidden="true" />
+            {t("settingsConnectProvider")}
+          </Button>
+        </div>
       }
     >
       <SettingsResourceState resource={resource} onRetry={resource.refresh} />
@@ -80,6 +87,7 @@ export function InferenceSettings({ onChanged }: { onChanged: () => void }) {
           onClose={() => setEditingRoute(undefined)}
           onConnect={() => connect(editingRoute.capability)}
           onSaved={saved}
+          onRefresh={resource.refresh}
         />
       )}
       {editing && resource.data && (
@@ -89,6 +97,7 @@ export function InferenceSettings({ onChanged }: { onChanged: () => void }) {
           settings={resource.data}
           onClose={() => setEditing(undefined)}
           onSaved={saved}
+          onRefresh={resource.refresh}
         />
       )}
     </SettingsSection>

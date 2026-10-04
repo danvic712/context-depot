@@ -635,10 +635,12 @@ describe("Recoverable route states", () => {
 
   test("a root failure provides the fullscreen state with usable return actions", async () => {
     await english();
+    let unavailable = true;
     const routes = appRoutes.map((route) => ({
       ...route,
       loader: () => {
-        throw new Response(null, { status: 503 });
+        if (unavailable) throw new Response(null, { status: 503 });
+        return null;
       },
     }));
     const router = createMemoryRouter(routes, { initialEntries: ["/"] });
@@ -647,9 +649,18 @@ describe("Recoverable route states", () => {
       const html = renderToStaticMarkup(<RouterProvider router={router} />);
       expect(html).toContain("Unable to load this page");
       expect(html).toContain('data-layout="fullscreen"');
-      expect(html).toContain('class="topbar"');
-      expect(menu(html)).toContain('href="/search"');
-      expect(html).toContain("<footer>");
+      // A root failure must not render the shell that may have caused it.
+      expect(html).not.toContain('class="topbar"');
+      expect(html).not.toContain('class="rail"');
+      expect(html).toContain('href="/"');
+      expect(html).toContain('href="/spaces"');
+      expect(html).toContain("Reload page");
+      unavailable = false;
+      await router.navigate("/spaces");
+      expect(router.state.errors).toBeNull();
+      expect(
+        renderToStaticMarkup(<RouterProvider router={router} />),
+      ).toContain('class="topbar"');
     } finally {
       router.dispose();
     }

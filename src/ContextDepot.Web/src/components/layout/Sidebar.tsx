@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { lazy, Suspense } from "react";
 import { Brand } from "../Brand";
 import { Skeleton } from "../ui/skeleton";
+import { FeatureBoundary } from "../feedback/FeatureBoundary";
 import "@/styles/sidebar.css";
 
 const ReadinessStatus = lazy(() =>
@@ -78,11 +79,15 @@ export function Sidebar() {
           );
         })}
       </nav>
-      <Suspense
+      <FeatureBoundary
         fallback={<div className="rail-status">{t("homeUnknown")}</div>}
       >
-        <ReadinessStatus />
-      </Suspense>
+        <Suspense
+          fallback={<div className="rail-status">{t("homeUnknown")}</div>}
+        >
+          <ReadinessStatus />
+        </Suspense>
+      </FeatureBoundary>
     </aside>
   );
 }

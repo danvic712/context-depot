@@ -1,6 +1,4 @@
-import { isRouteErrorResponse, useNavigate, useRouteError } from "react-router";
-import { AppShell } from "@/components/layout/AppShell";
-import { useAppearanceSettings } from "@/hooks/use-appearance-settings";
+import { isRouteErrorResponse, useRouteError } from "react-router";
 import { PageState } from "./PageState";
 import { SpacesSkeleton } from "@/features/spaces/SpacesSkeleton";
 import { SettingsSkeleton } from "@/features/settings/SettingsSkeleton";
@@ -92,17 +90,9 @@ export function PageRouteError() {
 }
 
 export function RouteError() {
-  const preferences = useAppearanceSettings();
-  const navigate = useNavigate();
   return (
-    <AppShell
-      preferences={preferences}
-      page="error"
-      onSearch={() => {
-        void navigate("/search");
-      }}
-    >
+    <main className="page">
       <PageRouteError />
-    </AppShell>
+    </main>
   );
 }

@@ -24,38 +24,44 @@ import { SubmitButton } from "@/components/content/SubmitButton";
 import { PlusIcon } from "lucide-react";
 import { availableInferenceProviders } from "./inference-connections";
 import {
+  getInferenceProviders,
   saveInferenceRoute,
   validateInferenceRouteDraft,
   type InferenceProviderSettings,
   type InferenceRoute,
-  type InferenceRouteDraft,
 } from "./settings-api";
 
+import { inferenceRouteDraft } from "./inference-drafts";
+import { SettingsConflictRecovery } from "./SettingsConflictRecovery";
+import { useSettingsConflictRecovery } from "./use-settings-conflict-recovery";
+
 export function InferenceRouteDialog({
-  route,
-  settings,
+  route: initialRoute,
+  settings: initialSettings,
   onClose,
   onConnect,
   onSaved,
+  onRefresh,
 }: {
   route: InferenceRoute;
   settings: InferenceProviderSettings;
   onClose: () => void;
   onConnect: () => void;
   onSaved: () => void;
+  onRefresh: () => void;
 }) {
   const { t } = useTranslation();
-  const [draft, setDraft] = useState<InferenceRouteDraft>({
-    providerId: route.providerId,
-    providerUpdatedAt:
-      settings.providers.find((provider) => provider.id === route.providerId)
-        ?.updatedAt ?? null,
-    model: route.model ?? "",
-    dimensions: route.dimensions,
-    timeoutSeconds: route.timeoutSeconds,
-    updatedAt: route.updatedAt,
+  const [snapshot, setSnapshot] = useState({
+    route: initialRoute,
+    settings: initialSettings,
   });
-  const [pending, setPending] = useState(false);
+  const { route, settings } = snapshot;
+  const [draft, setDraft] = useState(() =>
+    inferenceRouteDraft(route, settings),
+  );
+  const [saving, setSaving] = useState(false);
+  const recovery = useSettingsConflictRecovery(getInferenceProviders);
+  const pending = saving || recovery.pending;
   const [invalid, setInvalid] = useState<string[]>([]);
   const [failure, setFailure] = useState<keyof Messages>();
   const form = useRef<HTMLFormElement>(null);
@@ -74,7 +80,7 @@ export function InferenceRouteDialog({
   );
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (pending) return;
+    if (pending || failure === "settingsConflict") return;
     const errors = validateInferenceRouteDraft(
       draft,
       route.capability,
@@ -92,7 +98,7 @@ export function InferenceRouteDialog({
     }
     const controller = new AbortController();
     request.current = controller;
-    setPending(true);
+    setSaving(true);
     try {
       const saved = await saveInferenceRoute(
         route.capability,
@@ -112,6 +118,7 @@ export function InferenceRouteDialog({
       onClose();
     } catch (error) {
       if (controller.signal.aborted) return;
+      if (isAxiosError(error) && error.response?.status === 409) onRefresh();
       setFailure(
         isAxiosError(error) && error.response?.status === 409
           ? "settingsConflict"
@@ -122,7 +129,7 @@ export function InferenceRouteDialog({
               : "settingsRouteSaveError",
       );
     } finally {
-      if (!controller.signal.aborted) setPending(false);
+      if (!controller.signal.aborted) setSaving(false);
     }
   }
   const fields = [
@@ -170,12 +177,30 @@ export function InferenceRouteDialog({
             </Button>
             <SubmitButton
               pending={pending}
+              disabled={failure === "settingsConflict"}
               label={t("settingsSaveRoute")}
               pendingLabel={t("settingsSaving")}
             />
           </>
         }
       >
+        {failure === "settingsConflict" && (
+          <SettingsConflictRecovery
+            {...recovery}
+            onReload={() =>
+              void recovery.reload((latest) => {
+                const latestRoute = latest.routes.find(
+                  (item) => item.capability === route.capability,
+                )!;
+                setSnapshot({ route: latestRoute, settings: latest });
+                setDraft(inferenceRouteDraft(latestRoute, latest));
+                setInvalid([]);
+                setFailure(undefined);
+                onRefresh();
+              })
+            }
+          />
+        )}
         <Field data-invalid={invalid.includes("providerId")}>
           <FieldLabel htmlFor="route-provider">
             {t("settingsProviderType")}

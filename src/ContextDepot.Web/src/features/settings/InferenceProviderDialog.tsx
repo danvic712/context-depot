@@ -22,77 +22,49 @@ import {
 import { FormDialog } from "@/components/content/FormDialog";
 import { SubmitButton } from "@/components/content/SubmitButton";
 import {
+  getInferenceProviders,
   saveInferenceProvider,
   validateInferenceProviderDraft,
   type InferenceProvider,
-  type InferenceProviderDraft,
   type InferenceProviderSettings,
-  type InferenceModelDraft,
   type InferenceRoute,
 } from "./settings-api";
 import { connectInferenceProviderDraft } from "./inference-connections";
+import { inferenceProviderDraft } from "./inference-drafts";
+import { SettingsConflictRecovery } from "./SettingsConflictRecovery";
+import { useSettingsConflictRecovery } from "./use-settings-conflict-recovery";
 
 export function InferenceProviderDialog({
-  provider,
+  provider: initialProvider,
   capability,
-  settings,
+  settings: initialSettings,
   onClose,
   onSaved,
+  onRefresh,
 }: {
   provider?: InferenceProvider;
   capability?: InferenceRoute["capability"];
   settings: InferenceProviderSettings;
   onClose: () => void;
   onSaved: () => void;
+  onRefresh: () => void;
 }) {
   const { t } = useTranslation();
+  const [snapshot, setSnapshot] = useState({
+    provider: initialProvider,
+    settings: initialSettings,
+  });
+  const { provider, settings } = snapshot;
   const embedding = settings.routes.find(
     (route) => route.capability === "embedding",
   )!;
   const chat = settings.routes.find((route) => route.capability === "chat")!;
-  function modelDraft(capability: "embedding" | "chat"): InferenceModelDraft {
-    const route = capability === "embedding" ? embedding : chat;
-    const selected = !!provider && route.providerId === provider.id;
-    return {
-      enabled: selected,
-      model: selected ? (route.model ?? "") : "",
-      dimensions:
-        capability === "embedding"
-          ? selected
-            ? route.dimensions
-            : null
-          : null,
-      timeoutSeconds: selected ? route.timeoutSeconds : 30,
-    };
-  }
-  const [draft, setDraft] = useState<InferenceProviderDraft>(() => {
-    const initial: InferenceProviderDraft = {
-      id: provider?.id ?? null,
-      kind: provider?.kind ?? "openai",
-      name: provider?.name ?? "OpenAI",
-      endpoint:
-        provider?.endpoint ??
-        (provider
-          ? ""
-          : (settings.presets.find((preset) => preset.kind === "openai")!
-              .endpoint ?? "")),
-      apiKey: "",
-      updatedAt: provider?.updatedAt ?? null,
-      embedding: modelDraft("embedding"),
-      chat: modelDraft("chat"),
-      embeddingUpdatedAt: embedding.updatedAt,
-      chatUpdatedAt: chat.updatedAt,
-    };
-    return provider
-      ? initial
-      : connectInferenceProviderDraft(
-          initial,
-          settings.presets.find((preset) => preset.kind === "openai")!,
-          settings,
-          capability,
-        );
-  });
-  const [pending, setPending] = useState(false);
+  const [draft, setDraft] = useState(() =>
+    inferenceProviderDraft(provider, settings, capability),
+  );
+  const [saving, setSaving] = useState(false);
+  const recovery = useSettingsConflictRecovery(getInferenceProviders);
+  const pending = saving || recovery.pending;
   const [invalid, setInvalid] = useState<string[]>([]);
   const [failure, setFailure] = useState<keyof Messages>();
   const request = useRef<AbortController | null>(null);
@@ -101,7 +73,12 @@ export function InferenceProviderDialog({
   useEffect(() => () => request.current?.abort(), []);
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (pending) return;
+    if (
+      pending ||
+      failure === "settingsConflict" ||
+      failure === "settingsProviderRemoved"
+    )
+      return;
     const errors = validateInferenceProviderDraft(
       draft,
       provider?.hasApiKey ?? false,
@@ -118,7 +95,7 @@ export function InferenceProviderDialog({
     }
     const controller = new AbortController();
     request.current = controller;
-    setPending(true);
+    setSaving(true);
     try {
       const result = await saveInferenceProvider(draft, controller.signal);
       if (controller.signal.aborted) return;
@@ -136,6 +113,7 @@ export function InferenceProviderDialog({
       onClose();
     } catch (error) {
       if (controller.signal.aborted) return;
+      if (isAxiosError(error) && error.response?.status === 409) onRefresh();
       setFailure(
         isAxiosError(error) && error.response?.status === 409
           ? "settingsConflict"
@@ -146,7 +124,7 @@ export function InferenceProviderDialog({
               : "settingsInferenceSaveError",
       );
     } finally {
-      if (!controller.signal.aborted) setPending(false);
+      if (!controller.signal.aborted) setSaving(false);
     }
   }
   const common = [
@@ -238,12 +216,39 @@ export function InferenceProviderDialog({
             </Button>
             <SubmitButton
               pending={pending}
+              disabled={
+                failure === "settingsConflict" ||
+                failure === "settingsProviderRemoved"
+              }
               label={t("settingsSaveProvider")}
               pendingLabel={t("settingsSaving")}
             />
           </>
         }
       >
+        {failure === "settingsConflict" && (
+          <SettingsConflictRecovery
+            {...recovery}
+            onReload={() =>
+              void recovery.reload((latest) => {
+                const latestProvider = latest.providers.find(
+                  (item) => item.id === provider?.id,
+                );
+                onRefresh();
+                if (provider && !latestProvider) {
+                  setFailure("settingsProviderRemoved");
+                  return;
+                }
+                setSnapshot({ provider: latestProvider, settings: latest });
+                setDraft(
+                  inferenceProviderDraft(latestProvider, latest, capability),
+                );
+                setInvalid([]);
+                setFailure(undefined);
+              })
+            }
+          />
+        )}
         <fieldset className="settings-provider-picker" disabled={pending}>
           <legend id="provider-kind-label">{t("settingsProviderType")}</legend>
           {provider ? (

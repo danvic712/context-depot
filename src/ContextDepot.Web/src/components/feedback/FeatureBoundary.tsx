@@ -1,0 +1,17 @@
+import { Component, type ReactNode } from "react";
+
+/** Keep an optional feature's render or chunk failure inside its own surface. */
+export class FeatureBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}

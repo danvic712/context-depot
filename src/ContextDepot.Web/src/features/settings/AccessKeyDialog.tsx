@@ -18,6 +18,7 @@ import { FormDialog } from "@/components/content/FormDialog";
 import { SubmitButton } from "@/components/content/SubmitButton";
 import { CopySetting } from "./SettingsStatus";
 import {
+  getAccessKeys,
   createAccessKey,
   rotateAccessKey,
   revokeAccessKey,
@@ -26,6 +27,9 @@ import {
   type KeyWorkspace,
   type IssuedKey,
 } from "./settings-api";
+
+import { SettingsConflictRecovery } from "./SettingsConflictRecovery";
+import { useSettingsConflictRecovery } from "./use-settings-conflict-recovery";
 
 export type KeyAction = "create" | "grants" | "rotate" | "revoke";
 const titleKeys = {
@@ -36,8 +40,8 @@ const titleKeys = {
 } as const;
 export function AccessKeyDialog({
   action,
-  accessKey,
-  workspaces,
+  accessKey: initialKey,
+  workspaces: initialWorkspaces,
   onClose,
   onChanged,
 }: {
@@ -48,10 +52,15 @@ export function AccessKeyDialog({
   onChanged: () => void;
 }) {
   const { t } = useTranslation();
+  const [accessKey, setAccessKey] = useState(initialKey);
+  const [workspaces, setWorkspaces] = useState(initialWorkspaces);
+  const inactive = action !== "create" && (!accessKey || !!accessKey.revokedAt);
   const [name, setName] = useState("");
   const [grants, setGrants] = useState(accessKey?.workspaceIds ?? []);
   const [issued, setIssued] = useState<IssuedKey>();
-  const [pending, setPending] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const recovery = useSettingsConflictRecovery(getAccessKeys);
+  const pending = saving || recovery.pending;
   const [invalid, setInvalid] = useState<string[]>([]);
   const [failure, setFailure] = useState<keyof Messages>();
   const request = useRef<AbortController | null>(null);
@@ -64,7 +73,7 @@ export function AccessKeyDialog({
   const editsGrants = action === "create" || action === "grants";
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (pending) return;
+    if (pending || inactive || failure === "settingsConflict") return;
     const errors = [];
     if (action === "create" && (!name.trim() || name.trim().length > 200))
       errors.push("name");
@@ -81,7 +90,7 @@ export function AccessKeyDialog({
     }
     const controller = new AbortController();
     request.current = controller;
-    setPending(true);
+    setSaving(true);
     try {
       if (action === "create")
         setIssued(
@@ -101,6 +110,7 @@ export function AccessKeyDialog({
       onChanged();
     } catch (error) {
       if (controller.signal.aborted) return;
+      if (isAxiosError(error) && error.response?.status === 409) onChanged();
       setFailure(
         isAxiosError(error) && error.response?.status === 409
           ? "settingsConflict"
@@ -109,7 +119,7 @@ export function AccessKeyDialog({
             : "settingsKeySaveError",
       );
     } finally {
-      if (!controller.signal.aborted) setPending(false);
+      if (!controller.signal.aborted) setSaving(false);
     }
   }
   return (
@@ -158,12 +168,39 @@ export function AccessKeyDialog({
                 label={t(titleKeys[action])}
                 pendingLabel={t("settingsSaving")}
                 variant={action === "revoke" ? "destructive" : "default"}
-                disabled={editsGrants && !workspaces.length}
+                disabled={
+                  inactive ||
+                  failure === "settingsConflict" ||
+                  (editsGrants && !workspaces.length)
+                }
               />
             </>
           )
         }
       >
+        {failure === "settingsConflict" && (
+          <SettingsConflictRecovery
+            {...recovery}
+            onReload={() =>
+              void recovery.reload((latest) => {
+                const latestKey = latest.items.find(
+                  (item) => item.id === accessKey?.id,
+                );
+                setAccessKey(latestKey);
+                setWorkspaces(latest.workspaces);
+                setGrants(latestKey?.workspaceIds ?? []);
+                setName("");
+                setInvalid([]);
+                setFailure(
+                  action !== "create" && (!latestKey || latestKey.revokedAt)
+                    ? "settingsKeyInactive"
+                    : undefined,
+                );
+                onChanged();
+              })
+            }
+          />
+        )}
         {issued ? (
           <div className="settings-issued">
             <p>

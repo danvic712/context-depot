@@ -15,6 +15,7 @@ import { SettingsStatus } from "./SettingsStatus";
 import { getAccessKeys, type AccessKey } from "./settings-api";
 import { useSettingsResource } from "./use-settings-resource";
 import { AccessKeyDialog, type KeyAction } from "./AccessKeyDialog";
+import { SettingsRefreshButton } from "./SettingsConflictRecovery";
 
 export function AccessKeySettings() {
   const { t, i18n } = useTranslation();
@@ -37,19 +38,25 @@ export function AccessKeySettings() {
       detail={t("settingsKeysWhy")}
       icon={KeyRoundIcon}
       action={
-        <Button
-          size="sm"
-          disabled={
-            !resource.data ||
-            !!resource.error ||
-            resource.pending ||
-            !workspaces.length
-          }
-          onClick={() => open("create")}
-        >
-          <PlusIcon aria-hidden="true" />
-          {t("settingsCreateKey")}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <SettingsRefreshButton
+            pending={resource.pending}
+            onRefresh={resource.refresh}
+          />
+          <Button
+            size="sm"
+            disabled={
+              !resource.data ||
+              !!resource.error ||
+              resource.pending ||
+              !workspaces.length
+            }
+            onClick={() => open("create")}
+          >
+            <PlusIcon aria-hidden="true" />
+            {t("settingsCreateKey")}
+          </Button>
+        </div>
       }
     >
       <SettingsResourceState resource={resource} onRetry={resource.refresh} />

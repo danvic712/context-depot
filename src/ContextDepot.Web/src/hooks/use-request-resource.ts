@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { isRequestCanceled } from "@/lib/http-client";
 import { requestFailure, type RequestFailure } from "@/lib/request-failure";
 
@@ -9,7 +9,7 @@ export interface Resource<T> {
 }
 interface Response<T> extends Resource<T> {
   key: string;
-  attempt: number;
+  request: object;
 }
 
 export function useRequestResource<T>(
@@ -19,24 +19,36 @@ export function useRequestResource<T>(
   delay = 0,
 ): Resource<T> {
   const [response, setResponse] = useState<Response<T>>();
+  // A new visit to the same key is a new request, even if its attempt is unchanged.
+  const request = useMemo(
+    () => ({ key, attempt, load, delay }),
+    [key, attempt, load, delay],
+  );
   useEffect(() => {
+    const { key, load, delay } = request;
     if (!load) return;
     const controller = new AbortController();
     const run = () => {
-      void load(controller.signal)
+      void Promise.resolve()
+        .then(() => load(controller.signal))
         .then((data) => {
           if (!controller.signal.aborted)
-            setResponse({ key, attempt, data, pending: false });
+            setResponse({ key, request, data, pending: false });
         })
         .catch((error) => {
-          if (!controller.signal.aborted && !isRequestCanceled(error))
+          if (!controller.signal.aborted && !isRequestCanceled(error)) {
+            const failure = requestFailure(error);
             setResponse((previous) => ({
               key,
-              attempt,
-              data: previous?.key === key ? previous.data : undefined,
-              error: requestFailure(error),
+              request,
+              data:
+                failure.retryable && previous?.key === key
+                  ? previous.data
+                  : undefined,
+              error: failure,
               pending: false,
             }));
+          }
         });
     };
     const timer = delay ? setTimeout(run, delay) : undefined;
@@ -45,12 +57,12 @@ export function useRequestResource<T>(
       clearTimeout(timer);
       controller.abort();
     };
-  }, [key, attempt, load, delay]);
-  const current = response?.key === key ? response : undefined;
+  }, [request]);
+  const current = load && response?.key === key ? response : undefined;
   // Keep failures visible while retrying; a new query/selection never inherits old content.
   return {
     data: current?.data,
     error: current?.error,
-    pending: Boolean(load && current?.attempt !== attempt),
+    pending: Boolean(load && (current?.request !== request || current.pending)),
   };
 }

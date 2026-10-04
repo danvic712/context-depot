@@ -28,6 +28,7 @@
     "react-i18next": "^17.0.15",
     "react-markdown": "^10.1.0",
     "react-router": "^8.4.0",
+    "rehype-slug": "^6.0.0",
     "remark-gfm": "^4.0.1",
     "sonner": "^2.0.8",
     "tailwindcss": "^4.3.3"

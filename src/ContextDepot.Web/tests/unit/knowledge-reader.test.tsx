@@ -57,7 +57,9 @@ describe("Knowledge reader", () => {
         { from: "/", navigation: "home" },
       );
       expect(html).toContain('<h1 tabindex="-1">Reading source</h1>');
-      expect(html).toContain("<h2>Canonical source</h2>");
+      expect(html).toMatch(
+        /<h2 id="markdown-[^"]+-canonical-source">Canonical source<\/h2>/,
+      );
       expect(html).toContain("<table>");
       expect(html).toContain("const source = true;");
       expect(html).toContain("Full content after the search excerpt.");

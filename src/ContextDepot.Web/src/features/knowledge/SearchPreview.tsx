@@ -50,7 +50,7 @@ export function SearchPreview({
           </Button>
           <SearchCopyButton
             detail={resource.error ? undefined : resource.data}
-            pending={resource.pending}
+            pending={resource.pending || searchPending}
           />
         </div>
       </div>
