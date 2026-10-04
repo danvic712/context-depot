@@ -2,6 +2,7 @@ using ContextDepot.Infrastructure.Exceptions;
 using Microsoft.Extensions.VectorData;
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 
 namespace ContextDepot.Infrastructure.VectorStore;
 
@@ -150,6 +151,33 @@ internal static class PostgreSqlVectorSqlBuilder
     public static string QuoteQualifiedName(string schema, string collectionName) =>
         $"{QuoteIdentifier(schema)}.{QuoteIdentifier(collectionName)}";
 
+    internal static string BuildSourceExists(string vectorQualifier, bool context)
+    {
+        if (context)
+        {
+            return $"""
+                EXISTS (SELECT 1 FROM public.context_items AS source
+                WHERE source.id = {vectorQualifier}.context_item_id
+                  AND source.depot_id = {vectorQualifier}.depot_id
+                  AND source.workspace_id = {vectorQualifier}.workspace_id
+                  AND source.status = 'Active'
+                  AND (source.valid_from IS NULL OR source.valid_from <= @source_now)
+                  AND (source.valid_until IS NULL OR source.valid_until > @source_now)
+                  AND (source.expires_at IS NULL OR source.expires_at > @source_now))
+                """;
+        }
+
+        return $"""
+            EXISTS (SELECT 1 FROM public.document_chunks AS source
+            INNER JOIN public.documents AS document ON document.id = source.document_id
+            WHERE source.id = {vectorQualifier}.document_chunk_id
+              AND source.document_id = {vectorQualifier}.document_id
+              AND source.depot_id = {vectorQualifier}.depot_id
+              AND source.workspace_id = {vectorQualifier}.workspace_id
+              AND document.status = 'Active' AND document.index_status = 'Indexed')
+            """;
+    }
+
     public static string QuoteIdentifier(string identifier)
     {
         if (string.IsNullOrWhiteSpace(identifier) || identifier.Contains('\0'))
@@ -167,7 +195,9 @@ internal static class PostgreSqlVectorSqlBuilder
         properties.OfType<VectorStoreVectorProperty>().Single();
 
     public static string GetStorageName(VectorStoreProperty property) =>
-        string.IsNullOrWhiteSpace(property.StorageName) ? ToSnakeCase(property.Name) : property.StorageName;
+        string.IsNullOrWhiteSpace(property.StorageName)
+            ? JsonNamingPolicy.SnakeCaseLower.ConvertName(property.Name)
+            : property.StorageName;
 
     public static string GetParameterName(VectorStoreProperty property) =>
         $"record_{property.Name}";
@@ -205,21 +235,4 @@ internal static class PostgreSqlVectorSqlBuilder
         VectorStoreVectorProperty vector => $"vector({vector.Dimensions.ToString(CultureInfo.InvariantCulture)})",
         _ => throw new NotSupportedException(InfrastructureErrorCodes.VectorPropertyTypeUnsupported) { Data = { ["type"] = property.Type } }
     };
-
-    private static string ToSnakeCase(string name)
-    {
-        var builder = new StringBuilder(name.Length + 8);
-        for (var index = 0; index < name.Length; index++)
-        {
-            var character = name[index];
-            if (char.IsUpper(character) && index > 0)
-            {
-                builder.Append('_');
-            }
-
-            builder.Append(char.ToLowerInvariant(character));
-        }
-
-        return builder.ToString();
-    }
 }

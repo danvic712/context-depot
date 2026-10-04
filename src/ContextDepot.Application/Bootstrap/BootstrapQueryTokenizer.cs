@@ -2,25 +2,27 @@ using System.Text.RegularExpressions;
 
 namespace ContextDepot.Application.Bootstrap;
 
-internal static partial class BootstrapQueryTokenizer
+public static partial class BootstrapQueryTokenizer
 {
     public static IReadOnlySet<string> Tokenize(string value)
     {
         var tokens = new HashSet<string>(StringComparer.Ordinal);
-        foreach (Match match in TokenRegex().Matches(value.ToLowerInvariant()))
+        var normalized = value.ToLowerInvariant();
+        foreach (var match in TokenRegex().EnumerateMatches(normalized))
         {
-            if (!IsHan(match.Value[0]))
+            var text = normalized.AsSpan(match.Index, match.Length);
+            if (!IsHan(text[0]))
             {
-                tokens.Add(match.Value);
+                tokens.Add(text.ToString());
                 continue;
             }
 
             for (var index = 0; index < match.Length; index++)
             {
-                tokens.Add(match.Value.Substring(index, 1));
+                tokens.Add(text.Slice(index, 1).ToString());
                 if (index + 1 < match.Length)
                 {
-                    tokens.Add(match.Value.Substring(index, 2));
+                    tokens.Add(text.Slice(index, 2).ToString());
                 }
             }
         }

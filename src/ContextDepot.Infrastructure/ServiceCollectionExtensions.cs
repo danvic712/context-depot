@@ -83,6 +83,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<PostgreSqlVectorStore>();
         services.AddSingleton<VectorCollectionInitializer>();
         services.AddScoped<VectorCoverageSnapshotProvider>();
+        services.AddSingleton<VectorCoverageComputationGate>();
         services.AddScoped<IAppearanceSettingsRepository, AppearanceSettingsRepository>();
         services.AddScoped<IAccessKeyRepository, AccessKeyRepository>();
         services.AddScoped<ISettingsOverviewRepository, SettingsOverviewRepository>();

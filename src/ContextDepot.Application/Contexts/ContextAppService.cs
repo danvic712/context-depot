@@ -139,9 +139,15 @@ public sealed partial class ContextAppService(
 
     private static void Validate(SaveContextCommand command, string content)
     {
-        if (command.Kind == ContextKind.Observation)
+        if (!Enum.IsDefined(command.Kind) || command.Kind == ContextKind.Observation)
         {
             throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidContextKind);
+        }
+
+        if (!Enum.IsDefined(command.VerificationStatus) || !Enum.IsDefined(command.SourceType) ||
+            !Enum.IsDefined(command.RequestedProvenanceTrust))
+        {
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidVerificationStatus);
         }
 
         if (command.Kind == ContextKind.State && string.IsNullOrWhiteSpace(command.Key))

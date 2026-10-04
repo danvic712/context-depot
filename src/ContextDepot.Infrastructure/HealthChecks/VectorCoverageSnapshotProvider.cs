@@ -20,7 +20,8 @@ public sealed class VectorCoverageSnapshotProvider(
     DocumentEmbeddingTextBuilder documentTextBuilder,
     IMemoryCache cache,
     ScopedInferenceRuntimeSnapshot inferenceSnapshot,
-    IOptionsMonitor<VectorCoverageOptions> options)
+    IOptionsMonitor<VectorCoverageOptions> options,
+    VectorCoverageComputationGate computationGate)
 {
     private const int HashLookupBatchSize = 256;
     private readonly string profileFingerprint = inferenceSnapshot.Value.Embedding?.ProfileFingerprint ?? string.Empty;
@@ -66,11 +67,29 @@ public sealed class VectorCoverageSnapshotProvider(
             return snapshots;
         }
 
-        var computed = await ComputeAsync(missingIds, now, cancellationToken);
-        foreach (var (depotId, snapshot) in computed)
+        await computationGate.Semaphore.WaitAsync(cancellationToken);
+        try
         {
-            cache.Set(GetCacheKey(depotId), snapshot, cacheDuration);
-            snapshots[depotId] = snapshot;
+            // A different request may have populated the cache while this one waited.
+            var stillMissing = new List<Guid>();
+            foreach (var depotId in missingIds)
+            {
+                if (cache.TryGetValue<VectorCoverageSnapshot>(GetCacheKey(depotId), out var cached) && cached is not null)
+                    snapshots[depotId] = cached;
+                else
+                    stillMissing.Add(depotId);
+            }
+            if (stillMissing.Count == 0) return snapshots;
+            var computed = await ComputeAsync(stillMissing, now, cancellationToken);
+            foreach (var (depotId, snapshot) in computed)
+            {
+                cache.Set(GetCacheKey(depotId), snapshot, cacheDuration);
+                snapshots[depotId] = snapshot;
+            }
+        }
+        finally
+        {
+            computationGate.Semaphore.Release();
         }
 
         return snapshots;
@@ -88,88 +107,59 @@ public sealed class VectorCoverageSnapshotProvider(
             .GroupBy(workspace => workspace.DepotId)
             .ToDictionary(group => group.Key, group => WorkspacePath.BuildPaths(group));
 
-        // Load all depots in one pass. The health check used to repeat these queries
-        // once per depot, which made probe cost grow linearly with both depot count
-        // and the amount of data in each depot.
-        var contexts = await db.ContextItems.AsNoTracking()
-            .WhereRetrievableAt(now)
-            .Where(context => depotIds.Contains(context.DepotId))
-            .Select(context => new ContextCoverageSource(
-                context.Id,
-                context.DepotId,
-                context.WorkspaceId,
-                context.Kind,
-                context.Key,
-                context.Title,
-                context.TagsJson,
-                context.Content))
-            .ToListAsync(cancellationToken);
-        var documents = await db.DocumentChunks.AsNoTracking()
-            .Where(chunk => depotIds.Contains(chunk.DepotId) &&
-                           chunk.Document != null &&
-                           chunk.Document.Status == DocumentStatus.Active &&
-                           chunk.Document.IndexStatus == DocumentIndexStatus.Indexed)
-            .Select(chunk => new DocumentCoverageSource(
-                chunk.Id,
-                chunk.DepotId,
-                chunk.WorkspaceId,
-                chunk.Document!.Path,
-                chunk.Document.Title,
-                chunk.HeadingPath,
-                chunk.Content))
-            .ToListAsync(cancellationToken);
-        var contextHashes = await ReadContextHashesAsync(contexts.Select(context => context.Id).ToArray(), cancellationToken);
-        var documentHashes = await ReadDocumentHashesAsync(documents.Select(document => document.Id).ToArray(), cancellationToken);
-
+        var contextSources = db.ContextItems.AsNoTracking()
+            .WhereRetrievableAt(now).Where(context => depotIds.Contains(context.DepotId));
+        var documentSources = db.DocumentChunks.AsNoTracking()
+            .Where(chunk => depotIds.Contains(chunk.DepotId) && chunk.Document != null &&
+                chunk.Document.Status == DocumentStatus.Active && chunk.Document.IndexStatus == DocumentIndexStatus.Indexed);
+        var contextTotals = new Dictionary<Guid, int>();
+        var documentTotals = new Dictionary<Guid, int>();
         var contextIndexedByDepot = new Dictionary<Guid, int>();
-        foreach (var context in contexts)
-        {
-            if (!workspacePathsByDepot.TryGetValue(context.DepotId, out var workspacePaths) ||
-                !workspacePaths.TryGetValue(context.WorkspaceId, out var workspacePath) ||
-                !contextHashes.TryGetValue(context.Id, out var storedHash))
-            {
-                continue;
-            }
-
-            var currentHash = EmbeddingInputHash.Compute(contextTextBuilder.Build(new ContextEmbeddingSource(
-                workspacePath,
-                context.Kind,
-                context.Key,
-                context.Title,
-                ParseTags(context.TagsJson),
-                context.Content)));
-            if (string.Equals(storedHash, currentHash, StringComparison.OrdinalIgnoreCase))
-            {
-                contextIndexedByDepot[context.DepotId] = contextIndexedByDepot.GetValueOrDefault(context.DepotId) + 1;
-            }
-        }
-
         var documentIndexedByDepot = new Dictionary<Guid, int>();
-        foreach (var document in documents)
+        Guid? contextAfter = null;
+        while (true)
         {
-            if (!workspacePathsByDepot.TryGetValue(document.DepotId, out var workspacePaths) ||
-                !workspacePaths.TryGetValue(document.WorkspaceId, out var workspacePath) ||
-                !documentHashes.TryGetValue(document.Id, out var storedHash))
+            var pageQuery = contextAfter is Guid cursor ? contextSources.Where(source => source.Id.CompareTo(cursor) > 0) : contextSources;
+            var page = await pageQuery.OrderBy(source => source.Id).Take(HashLookupBatchSize)
+                .Select(context => new ContextCoverageSource(context.Id, context.DepotId, context.WorkspaceId,
+                    context.Kind, context.Key, context.Title, context.TagsJson, context.Content)).ToListAsync(cancellationToken);
+            if (page.Count == 0) break;
+            var hashes = await vectorIndexRepository.GetContextInputHashesAsync(page.Select(source => source.Id).ToArray(), cancellationToken);
+            foreach (var context in page)
             {
-                continue;
+                contextTotals[context.DepotId] = contextTotals.GetValueOrDefault(context.DepotId) + 1;
+                if (!workspacePathsByDepot.TryGetValue(context.DepotId, out var paths) ||
+                    !paths.TryGetValue(context.WorkspaceId, out var path) || !hashes.TryGetValue(context.Id, out var stored)) continue;
+                var hash = EmbeddingInputHash.Compute(contextTextBuilder.Build(new ContextEmbeddingSource(
+                    path, context.Kind, context.Key, context.Title, ParseTags(context.TagsJson), context.Content)));
+                if (string.Equals(stored, hash, StringComparison.OrdinalIgnoreCase))
+                    contextIndexedByDepot[context.DepotId] = contextIndexedByDepot.GetValueOrDefault(context.DepotId) + 1;
             }
-
-            var currentHash = EmbeddingInputHash.Compute(documentTextBuilder.Build(new DocumentChunkEmbeddingSource(
-                workspacePath,
-                document.Path,
-                document.Title,
-                document.HeadingPath,
-                document.Content)));
-            if (string.Equals(storedHash, currentHash, StringComparison.OrdinalIgnoreCase))
-            {
-                documentIndexedByDepot[document.DepotId] = documentIndexedByDepot.GetValueOrDefault(document.DepotId) + 1;
-            }
+            if (page.Count < HashLookupBatchSize) break;
+            contextAfter = page[^1].Id;
         }
-
-        var contextTotals = contexts.GroupBy(context => context.DepotId)
-            .ToDictionary(group => group.Key, group => group.Count());
-        var documentTotals = documents.GroupBy(document => document.DepotId)
-            .ToDictionary(group => group.Key, group => group.Count());
+        Guid? documentAfter = null;
+        while (true)
+        {
+            var pageQuery = documentAfter is Guid cursor ? documentSources.Where(source => source.Id.CompareTo(cursor) > 0) : documentSources;
+            var page = await pageQuery.OrderBy(source => source.Id).Take(HashLookupBatchSize)
+                .Select(chunk => new DocumentCoverageSource(chunk.Id, chunk.DepotId, chunk.WorkspaceId,
+                    chunk.Document!.Path, chunk.Document.Title, chunk.HeadingPath, chunk.Content)).ToListAsync(cancellationToken);
+            if (page.Count == 0) break;
+            var hashes = await vectorIndexRepository.GetDocumentInputHashesAsync(page.Select(source => source.Id).ToArray(), cancellationToken);
+            foreach (var document in page)
+            {
+                documentTotals[document.DepotId] = documentTotals.GetValueOrDefault(document.DepotId) + 1;
+                if (!workspacePathsByDepot.TryGetValue(document.DepotId, out var paths) ||
+                    !paths.TryGetValue(document.WorkspaceId, out var path) || !hashes.TryGetValue(document.Id, out var stored)) continue;
+                var hash = EmbeddingInputHash.Compute(documentTextBuilder.Build(new DocumentChunkEmbeddingSource(
+                    path, document.Path, document.Title, document.HeadingPath, document.Content)));
+                if (string.Equals(stored, hash, StringComparison.OrdinalIgnoreCase))
+                    documentIndexedByDepot[document.DepotId] = documentIndexedByDepot.GetValueOrDefault(document.DepotId) + 1;
+            }
+            if (page.Count < HashLookupBatchSize) break;
+            documentAfter = page[^1].Id;
+        }
         return depotIds.ToDictionary(
             depotId => depotId,
             depotId => new VectorCoverageSnapshot(
@@ -180,40 +170,6 @@ public sealed class VectorCoverageSnapshotProvider(
     }
 
     private string GetCacheKey(Guid depotId) => $"context-depot:vector-coverage:{profileFingerprint}:{depotId:N}";
-
-    private async Task<IReadOnlyDictionary<Guid, string>> ReadContextHashesAsync(
-        IReadOnlyList<Guid> ids,
-        CancellationToken cancellationToken)
-    {
-        var result = new Dictionary<Guid, string>();
-        foreach (var batch in ids.Chunk(HashLookupBatchSize))
-        {
-            var hashes = await vectorIndexRepository.GetContextInputHashesAsync(batch, cancellationToken);
-            foreach (var hash in hashes)
-            {
-                result[hash.Key] = hash.Value;
-            }
-        }
-
-        return result;
-    }
-
-    private async Task<IReadOnlyDictionary<Guid, string>> ReadDocumentHashesAsync(
-        IReadOnlyList<Guid> ids,
-        CancellationToken cancellationToken)
-    {
-        var result = new Dictionary<Guid, string>();
-        foreach (var batch in ids.Chunk(HashLookupBatchSize))
-        {
-            var hashes = await vectorIndexRepository.GetDocumentInputHashesAsync(batch, cancellationToken);
-            foreach (var hash in hashes)
-            {
-                result[hash.Key] = hash.Value;
-            }
-        }
-
-        return result;
-    }
 
     private static IReadOnlyList<string> ParseTags(string tagsJson) =>
         JsonSerializer.Deserialize<string[]>(tagsJson) ?? [];

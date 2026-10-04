@@ -116,9 +116,9 @@ internal static class PostgreSqlVectorFilterTranslator
         }
 
         var column = PostgreSqlVectorSqlBuilder.QuoteIdentifier(PostgreSqlVectorSqlBuilder.GetStorageName(property));
-        var names = materializedValues.Select((value, index) =>
+        var names = materializedValues.Select(value =>
         {
-            var name = $"filter_{parameters.Count + index}";
+            var name = $"filter_{parameters.Count}";
             parameters.Add((name, value));
             return $"@{name}";
         });
@@ -156,6 +156,15 @@ internal static class PostgreSqlVectorFilterTranslator
     private static object? Evaluate(Expression expression)
     {
         expression = UnwrapConvert(expression);
+        // C# can bind array.Contains to the native span overload. Its implicit
+        // array-to-span conversion cannot be boxed by DynamicInvoke; use the
+        // backing array directly for SQL membership parameters.
+        if (expression is MethodCallExpression conversion && conversion.Type.IsByRefLike &&
+            conversion.Arguments.Count == 1 && conversion.Arguments[0].Type.IsArray &&
+            conversion.Method.Name is "op_Implicit" or "AsSpan")
+        {
+            return Evaluate(conversion.Arguments[0]);
+        }
         if (expression is ConstantExpression constant)
         {
             return constant.Value;

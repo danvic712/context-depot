@@ -50,6 +50,12 @@ public sealed class BootstrapRetrievalTests
         Assert.Equal(matching.Id, item.Id);
         Assert.Equal(ScopeResolutionStatus.Resolved, result.ScopeResolution.Status);
         Assert.Equal("lexical-degraded", result.Diagnostics.Mode);
+        repository.Verify(x => x.FindContextCandidatesAsync(
+            It.Is<BootstrapQuery>(query => query.Query == "database" && query.WorkspaceIds != null &&
+                query.WorkspaceIds.Count == 1 && query.WorkspaceIds.Contains(workspaceId)), It.IsAny<CancellationToken>()), Times.Once);
+        repository.Verify(x => x.FindDocumentCandidatesAsync(
+            It.Is<BootstrapQuery>(query => query.WorkspaceIds != null && query.WorkspaceIds.Contains(workspaceId) &&
+                !query.WorkspaceIds.Contains(otherWorkspaceId)), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

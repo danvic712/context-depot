@@ -18,8 +18,8 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
 {
     private readonly ContextDepotDbContext db;
     private readonly ILogger<VectorDataSemanticRetrievalRepository> logger;
-    private readonly VectorStoreCollection<Guid, ContextVectorRecord>? contextCollection;
-    private readonly VectorStoreCollection<Guid, DocumentVectorRecord>? documentCollection;
+    private readonly PostgreSqlVectorStoreCollection<Guid, ContextVectorRecord>? contextCollection;
+    private readonly PostgreSqlVectorStoreCollection<Guid, DocumentVectorRecord>? documentCollection;
 
     public VectorDataSemanticRetrievalRepository(
         PostgreSqlVectorStore vectorStore,
@@ -38,10 +38,10 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
             return;
         }
 
-        contextCollection = vectorStore.GetCollection<Guid, ContextVectorRecord>(
+        contextCollection = (PostgreSqlVectorStoreCollection<Guid, ContextVectorRecord>)vectorStore.GetCollection<Guid, ContextVectorRecord>(
             VectorCollectionNamePolicy.CreateContextCollectionName(embedding.ProfileFingerprint),
             VectorCollectionDefinitions.CreateContext(embedding.Dimensions));
-        documentCollection = vectorStore.GetCollection<Guid, DocumentVectorRecord>(
+        documentCollection = (PostgreSqlVectorStoreCollection<Guid, DocumentVectorRecord>)vectorStore.GetCollection<Guid, DocumentVectorRecord>(
             VectorCollectionNamePolicy.CreateDocumentCollectionName(embedding.ProfileFingerprint),
             VectorCollectionDefinitions.CreateDocument(embedding.Dimensions));
     }
@@ -52,6 +52,7 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
         CancellationToken cancellationToken)
     {
         ValidateQuery(query);
+        query = RestrictToAccessibleWorkspaces(query);
         EnsureEmbeddingRoute();
         if (HasEmptyScope(query))
         {
@@ -119,6 +120,7 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
         CancellationToken cancellationToken)
     {
         ValidateQuery(query);
+        query = RestrictToAccessibleWorkspaces(query);
         EnsureEmbeddingRoute();
         if (HasEmptyScope(query))
         {
@@ -175,13 +177,14 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
         try
         {
             var candidates = new List<(Guid Id, double Similarity)>();
-            await foreach (var result in contextCollection!.SearchAsync(
+            await foreach (var result in contextCollection!.SearchEligibleAsync(
                                queryVector,
                                CandidateLimit(query),
                                new VectorSearchOptions<ContextVectorRecord>
                                {
                                    Filter = BuildContextFilter(query)
                                },
+                               query.Now,
                                cancellationToken))
             {
                 candidates.Add((result.Record.ContextItemId, NormalizeSimilarity(result.Score)));
@@ -208,13 +211,14 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
         try
         {
             var candidates = new List<(Guid Id, double Similarity)>();
-            await foreach (var result in documentCollection!.SearchAsync(
+            await foreach (var result in documentCollection!.SearchEligibleAsync(
                                queryVector,
                                CandidateLimit(query),
                                new VectorSearchOptions<DocumentVectorRecord>
                                {
                                    Filter = BuildDocumentFilter(query)
                                },
+                               query.Now,
                                cancellationToken))
             {
                 candidates.Add((result.Record.DocumentChunkId, NormalizeSimilarity(result.Score)));
@@ -235,6 +239,14 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
 
     private static int CandidateLimit(SemanticCandidateQuery query) =>
         checked(query.TopK * query.OversampleFactor);
+
+    private SemanticCandidateQuery RestrictToAccessibleWorkspaces(SemanticCandidateQuery query) =>
+        db.HasUnrestrictedWorkspaceAccess ? query : query with
+        {
+            WorkspaceIds = query.WorkspaceIds is null
+                ? db.AccessibleWorkspaceIds.ToArray()
+                : query.WorkspaceIds.Intersect(db.AccessibleWorkspaceIds).ToArray()
+        };
 
     private void EnsureEmbeddingRoute()
     {

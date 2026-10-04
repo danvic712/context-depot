@@ -22,6 +22,7 @@ public sealed class PostgreSqlVectorStoreCollection<TKey, TRecord> : VectorStore
     private readonly VectorStoreVectorProperty _vectorProperty;
     private readonly IReadOnlyDictionary<string, PropertyInfo> _recordProperties;
     private readonly VectorStoreCollectionMetadata _metadata;
+    private readonly string _upsertSql;
 
     public PostgreSqlVectorStoreCollection(
         NpgsqlDataSource dataSource,
@@ -45,6 +46,7 @@ public sealed class PostgreSqlVectorStoreCollection<TKey, TRecord> : VectorStore
             StringComparer.Ordinal);
 
         _ = PostgreSqlVectorSqlBuilder.QuoteQualifiedName(_schema, _name);
+        _upsertSql = PostgreSqlVectorSqlBuilder.BuildUpsert(_schema, _name, _definition);
         _metadata = new VectorStoreCollectionMetadata
         {
             VectorStoreSystemName = "PostgreSQL",
@@ -206,11 +208,10 @@ public sealed class PostgreSqlVectorStoreCollection<TKey, TRecord> : VectorStore
     public override async Task UpsertAsync(TRecord record, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(record);
-        await EnsureCollectionExistsAsync(cancellationToken);
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var command = connection.CreateCommand();
-        command.CommandText = PostgreSqlVectorSqlBuilder.BuildUpsert(_schema, _name, _definition);
-        AddRecordParameters(command, record);
+        command.CommandText = _upsertSql;
+        AddRecordParameters(command.Parameters, record);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
@@ -223,21 +224,19 @@ public sealed class PostgreSqlVectorStoreCollection<TKey, TRecord> : VectorStore
             return;
         }
 
-        await EnsureCollectionExistsAsync(cancellationToken);
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         try
         {
+            await using var batch = new NpgsqlBatch(connection, transaction);
             foreach (var record in materializedRecords)
             {
                 ArgumentNullException.ThrowIfNull(record);
-                await using var command = connection.CreateCommand();
-                command.Transaction = transaction;
-                command.CommandText = PostgreSqlVectorSqlBuilder.BuildUpsert(_schema, _name, _definition);
-                AddRecordParameters(command, record);
-                await command.ExecuteNonQueryAsync(cancellationToken);
+                var command = new NpgsqlBatchCommand(_upsertSql);
+                AddRecordParameters(command.Parameters, record);
+                batch.BatchCommands.Add(command);
             }
-
+            await batch.ExecuteNonQueryAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
         catch
@@ -247,11 +246,21 @@ public sealed class PostgreSqlVectorStoreCollection<TKey, TRecord> : VectorStore
         }
     }
 
-    public override async IAsyncEnumerable<VectorSearchResult<TRecord>> SearchAsync<TInput>(
+    public override IAsyncEnumerable<VectorSearchResult<TRecord>> SearchAsync<TInput>(
+        TInput vector, int top, VectorSearchOptions<TRecord>? options = null,
+        CancellationToken cancellationToken = default) =>
+        SearchCoreAsync(vector, top, options, null, cancellationToken);
+
+    internal IAsyncEnumerable<VectorSearchResult<TRecord>> SearchEligibleAsync<TInput>(
+        TInput vector, int top, VectorSearchOptions<TRecord>? options, DateTimeOffset now,
+        CancellationToken cancellationToken) => SearchCoreAsync(vector, top, options, now, cancellationToken);
+
+    private async IAsyncEnumerable<VectorSearchResult<TRecord>> SearchCoreAsync<TInput>(
         TInput vector,
         int top,
-        VectorSearchOptions<TRecord>? options = null,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        VectorSearchOptions<TRecord>? options,
+        DateTimeOffset? sourceNow,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(top);
         var queryVector = ResolveQueryVector(vector);
@@ -263,6 +272,12 @@ public sealed class PostgreSqlVectorStoreCollection<TKey, TRecord> : VectorStore
 
         var translation = PostgreSqlVectorFilterTranslator.Translate(options?.Filter, _properties);
         var filterSql = translation.Sql;
+        if (sourceNow is not null)
+        {
+            var sourceExists = PostgreSqlVectorSqlBuilder.BuildSourceExists(
+                PostgreSqlVectorSqlBuilder.QuoteQualifiedName(_schema, _name), typeof(TRecord) == typeof(ContextVectorRecord));
+            filterSql = $"({filterSql}) AND ({sourceExists})";
+        }
         if (options?.ScoreThreshold is { } threshold)
         {
             filterSql = $"({filterSql}) AND (GREATEST(0.0::double precision, 1.0::double precision - ({PostgreSqlVectorSqlBuilder.QuoteIdentifier(PostgreSqlVectorSqlBuilder.GetStorageName(_vectorProperty))} <=> @query_vector)) >= @score_threshold)";
@@ -274,6 +289,7 @@ public sealed class PostgreSqlVectorStoreCollection<TKey, TRecord> : VectorStore
         await using var command = connection.CreateCommand();
         var includeVectors = options?.IncludeVectors == true;
         command.CommandText = PostgreSqlVectorSqlBuilder.BuildSearch(_schema, _name, _definition, includeVectors, filterSql);
+        if (sourceNow is not null) command.Parameters.AddWithValue("source_now", sourceNow.Value);
         command.Parameters.AddWithValue("query_vector", new Vector(queryVector));
         AddFilterParameters(command, translation);
         if (options?.ScoreThreshold is { } scoreThreshold)
@@ -345,7 +361,7 @@ public sealed class PostgreSqlVectorStoreCollection<TKey, TRecord> : VectorStore
         return record;
     }
 
-    private void AddRecordParameters(NpgsqlCommand command, TRecord record)
+    private void AddRecordParameters(NpgsqlParameterCollection parameters, TRecord record)
     {
         foreach (var property in _properties)
         {
@@ -363,11 +379,11 @@ public sealed class PostgreSqlVectorStoreCollection<TKey, TRecord> : VectorStore
                     { Data = { ["actualDimensions"] = memory.Length, ["expectedDimensions"] = vectorProperty.Dimensions } };
                 }
 
-                command.Parameters.AddWithValue(PostgreSqlVectorSqlBuilder.GetParameterName(property), new Vector(memory));
+                parameters.AddWithValue(PostgreSqlVectorSqlBuilder.GetParameterName(property), new Vector(memory));
             }
             else
             {
-                command.Parameters.AddWithValue(PostgreSqlVectorSqlBuilder.GetParameterName(property), value ?? DBNull.Value);
+                parameters.AddWithValue(PostgreSqlVectorSqlBuilder.GetParameterName(property), value ?? DBNull.Value);
             }
         }
     }

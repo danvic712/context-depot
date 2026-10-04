@@ -108,6 +108,37 @@ public sealed class PostgreSqlVectorStore(
         return null;
     }
 
+    public async Task RemoveObsoleteVectorsAsync(Guid depotId, int batchSize, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var names = new List<string>();
+        await foreach (var name in ListCollectionNamesAsync(cancellationToken)) names.Add(name);
+        await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+        foreach (var name in names)
+        {
+            var context = name.StartsWith("context_vectors_", StringComparison.Ordinal);
+            var prefix = context ? "context_vectors_" : "document_vectors_";
+            if (!name.StartsWith(prefix, StringComparison.Ordinal) || name.Length != prefix.Length + 16 ||
+                !name.AsSpan(prefix.Length).ToString().All(Uri.IsHexDigit)) continue;
+            var table = PostgreSqlVectorSqlBuilder.QuoteQualifiedName(_options.Schema, name);
+            var key = context ? "context_item_id" : "document_chunk_id";
+            var sourceExists = PostgreSqlVectorSqlBuilder.BuildSourceExists("vectors", context);
+            await using var command = connection.CreateCommand();
+            command.CommandText = $"""
+                WITH obsolete AS (
+                    SELECT vectors.{key} FROM {table} AS vectors
+                    WHERE vectors.depot_id = @depot_id AND NOT ({sourceExists})
+                    ORDER BY vectors.{key} LIMIT @batch_size
+                )
+                DELETE FROM {table} AS vectors USING obsolete
+                WHERE vectors.{key} = obsolete.{key};
+                """;
+            command.Parameters.AddWithValue("depot_id", depotId);
+            command.Parameters.AddWithValue("batch_size", batchSize);
+            command.Parameters.AddWithValue("source_now", now);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+    }
+
     protected override void Dispose(bool disposing)
     {
     }

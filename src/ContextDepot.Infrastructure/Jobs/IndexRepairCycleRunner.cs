@@ -29,11 +29,13 @@ public sealed class IndexRepairCycleRunner(
             lastProfileFingerprint = embedding.ProfileFingerprint;
         }
 
-        await using var scope = scopeFactory.CreateAsyncScope();
-        scope.ServiceProvider.GetRequiredService<CurrentDepotAccessContext>().AllowInternalAccess();
-        var depotRepository = scope.ServiceProvider.GetRequiredService<IDepotRepository>();
-        var repairService = scope.ServiceProvider.GetRequiredService<IIndexRepairAppService>();
-        var depots = await depotRepository.ListAsync(cancellationToken);
+        IReadOnlyList<ContextDepot.Application.Depots.Dtos.DepotSummary> depots;
+        await using (var listingScope = scopeFactory.CreateAsyncScope())
+        {
+            listingScope.ServiceProvider.GetRequiredService<CurrentDepotAccessContext>().AllowInternalAccess();
+            var depotRepository = listingScope.ServiceProvider.GetRequiredService<IDepotRepository>();
+            depots = await depotRepository.ListAsync(cancellationToken);
+        }
         var activeDepotIds = depots.Select(depot => depot.Id).ToHashSet();
 
         foreach (var depot in depots)
@@ -41,6 +43,19 @@ public sealed class IndexRepairCycleRunner(
             cursors.TryGetValue(depot.Id, out var cursor);
             try
             {
+                await using var scope = scopeFactory.CreateAsyncScope();
+                scope.ServiceProvider.GetRequiredService<CurrentDepotAccessContext>().AllowInternalAccess();
+                var repairService = scope.ServiceProvider.GetRequiredService<IIndexRepairAppService>();
+                try
+                {
+                    await scope.ServiceProvider.GetRequiredService<ContextDepot.Infrastructure.VectorStore.PostgreSqlVectorStore>()
+                        .RemoveObsoleteVectorsAsync(depot.Id, repairOptions.BatchSize,
+                            scope.ServiceProvider.GetRequiredService<TimeProvider>().GetUtcNow(), cancellationToken);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    logger.LogWarning(exception, "Obsolete vector cleanup failed for depot {DepotId}; the next cycle will retry.", depot.Id);
+                }
                 var result = await repairService.RepairAsync(
                     depot.Id,
                     new IndexRepairRequest(

@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ContextDepot.Infrastructure.Repositories;
 
-public sealed class BootstrapRepository(ContextDepotDbContext db) : IBootstrapRepository
+public sealed class BootstrapRepository(ContextDepotDbContext db, VisibleWorkspaceTopologyProvider topologyProvider) : IBootstrapRepository
 {
     public async Task<IReadOnlyList<BootstrapWorkspaceCandidate>> FindScopeCandidatesAsync(
         BootstrapQuery query,
@@ -28,14 +28,15 @@ public sealed class BootstrapRepository(ContextDepotDbContext db) : IBootstrapRe
 
     public async Task<IReadOnlyList<BootstrapContextCandidate>> FindContextCandidatesAsync(
         BootstrapQuery query,
-        CancellationToken cancellationToken) =>
-        await ApplyWorkspaceScope(
+        CancellationToken cancellationToken)
+    {
+        var paths = (await topologyProvider.GetAsync(query.DepotId, cancellationToken)).Topology.Paths;
+        return await ApplyWorkspaceScope(
                 db.ContextItems.AsNoTracking()
                     .WhereRetrievableAt(query.Now)
                     .Where(x => x.DepotId == query.DepotId),
                 query.WorkspaceIds)
-            .OrderByDescending(x => x.Importance)
-            .ThenByDescending(x => x.UpdatedAt)
+            .OrderForQuery(query.Query, paths)
             .Take(query.CandidateLimit)
             .Select(x => new BootstrapContextCandidate(
                 x.Id,
@@ -60,19 +61,20 @@ public sealed class BootstrapRepository(ContextDepotDbContext db) : IBootstrapRe
                 x.UpdatedAt,
                 x.MetadataJson))
             .ToListAsync(cancellationToken);
+    }
 
     public async Task<IReadOnlyList<BootstrapDocumentChunkCandidate>> FindDocumentCandidatesAsync(
         BootstrapQuery query,
-        CancellationToken cancellationToken) =>
-        await ApplyWorkspaceScope(
+        CancellationToken cancellationToken)
+    {
+        var paths = (await topologyProvider.GetAsync(query.DepotId, cancellationToken)).Topology.Paths;
+        return await ApplyWorkspaceScope(
                 db.DocumentChunks.AsNoTracking()
                     .Where(x => x.DepotId == query.DepotId && x.Document != null &&
                                 x.Document.Status == DocumentStatus.Active &&
                                 x.Document.IndexStatus == DocumentIndexStatus.Indexed),
                 query.WorkspaceIds)
-            .OrderByDescending(x => x.UpdatedAt)
-            .ThenBy(x => x.DocumentId)
-            .ThenBy(x => x.Ordinal)
+            .OrderForQuery(query.Query, paths)
             .Take(query.CandidateLimit)
             .Select(x => new BootstrapDocumentChunkCandidate(
                 x.Id,
@@ -87,6 +89,7 @@ public sealed class BootstrapRepository(ContextDepotDbContext db) : IBootstrapRe
                 x.ContentHash,
                 x.UpdatedAt))
             .ToListAsync(cancellationToken);
+    }
 
     private static IQueryable<Workspace> ApplyWorkspaceScope(
         IQueryable<Workspace> query,

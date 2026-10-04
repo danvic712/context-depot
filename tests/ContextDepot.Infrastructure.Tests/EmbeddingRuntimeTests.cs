@@ -6,11 +6,35 @@ using ContextDepot.Infrastructure.VectorStore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using ContextDepot.Application;
+using ContextDepot.Application.IndexRepair.Contracts;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.FileProviders;
 
 namespace ContextDepot.Infrastructure.Tests;
 
 public sealed class EmbeddingRuntimeTests
 {
+    [Theory]
+    [InlineData(InferenceRuntimeState.Unconfigured)]
+    [InlineData(InferenceRuntimeState.Degraded)]
+    public void Document_repair_resolves_without_an_embedding_route(InferenceRuntimeState state)
+    {
+        var configuration = new ConfigurationManager();
+        configuration["ConnectionStrings:ContextDepot"] = "Host=127.0.0.1;Port=1;Database=unused;Username=unused";
+        configuration["ContextDepot:Root"] = Path.GetTempPath();
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton<IHostEnvironment>(new TestEnvironment());
+        services.AddContextDepotApplication(configuration);
+        services.AddContextDepotInfrastructure(configuration);
+        using var provider = services.BuildServiceProvider();
+        provider.GetRequiredService<InferenceRuntimeSnapshotAccessor>().Publish(new InferenceRuntimeSnapshot(null, state, null));
+        using var scope = provider.CreateScope();
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IIndexRepairAppService>());
+    }
+
     [Fact]
     public void New_scopes_use_the_latest_embedding_profile_and_generator()
     {
@@ -77,5 +101,13 @@ public sealed class EmbeddingRuntimeTests
                 "provider", "openai-compatible", new Uri(endpoint), "test-key", model, dimensions, 30, fingerprint),
             InferenceRuntimeState.Ready,
             null);
+    }
+
+    private sealed class TestEnvironment : IHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = "Development";
+        public string ApplicationName { get; set; } = "InfrastructureTests";
+        public string ContentRootPath { get; set; } = Path.GetTempPath();
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
 }

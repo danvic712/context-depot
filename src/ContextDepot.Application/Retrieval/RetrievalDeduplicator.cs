@@ -16,9 +16,10 @@ public sealed partial class RetrievalDeduplicator
         ArgumentNullException.ThrowIfNull(options);
 
         var retained = new List<RankedContextCandidate>();
+        var tokens = new Dictionary<Guid, IReadOnlySet<string>>();
         foreach (var candidate in OrderContexts(rankedCandidates))
         {
-            if (retained.Any(existing => ShouldSuppressContext(existing, candidate, options)))
+            if (retained.Any(existing => ShouldSuppressContext(existing, candidate, options, tokens)))
             {
                 continue;
             }
@@ -37,9 +38,10 @@ public sealed partial class RetrievalDeduplicator
         ArgumentNullException.ThrowIfNull(options);
 
         var retained = new List<RankedDocumentCandidate>();
+        var tokens = new Dictionary<Guid, IReadOnlySet<string>>();
         foreach (var candidate in OrderDocuments(rankedCandidates))
         {
-            if (retained.Any(existing => ShouldSuppressDocument(existing, candidate, options)))
+            if (retained.Any(existing => ShouldSuppressDocument(existing, candidate, options, tokens)))
             {
                 continue;
             }
@@ -53,7 +55,8 @@ public sealed partial class RetrievalDeduplicator
     private bool ShouldSuppressContext(
         RankedContextCandidate retained,
         RankedContextCandidate candidate,
-        SemanticRetrievalOptions options)
+        SemanticRetrievalOptions options,
+        Dictionary<Guid, IReadOnlySet<string>> tokens)
     {
         var retainedContext = retained.Context;
         var context = candidate.Context;
@@ -67,15 +70,16 @@ public sealed partial class RetrievalDeduplicator
         }
 
         return MeetsDuplicateThresholds(
-            BuildContextText(retainedContext),
-            BuildContextText(context),
+            GetTokens(tokens, retained.SourceIdentity, () => BuildContextText(retainedContext)),
+            GetTokens(tokens, candidate.SourceIdentity, () => BuildContextText(context)),
             options);
     }
 
     private bool ShouldSuppressDocument(
         RankedDocumentCandidate retained,
         RankedDocumentCandidate candidate,
-        SemanticRetrievalOptions options)
+        SemanticRetrievalOptions options,
+        Dictionary<Guid, IReadOnlySet<string>> tokens)
     {
         var retainedDocument = retained.Document;
         var document = candidate.Document;
@@ -85,25 +89,23 @@ public sealed partial class RetrievalDeduplicator
         }
 
         return MeetsDuplicateThresholds(
-            BuildDocumentText(retainedDocument),
-            BuildDocumentText(document),
+            GetTokens(tokens, retained.SourceIdentity, () => BuildDocumentText(retainedDocument)),
+            GetTokens(tokens, candidate.SourceIdentity, () => BuildDocumentText(document)),
             options);
     }
 
     private static bool MeetsDuplicateThresholds(
-        string first,
-        string second,
+        IReadOnlySet<string> firstTokens,
+        IReadOnlySet<string> secondTokens,
         SemanticRetrievalOptions options)
     {
-        var firstTokens = Tokenize(first);
-        var secondTokens = Tokenize(second);
         if (firstTokens.Count == 0 || secondTokens.Count == 0)
         {
             return false;
         }
 
-        var intersection = firstTokens.Intersect(secondTokens, StringComparer.Ordinal).Count();
-        var union = firstTokens.Union(secondTokens, StringComparer.Ordinal).Count();
+        var intersection = firstTokens.Count(secondTokens.Contains);
+        var union = firstTokens.Count + secondTokens.Count - intersection;
         var shorter = Math.Min(firstTokens.Count, secondTokens.Count);
         if (union == 0 || shorter == 0)
         {
@@ -118,6 +120,14 @@ public sealed partial class RetrievalDeduplicator
 
     private static string BuildContextText(BootstrapContextCandidate context) =>
         $"{context.Title} {context.Content} {context.TagsJson}";
+
+    private static IReadOnlySet<string> GetTokens(Dictionary<Guid, IReadOnlySet<string>> cache, Guid id, Func<string> text)
+    {
+        if (cache.TryGetValue(id, out var tokens)) return tokens;
+        tokens = Tokenize(text());
+        cache[id] = tokens;
+        return tokens;
+    }
 
     private static string BuildDocumentText(BootstrapDocumentChunkCandidate document) =>
         $"{document.Title} {document.HeadingPath} {document.Content}";
@@ -143,10 +153,17 @@ public sealed partial class RetrievalDeduplicator
             .ThenBy(candidate => candidate.SourceIdentity)
             .ToArray();
 
-    private static IReadOnlySet<string> Tokenize(string value) =>
-        TokenRegex().Matches(value.ToLowerInvariant())
-            .Select(match => match.Value)
-            .ToHashSet(StringComparer.Ordinal);
+    private static IReadOnlySet<string> Tokenize(string value)
+    {
+        var normalized = value.ToLowerInvariant();
+        var tokens = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var match in TokenRegex().EnumerateMatches(normalized))
+        {
+            tokens.Add(normalized.AsSpan(match.Index, match.Length).ToString());
+        }
+
+        return tokens;
+    }
 
     [GeneratedRegex("[\\p{L}\\p{N}]+", RegexOptions.CultureInvariant)]
     private static partial Regex TokenRegex();

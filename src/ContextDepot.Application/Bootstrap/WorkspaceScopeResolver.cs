@@ -26,18 +26,18 @@ internal sealed class WorkspaceScopeResolver(ScopeCandidateRanker ranker)
         }
 
         var scores = new List<(BootstrapWorkspaceCandidate Workspace, double Score)>();
+        var contextsByWorkspace = contexts.ToLookup(context => context.WorkspaceId);
+        var chunksByWorkspace = chunks.ToLookup(chunk => chunk.WorkspaceId);
         foreach (var workspace in workspaces)
         {
             var path = workspacePaths.GetValueOrDefault(workspace.Id, workspace.Slug);
             var pathTokens = BootstrapQueryTokenizer.Tokenize($"{path} {workspace.Name}");
             var pathScore = BootstrapQueryTokenizer.CountMatches(queryTokens, pathTokens);
-            var contextScore = contexts
-                .Where(x => x.WorkspaceId == workspace.Id)
+            var contextScore = contextsByWorkspace[workspace.Id]
                 .Select(x => ranker.ScoreContext(x, path, string.Empty, queryTokens) - x.Importance / 100d)
                 .DefaultIfEmpty(0)
                 .Max();
-            var documentScore = chunks
-                .Where(x => x.WorkspaceId == workspace.Id)
+            var documentScore = chunksByWorkspace[workspace.Id]
                 .Select(x => ranker.ScoreDocument(x, path, string.Empty, queryTokens))
                 .DefaultIfEmpty(0)
                 .Max();

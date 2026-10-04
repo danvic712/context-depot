@@ -23,7 +23,8 @@ public sealed class PostgreSqlIndexRepairRepository(
             .Where(x => x.DepotId == depotId &&
                         x.Status == DocumentStatus.Active &&
                         (x.IndexStatus == DocumentIndexStatus.Pending || x.IndexStatus == DocumentIndexStatus.Failed))
-            .OrderBy(x => x.Id)
+            .OrderBy(x => x.UpdatedAt)
+            .ThenBy(x => x.Id)
             .Take(limit)
             .Select(x => new
             {

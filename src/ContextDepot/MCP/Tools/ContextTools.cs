@@ -93,7 +93,8 @@ public sealed class ContextTools(MCPToolExecutor executor, ILogger<ContextTools>
     {
         return await executor.ExecuteAsync(async () =>
         {
-            if (!Enum.TryParse<ContextKind>(kind, true, out var parsedKind))
+            if (!Enum.TryParse<ContextKind>(kind, true, out var parsedKind) || !Enum.IsDefined(parsedKind) ||
+                !string.Equals(kind, Enum.GetName(parsedKind), StringComparison.OrdinalIgnoreCase))
             {
                 throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidContextKind);
             }
@@ -133,7 +134,9 @@ public sealed class ContextTools(MCPToolExecutor executor, ILogger<ContextTools>
             return VerificationStatus.Unknown;
         }
 
-        if (!Enum.TryParse<VerificationStatus>(value, true, out var parsed) || parsed == VerificationStatus.Verified)
+        if (!Enum.TryParse<VerificationStatus>(value, true, out var parsed) || !Enum.IsDefined(parsed) ||
+            !string.Equals(value, Enum.GetName(parsed), StringComparison.OrdinalIgnoreCase) ||
+            parsed == VerificationStatus.Verified)
         {
             throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidVerificationStatus);
         }

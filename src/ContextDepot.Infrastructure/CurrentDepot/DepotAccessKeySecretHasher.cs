@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Buffers.Text;
 using ContextDepot.Application.Settings.Contracts;
 using System.Security.Cryptography;
@@ -28,22 +29,14 @@ public sealed class DepotAccessKeySecretHasher : IAccessKeySecretGenerator
             return false;
         }
 
-        byte[] expectedBytes;
-        try
-        {
-            expectedBytes = Convert.FromHexString(expectedHash);
-        }
-        catch (FormatException)
+        Span<byte> expectedBytes = stackalloc byte[SHA256.HashSizeInBytes];
+        if (Convert.FromHexString(expectedHash, expectedBytes, out _, out var bytesWritten) != OperationStatus.Done ||
+            bytesWritten != expectedBytes.Length)
         {
             return false;
         }
 
-        if (expectedBytes.Length != 32)
-        {
-            return false;
-        }
-
-        Span<byte> actualBytes = stackalloc byte[32];
+        Span<byte> actualBytes = stackalloc byte[SHA256.HashSizeInBytes];
         SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(presentedKey), actualBytes);
         return CryptographicOperations.FixedTimeEquals(actualBytes, expectedBytes);
     }

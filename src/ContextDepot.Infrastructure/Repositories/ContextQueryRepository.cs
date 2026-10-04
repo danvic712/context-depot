@@ -42,8 +42,7 @@ public sealed class ContextQueryRepository(
         }
 
         var candidates = await contexts
-            .OrderByDescending(context => context.Importance)
-            .ThenByDescending(context => context.UpdatedAt)
+            .OrderForQuery(query.Query, workspacePaths)
             .Take(query.CandidateLimit)
             .Select(context => new BootstrapContextCandidate(
                 context.Id,
@@ -92,9 +91,7 @@ public sealed class ContextQueryRepository(
         }
 
         var candidates = await documents
-            .OrderByDescending(chunk => chunk.UpdatedAt)
-            .ThenBy(chunk => chunk.DocumentId)
-            .ThenBy(chunk => chunk.Ordinal)
+            .OrderForQuery(query.Query, workspacePaths)
             .Take(query.CandidateLimit)
             .Select(chunk => new BootstrapDocumentChunkCandidate(
                 chunk.Id,

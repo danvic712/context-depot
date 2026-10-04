@@ -10,6 +10,12 @@ public sealed class ProvenancePolicy : IProvenancePolicy
 {
     public ProvenanceDecision Evaluate(ProvenanceInput input)
     {
+        if (!Enum.IsDefined(input.VerificationStatus) || !Enum.IsDefined(input.RequestedTrust) ||
+            !Enum.IsDefined(input.SourceType))
+        {
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidVerificationStatus);
+        }
+
         if (!input.IsTrustedServer &&
             (input.RequestedTrust != ProvenanceTrust.Unknown ||
              input.VerificationStatus == VerificationStatus.Verified ||
@@ -26,7 +32,6 @@ public sealed class ProvenancePolicy : IProvenancePolicy
                 _ => ProvenanceTrust.Unknown
             };
 
-        var verification = input.IsTrustedServer ? input.VerificationStatus : input.VerificationStatus;
-        return new ProvenanceDecision(verification, trust, input.SourceType, input.SourceAgent, input.SourceRef);
+        return new ProvenanceDecision(input.VerificationStatus, trust, input.SourceType, input.SourceAgent, input.SourceRef);
     }
 }

@@ -12,8 +12,13 @@ namespace ContextDepot.Infrastructure.Repositories;
 
 public sealed class VectorDataVectorIndexRepository : IVectorIndexRepository
 {
-    private readonly VectorStoreCollection<Guid, ContextVectorRecord> _contextCollection;
-    private readonly VectorStoreCollection<Guid, DocumentVectorRecord> _documentCollection;
+    private readonly VectorStoreCollection<Guid, ContextVectorRecord>? _contextCollection;
+    private readonly VectorStoreCollection<Guid, DocumentVectorRecord>? _documentCollection;
+
+    private VectorStoreCollection<Guid, ContextVectorRecord> ContextCollection =>
+        _contextCollection ?? throw new InvalidOperationException(InfrastructureErrorCodes.EmbeddingRouteRequired);
+    private VectorStoreCollection<Guid, DocumentVectorRecord> DocumentCollection =>
+        _documentCollection ?? throw new InvalidOperationException(InfrastructureErrorCodes.EmbeddingRouteRequired);
 
     public VectorDataVectorIndexRepository(
         PostgreSqlVectorStore vectorStore,
@@ -21,8 +26,11 @@ public sealed class VectorDataVectorIndexRepository : IVectorIndexRepository
     {
         ArgumentNullException.ThrowIfNull(vectorStore);
         ArgumentNullException.ThrowIfNull(snapshot);
-        var embedding = snapshot.Value.Embedding
-            ?? throw new InvalidOperationException(InfrastructureErrorCodes.EmbeddingRouteRequired);
+        var embedding = snapshot.Value.Embedding;
+        if (embedding is null)
+        {
+            return;
+        }
         _contextCollection = vectorStore.GetCollection<Guid, ContextVectorRecord>(
             VectorCollectionNamePolicy.CreateContextCollectionName(embedding.ProfileFingerprint),
             VectorCollectionDefinitions.CreateContext(embedding.Dimensions));
@@ -54,7 +62,7 @@ public sealed class VectorDataVectorIndexRepository : IVectorIndexRepository
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(writes);
-        return _contextCollection.UpsertAsync(
+        return ContextCollection.UpsertAsync(
             writes.Select(write => new ContextVectorRecord
             {
                 ContextItemId = write.ContextItemId,
@@ -72,7 +80,7 @@ public sealed class VectorDataVectorIndexRepository : IVectorIndexRepository
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(writes);
-        return _documentCollection.UpsertAsync(
+        return DocumentCollection.UpsertAsync(
             writes.Select(write => new DocumentVectorRecord
             {
                 DocumentChunkId = write.DocumentChunkId,
@@ -90,7 +98,7 @@ public sealed class VectorDataVectorIndexRepository : IVectorIndexRepository
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(contextItemIds);
-        return _contextCollection.DeleteAsync(contextItemIds, cancellationToken);
+        return ContextCollection.DeleteAsync(contextItemIds, cancellationToken);
     }
 
     public Task DeleteDocumentVectorsAsync(
@@ -98,7 +106,7 @@ public sealed class VectorDataVectorIndexRepository : IVectorIndexRepository
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(documentChunkIds);
-        return _documentCollection.DeleteAsync(documentChunkIds, cancellationToken);
+        return DocumentCollection.DeleteAsync(documentChunkIds, cancellationToken);
     }
 
     private async Task<IReadOnlyList<ContextVectorRecord>> ReadContextRecordsAsync(
@@ -106,7 +114,7 @@ public sealed class VectorDataVectorIndexRepository : IVectorIndexRepository
         CancellationToken cancellationToken)
     {
         var records = new List<ContextVectorRecord>();
-        await foreach (var record in _contextCollection.GetAsync(keys, cancellationToken: cancellationToken))
+        await foreach (var record in ContextCollection.GetAsync(keys, cancellationToken: cancellationToken))
         {
             records.Add(record);
         }
@@ -119,7 +127,7 @@ public sealed class VectorDataVectorIndexRepository : IVectorIndexRepository
         CancellationToken cancellationToken)
     {
         var records = new List<DocumentVectorRecord>();
-        await foreach (var record in _documentCollection.GetAsync(keys, cancellationToken: cancellationToken))
+        await foreach (var record in DocumentCollection.GetAsync(keys, cancellationToken: cancellationToken))
         {
             records.Add(record);
         }

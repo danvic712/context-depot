@@ -83,6 +83,37 @@ public sealed class ContextAppServiceTests
         repository.VerifyNoOtherCalls();
     }
 
+    [Theory]
+    [InlineData((ContextKind)999)]
+    [InlineData((ContextKind)(-1))]
+    public async Task Undefined_kind_is_rejected_before_repository_write(ContextKind kind)
+    {
+        var repository = new Mock<IContextRepository>();
+        var exception = await Assert.ThrowsAsync<ContextDepotApplicationException>(() =>
+            CreateService(repository).SaveAsync(new SaveContextCommand("projects/context-depot", kind, "safe content"), default));
+        Assert.Equal(ApplicationErrorCodes.InvalidContextKind, exception.ErrorCode);
+        repository.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [InlineData("verification")]
+    [InlineData("source")]
+    [InlineData("trust")]
+    public async Task Undefined_provenance_is_rejected_even_for_trusted_callers(string field)
+    {
+        var repository = new Mock<IContextRepository>();
+        var command = new SaveContextCommand("projects/context-depot", ContextKind.Fact, "safe content", IsTrustedServer: true);
+        command = field switch
+        {
+            "verification" => command with { VerificationStatus = (VerificationStatus)999 },
+            "source" => command with { SourceType = (SourceType)999 },
+            _ => command with { RequestedProvenanceTrust = (ProvenanceTrust)999 }
+        };
+        var exception = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => CreateService(repository).SaveAsync(command, default));
+        Assert.Equal(ApplicationErrorCodes.InvalidVerificationStatus, exception.ErrorCode);
+        repository.VerifyNoOtherCalls();
+    }
+
     [Fact]
     public async Task Secret_in_metadata_or_tags_is_rejected_before_repository_write()
     {

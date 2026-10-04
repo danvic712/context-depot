@@ -54,6 +54,13 @@ public sealed class CurrentDepotAccessContext : ICurrentDepotContext, IWorkspace
         initialized = true;
     }
 
+    internal void IncludeCreatedWorkspaces(IReadOnlyCollection<Guid> createdIds)
+    {
+        if (HasUnrestrictedAccess || createdIds.Count == 0) return;
+        workspaceIds = workspaceIds.Concat(createdIds).Distinct().Order().ToArray();
+        navigableWorkspaceIds = navigableWorkspaceIds.Concat(createdIds).Distinct().Order().ToArray();
+    }
+
     public void AllowInternalAccess()
     {
         if (initialized)

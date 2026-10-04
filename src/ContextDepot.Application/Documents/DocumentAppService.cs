@@ -65,6 +65,14 @@ public sealed class DocumentAppService(
         }
 
         var now = timeProvider.GetUtcNow();
+        if (currentFile is not null && document is { Status: DocumentStatus.Active, IndexStatus: DocumentIndexStatus.Indexed } &&
+            string.Equals(currentFile.ContentHash, incomingHash, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(document.IndexedContentHash, incomingHash, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(document.Title, command.Title.Trim(), StringComparison.Ordinal))
+        {
+            return ToModel(document, workspace.Path);
+        }
+
         if (document is not null)
         {
             await repository.MarkIndexPendingAsync(depotId, workspace.Id, normalizedPath, now, cancellationToken);

@@ -82,17 +82,8 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
         var permittedWorkspaceIds = workspaceAccess.HasUnrestrictedAccess
             ? null
             : new HashSet<Guid>(workspaceAccess.WorkspaceIds);
-        var bootstrapQuery = new BootstrapQuery(
-            currentDepot.DepotId,
-            permittedWorkspaceIds,
-            timeProvider.GetUtcNow());
-        var workspaces = await repository.FindScopeCandidatesAsync(bootstrapQuery, cancellationToken);
-        var workspacePaths = scopeResolver.BuildPaths(workspaces);
-        var contexts = await repository.FindContextCandidatesAsync(bootstrapQuery, cancellationToken);
-        var chunks = await repository.FindDocumentCandidatesAsync(bootstrapQuery, cancellationToken);
-
-        HashSet<Guid>? scopeIds;
-        ScopeResolution scopeResolution;
+        HashSet<Guid>? scopeIds = null;
+        ScopeResolution scopeResolution = new(ScopeResolutionStatus.Broad, []);
         if (request.Workspaces is { Count: > 0 })
         {
             scopeIds = [];
@@ -107,7 +98,19 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
 
             scopeResolution = new ScopeResolution(ScopeResolutionStatus.Resolved, resolvedPaths);
         }
-        else
+        var bootstrapQuery = new BootstrapQuery(
+            currentDepot.DepotId,
+            scopeIds ?? permittedWorkspaceIds,
+            timeProvider.GetUtcNow(),
+            Query: query);
+        // Keep the full visible topology for canonical paths, but constrain knowledge
+        // before candidate limits when the caller has supplied an explicit scope.
+        var workspaces = await repository.FindScopeCandidatesAsync(
+            bootstrapQuery with { WorkspaceIds = permittedWorkspaceIds }, cancellationToken);
+        var workspacePaths = scopeResolver.BuildPaths(workspaces);
+        var contexts = await repository.FindContextCandidatesAsync(bootstrapQuery, cancellationToken);
+        var chunks = await repository.FindDocumentCandidatesAsync(bootstrapQuery, cancellationToken);
+        if (request.Workspaces is not { Count: > 0 })
         {
             (scopeResolution, scopeIds) = scopeResolver.Resolve(queryTokens, workspaces, workspacePaths, contexts, chunks);
         }

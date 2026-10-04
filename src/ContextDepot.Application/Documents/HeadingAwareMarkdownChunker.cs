@@ -25,7 +25,8 @@ public sealed partial class HeadingAwareMarkdownChunker
             currentLines.Clear();
         }
 
-        foreach (var line in content.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n'))
+        using var reader = new StringReader(content);
+        while (reader.ReadLine() is { } line)
         {
             var match = HeadingRegex().Match(line);
             if (match.Success)

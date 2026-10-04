@@ -237,6 +237,11 @@ public sealed class IndexRepairAppService(
                 "{ErrorCode} prevented document repair for {DocumentId}; the next cycle will retry.",
                 ApplicationErrorCodes.DocumentWriteFailed,
                 candidate.DocumentId);
+            await repairRepository.MarkDocumentIndexFailedAsync(
+                depotId,
+                candidate.DocumentId,
+                ApplicationErrorCodes.DocumentWriteFailed,
+                cancellationToken);
             return (false, true);
         }
     }

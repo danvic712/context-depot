@@ -19,6 +19,7 @@ public sealed class DepotAccessKeyAuthenticator(
         }
 
         var accessKey = await db.DepotAccessKeys
+            .AsNoTracking()
             .Include(key => key.Depot)
             .Include(key => key.WorkspaceGrants)
             .SingleOrDefaultAsync(
@@ -44,8 +45,14 @@ public sealed class DepotAccessKeyAuthenticator(
             .Order()
             .ToArray();
 
-        accessKey.MarkUsed(timeProvider.GetUtcNow());
-        await db.SaveChangesAsync(cancellationToken);
+        var now = timeProvider.GetUtcNow();
+        var updateBefore = now.AddMinutes(-1);
+        if (accessKey.LastUsedAt is null || accessKey.LastUsedAt < updateBefore)
+        {
+            await db.DepotAccessKeys.Where(key => key.Id == accessKey.Id && key.RevokedAt == null &&
+                    (key.LastUsedAt == null || key.LastUsedAt < updateBefore))
+                .ExecuteUpdateAsync(update => update.SetProperty(key => key.LastUsedAt, now), cancellationToken);
+        }
         return new DepotAccessKeyIdentity(
             accessKey.Id,
             accessKey.DepotId,

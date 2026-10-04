@@ -60,6 +60,24 @@ public sealed class DocumentAppServiceTests
         repository.Verify(x => x.MarkIndexPendingAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    [Fact]
+    public async Task Identical_upsert_preserves_chunks_without_rebuilding_the_index()
+    {
+        var now = DateTimeOffset.Parse("2026-09-19T00:00:00Z");
+        var document = new Document(Guid.CreateVersion7(), DepotId, WorkspaceId, "docs/readme.md", "README", now);
+        document.Reconcile("README", Hash("canonical"), now);
+        var chunk = new DocumentChunk(Guid.CreateVersion7(), DepotId, document.Id, WorkspaceId, 0, "", "canonical", Hash("canonical"), now);
+        document.Chunks.Add(chunk);
+        var repository = new Mock<IDocumentRepository>();
+        repository.Setup(x => x.GetByPathAsync(DepotId, WorkspaceId, "docs/readme.md", It.IsAny<CancellationToken>())).ReturnsAsync(document);
+        var result = await CreateService(repository, new MarkdownDocument("docs/readme.md", "canonical", Hash("canonical")))
+            .UpsertAsync(new UpsertDocumentCommand("projects/context-depot", "docs/readme.md", " README ", "canonical"), default);
+        Assert.Equal(chunk.Id, Assert.Single(result.Chunks).Id);
+        Assert.Equal(now, result.UpdatedAt);
+        repository.Verify(x => x.GetByPathAsync(DepotId, WorkspaceId, "docs/readme.md", It.IsAny<CancellationToken>()), Times.Once);
+        repository.VerifyNoOtherCalls();
+    }
+
     private static DocumentAppService CreateService(Mock<IDocumentRepository> repository, MarkdownDocument canonical)
     {
         var depot = new Mock<ICurrentDepotContext>();

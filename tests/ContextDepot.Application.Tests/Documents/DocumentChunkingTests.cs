@@ -23,6 +23,38 @@ public sealed class DocumentChunkingTests
     }
 
     [Theory]
+    [InlineData("\n")]
+    [InlineData("\r\n")]
+    [InlineData("\r")]
+    public void Line_endings_preserve_chunk_contents_headings_and_hashes(string newline)
+    {
+        var markdown = string.Join(newline, "# Root", "intro", "", "## Child", "body", "", "");
+        var chunks = new HeadingAwareMarkdownChunker().Chunk(markdown);
+
+        Assert.Equal(new[]
+        {
+            new MarkdownChunk("Root", "# Root\nintro", DocumentContentHasher.Compute("# Root\nintro")),
+            new MarkdownChunk("Root > Child", "## Child\nbody", DocumentContentHasher.Compute("## Child\nbody"))
+        }, chunks);
+    }
+
+    [Fact]
+    public void Mixed_line_endings_and_unicode_separators_preserve_document_content()
+    {
+        var chunks = new HeadingAwareMarkdownChunker().Chunk("# Root\r\nleft\u2028right\rmiddle\nlast");
+
+        Assert.Equal("# Root\nleft\u2028right\nmiddle\nlast", Assert.Single(chunks).Content);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" \r\n\r\n ")]
+    public void Empty_or_whitespace_documents_have_no_chunks(string markdown)
+    {
+        Assert.Empty(new HeadingAwareMarkdownChunker().Chunk(markdown));
+    }
+
+    [Theory]
     [InlineData("../secret.md")]
     [InlineData("/absolute.md")]
     [InlineData("notes.txt")]

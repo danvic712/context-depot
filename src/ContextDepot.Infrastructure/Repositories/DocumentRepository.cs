@@ -48,13 +48,23 @@ public sealed class DocumentRepository(ContextDepotDbContext db) : IDocumentRepo
             }
 
             var existingChunks = document.Chunks.ToArray();
-            db.DocumentChunks.RemoveRange(existingChunks);
-            document.Chunks.Clear();
-            document.Reconcile(write.Title, write.ContentHash, write.Now);
+            var existingByOrdinal = existingChunks.ToDictionary(chunk => chunk.Ordinal);
+            var reconciledChunks = new List<DocumentChunk>(write.Chunks.Count);
             foreach (var chunk in write.Chunks.OrderBy(x => x.Ordinal))
             {
-                document.Chunks.Add(new DocumentChunk(chunk.Id, write.DepotId, document.Id, write.WorkspaceId, chunk.Ordinal, chunk.HeadingPath, chunk.Content, chunk.ContentHash, write.Now));
+                reconciledChunks.Add(existingByOrdinal.TryGetValue(chunk.Ordinal, out var existing) &&
+                    existing.ContentHash == chunk.ContentHash && existing.HeadingPath == chunk.HeadingPath
+                    ? existing
+                    : new DocumentChunk(chunk.Id, write.DepotId, document.Id, write.WorkspaceId, chunk.Ordinal, chunk.HeadingPath, chunk.Content, chunk.ContentHash, write.Now));
             }
+
+            var retainedIds = reconciledChunks.Select(chunk => chunk.Id).ToHashSet();
+            db.DocumentChunks.RemoveRange(existingChunks.Where(chunk => !retainedIds.Contains(chunk.Id)));
+            document.Chunks.Clear();
+            foreach (var chunk in reconciledChunks) document.Chunks.Add(chunk);
+            var existingEntities = existingChunks.ToHashSet();
+            db.DocumentChunks.AddRange(reconciledChunks.Where(chunk => !existingEntities.Contains(chunk)));
+            document.Reconcile(write.Title, write.ContentHash, write.Now);
 
             await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
@@ -62,8 +72,17 @@ public sealed class DocumentRepository(ContextDepotDbContext db) : IDocumentRepo
         }
         catch (DbUpdateException)
         {
-            await transaction.RollbackAsync(cancellationToken);
+            await transaction.RollbackAsync(CancellationToken.None);
+            // A database rollback does not discard the pending entity changes.
+            // The repair worker must be able to record failure and continue safely.
+            db.ChangeTracker.Clear();
             throw new ContextDepotApplicationException(ApplicationErrorCodes.DocumentWriteFailed);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            db.ChangeTracker.Clear();
+            throw;
         }
     }
 

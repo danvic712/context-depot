@@ -116,6 +116,7 @@ public sealed class WorkspaceRepository(
             var currentPath = string.Empty;
             var segments = normalizedPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
             Workspace? result = null;
+            var createdWorkspaceIds = new HashSet<Guid>();
             foreach (var segment in segments)
             {
                 currentPath = currentPath.Length == 0 ? segment : currentPath + "/" + segment;
@@ -133,7 +134,8 @@ public sealed class WorkspaceRepository(
                 }
 
                 if (!workspaceAccess.HasUnrestrictedAccess &&
-                    (parentId is null || !workspaceAccess.CanAccess(parentId.Value)))
+                    (parentId is null ||
+                     (!workspaceAccess.CanAccess(parentId.Value) && !createdWorkspaceIds.Contains(parentId.Value))))
                 {
                     return new WorkspaceUpsertPersistenceResult(null, WorkspaceUpsertPersistenceOutcome.ParentNotFound);
                 }
@@ -158,6 +160,7 @@ public sealed class WorkspaceRepository(
                 }
 
                 workspaces.Add(workspace);
+                createdWorkspaceIds.Add(workspace.Id);
                 byPath[currentPath] = workspace;
                 parentId = workspace.Id;
                 result = workspace;
@@ -165,12 +168,15 @@ public sealed class WorkspaceRepository(
 
             await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+            if (workspaceAccess is ContextDepot.Infrastructure.CurrentDepot.CurrentDepotAccessContext currentAccess)
+                currentAccess.IncludeCreatedWorkspaces(createdWorkspaceIds);
             topologyProvider.Invalidate(depotId);
             return new WorkspaceUpsertPersistenceResult(result, WorkspaceUpsertPersistenceOutcome.Created);
         }
         catch (DbUpdateException)
         {
-            await transaction.RollbackAsync(cancellationToken);
+            await transaction.RollbackAsync(CancellationToken.None);
+            db.ChangeTracker.Clear();
             return new WorkspaceUpsertPersistenceResult(null, WorkspaceUpsertPersistenceOutcome.ConcurrencyConflict);
         }
     }
