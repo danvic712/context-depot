@@ -23,6 +23,7 @@ import {
 } from "../ui/dropdown-menu";
 import type { Lang } from "@/lib/i18n";
 import type { Theme } from "@/features/settings/browser-preferences";
+import { SearchShortcut } from "@/components/content/SearchShortcut";
 import "@/styles/header.css";
 
 interface Props {
@@ -151,7 +152,7 @@ export function Header({
           >
             <SearchIcon data-icon="inline-start" aria-hidden="true" />
             <span className="header-search-label">{t("searchButton")}</span>
-            <kbd className="header-search-shortcut">⌘ / Ctrl K</kbd>
+            <SearchShortcut className="header-search-shortcut" />
           </Button>
         )}
         <PreferenceMenu

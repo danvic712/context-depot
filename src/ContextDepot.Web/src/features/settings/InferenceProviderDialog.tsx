@@ -7,6 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Field,
   FieldLabel,
   FieldDescription,
@@ -17,20 +24,23 @@ import { SubmitButton } from "@/components/content/SubmitButton";
 import {
   saveInferenceProvider,
   validateInferenceProviderDraft,
-  applyInferenceProviderPreset,
   type InferenceProvider,
   type InferenceProviderDraft,
   type InferenceProviderSettings,
   type InferenceModelDraft,
+  type InferenceRoute,
 } from "./settings-api";
+import { connectInferenceProviderDraft } from "./inference-connections";
 
 export function InferenceProviderDialog({
   provider,
+  capability,
   settings,
   onClose,
   onSaved,
 }: {
   provider?: InferenceProvider;
+  capability?: InferenceRoute["capability"];
   settings: InferenceProviderSettings;
   onClose: () => void;
   onSaved: () => void;
@@ -55,22 +65,32 @@ export function InferenceProviderDialog({
       timeoutSeconds: selected ? route.timeoutSeconds : 30,
     };
   }
-  const [draft, setDraft] = useState<InferenceProviderDraft>({
-    id: provider?.id ?? null,
-    kind: provider?.kind ?? "openai",
-    name: provider?.name ?? "OpenAI",
-    endpoint:
-      provider?.endpoint ??
-      (provider
-        ? ""
-        : (settings.presets.find((preset) => preset.kind === "openai")!
-            .endpoint ?? "")),
-    apiKey: "",
-    updatedAt: provider?.updatedAt ?? null,
-    embedding: modelDraft("embedding"),
-    chat: modelDraft("chat"),
-    embeddingUpdatedAt: embedding.updatedAt,
-    chatUpdatedAt: chat.updatedAt,
+  const [draft, setDraft] = useState<InferenceProviderDraft>(() => {
+    const initial: InferenceProviderDraft = {
+      id: provider?.id ?? null,
+      kind: provider?.kind ?? "openai",
+      name: provider?.name ?? "OpenAI",
+      endpoint:
+        provider?.endpoint ??
+        (provider
+          ? ""
+          : (settings.presets.find((preset) => preset.kind === "openai")!
+              .endpoint ?? "")),
+      apiKey: "",
+      updatedAt: provider?.updatedAt ?? null,
+      embedding: modelDraft("embedding"),
+      chat: modelDraft("chat"),
+      embeddingUpdatedAt: embedding.updatedAt,
+      chatUpdatedAt: chat.updatedAt,
+    };
+    return provider
+      ? initial
+      : connectInferenceProviderDraft(
+          initial,
+          settings.presets.find((preset) => preset.kind === "openai")!,
+          settings,
+          capability,
+        );
   });
   const [pending, setPending] = useState(false);
   const [invalid, setInvalid] = useState<string[]>([]);
@@ -167,6 +187,9 @@ export function InferenceProviderDialog({
       max: 300,
     },
   ] as const;
+  const capabilities: InferenceRoute["capability"][] = capability
+    ? [capability]
+    : ["embedding", "chat"];
   const profileChanged =
     draft.embedding.enabled &&
     !!embedding.model &&
@@ -189,9 +212,14 @@ export function InferenceProviderDialog({
             ? provider.hasApiKey
               ? "settingsEditProvider"
               : "settingsConfigureProviderTitle"
-            : "settingsAddProvider",
+            : capability
+              ? "settingsConfigureCapability"
+              : "settingsConnectProvider",
+          { capability: capability === "embedding" ? "Embedding" : "Chat" },
         )}
-        description={t("settingsProviderDialogWhy")}
+        description={t(
+          capability ? "settingsConnectModelWhy" : "settingsProviderDialogWhy",
+        )}
         closeLabel={t("cancel")}
         pending={pending}
         error={failure ? t(failure) : undefined}
@@ -217,7 +245,7 @@ export function InferenceProviderDialog({
         }
       >
         <fieldset className="settings-provider-picker" disabled={pending}>
-          <legend>{t("settingsProviderType")}</legend>
+          <legend id="provider-kind-label">{t("settingsProviderType")}</legend>
           {provider ? (
             <p className="settings-provider-type-summary">
               <strong>
@@ -234,42 +262,46 @@ export function InferenceProviderDialog({
               </span>
             </p>
           ) : (
-            <div className="settings-provider-options">
-              {settings.presets.map((option) => (
-                <label
-                  key={option.kind}
-                  data-selected={draft.kind === option.kind}
-                >
-                  <input
-                    type="radio"
-                    name="provider-kind"
-                    value={option.kind}
-                    checked={draft.kind === option.kind}
-                    onChange={() => {
-                      setDraft((value) =>
-                        applyInferenceProviderPreset(value, option),
-                      );
-                      setInvalid([]);
-                      setFailure(undefined);
-                    }}
-                  />
-                  <span>
-                    <strong>
+            <Select
+              value={draft.kind}
+              disabled={pending}
+              onValueChange={(kind) => {
+                const option = settings.presets.find(
+                  (item) => item.kind === kind,
+                )!;
+                setDraft((value) =>
+                  connectInferenceProviderDraft(
+                    value,
+                    option,
+                    settings,
+                    capability,
+                  ),
+                );
+                setInvalid([]);
+                setFailure(undefined);
+              }}
+            >
+              <SelectTrigger
+                className="w-full"
+                aria-labelledby="provider-kind-label"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {settings.presets
+                  .filter(
+                    (option) =>
+                      capability !== "embedding" || option.supportsEmbedding,
+                  )
+                  .map((option) => (
+                    <SelectItem key={option.kind} value={option.kind}>
                       {option.kind === "custom"
                         ? t("settingsProviderCustom")
                         : option.name}
-                    </strong>
-                    <span>
-                      {t(
-                        option.supportsEmbedding
-                          ? "settingsProviderBothCapabilities"
-                          : "settingsProviderChatCapability",
-                      )}
-                    </span>
-                  </span>
-                </label>
-              ))}
-            </div>
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
           )}
         </fieldset>
         <fieldset className="settings-provider-section" disabled={pending}>
@@ -355,11 +387,13 @@ export function InferenceProviderDialog({
         </fieldset>
         <fieldset className="settings-provider-section" disabled={pending}>
           <legend>{t("settingsProviderModels")}</legend>
-          <p className="settings-provider-section-hint">
-            {t("settingsProviderModelsHint")}
-          </p>
+          {!capability && (
+            <p className="settings-provider-section-hint">
+              {t("settingsProviderModelsHint")}
+            </p>
+          )}
           <div className="settings-provider-model-editor">
-            {(["embedding", "chat"] as const).map((capability) => {
+            {capabilities.map((capability) => {
               const current = capability === "embedding" ? embedding : chat;
               const supported =
                 capability === "chat" || preset.supportsEmbedding;

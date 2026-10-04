@@ -4,22 +4,14 @@ import { Link, useLocation } from "react-router";
 import { KnowledgeSkeleton, WorkspaceSkeleton } from "./HomeSkeleton";
 import { WorkspaceCard } from "@/features/spaces/WorkspaceCard";
 import { NewSpaceCard } from "@/features/spaces/NewSpaceCard";
-import { knowledgeTypes } from "@/features/knowledge/knowledge-types";
+import {
+  knowledgeTypes,
+  knowledgeKindLabels,
+} from "@/features/knowledge/knowledge-types";
 import { CreateWorkspaceDialog } from "./CreateWorkspaceDialog";
 import type { KnowledgeSummary, WorkspaceSummary } from "./home-api";
 import { RequestFeedback } from "@/components/feedback/RequestFeedback";
 import type { RequestFailure } from "@/lib/request-failure";
-import type { Messages } from "@/lib/i18n";
-
-const kindKeys = {
-  fact: "homeKindFact",
-  preference: "homeKindPreference",
-  decision: "homeKindDecision",
-  goal: "homeKindGoal",
-  state: "homeKindState",
-  event: "homeKindEvent",
-  observation: "homeKindObservation",
-} as const satisfies Record<string, keyof Messages>;
 export function CollectionError({
   onRetry,
   failure,
@@ -129,11 +121,16 @@ export function RecentKnowledge({
                 <Icon aria-hidden="true" />
               </span>
               <div className="home-knowledge-copy">
-                <strong>{item.title}</strong>
-                <span>
-                  {item.workspace.path}
-                  <i aria-hidden="true">·</i>
-                  {t(item.kind ? kindKeys[item.kind] : "homeDocument")}
+                <strong title={item.title}>{item.title}</strong>
+                <span className="home-knowledge-meta">
+                  <code title={item.workspace.path}>{item.workspace.path}</code>
+                  <span className="home-knowledge-kind">
+                    {t(
+                      item.kind
+                        ? knowledgeKindLabels[item.kind]
+                        : "homeDocument",
+                    )}
+                  </span>
                   {item.indexStatus && item.indexStatus !== "indexed" && (
                     <em>
                       {t(

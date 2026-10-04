@@ -8,18 +8,18 @@
   flex-direction: column;
   background: var(--navigation);
   border-right: 1px solid var(--border);
-  padding: 22px 12px 18px;
+  padding: 18px 10px;
   z-index: 5;
 }
 
 .rail-brand {
-  min-height: 56px;
+  min-height: 52px;
   flex-shrink: 0;
   display: flex;
   justify-content: center;
   align-items: flex-start;
   border-bottom: 1px solid var(--border);
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .rail-brand-link {
@@ -52,7 +52,7 @@
   border: 0;
   background: transparent;
   color: var(--muted);
-  min-height: 68px;
+  min-height: 64px;
   border-radius: var(--radius-card);
   display: flex;
   flex-direction: column;
@@ -60,11 +60,12 @@
   justify-content: center;
   gap: 6px;
   padding: 8px 3px;
-  font-size: 11px;
+  font-size: 12px;
   text-decoration: none;
   transition:
-    background-color 0.18s ease,
-    opacity 0.18s ease;
+    background-color var(--motion-normal) ease,
+    color var(--motion-normal) ease,
+    opacity var(--motion-normal) ease;
 }
 
 .rail-link:hover,
@@ -79,7 +80,7 @@
 .rail-link.selected::before {
   content: "";
   position: absolute;
-  left: -12px;
+  left: -10px;
   width: 3px;
   height: 24px;
   border-radius: 0 3px 3px 0;
@@ -139,7 +140,7 @@
     flex: 1;
     min-width: 0;
     min-height: 54px;
-    font-size: 10px;
+    font-size: 11px;
     gap: 3px;
   }
   .rail-link svg {

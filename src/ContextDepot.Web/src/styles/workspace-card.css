@@ -16,7 +16,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  min-height: 208px;
+  min-height: 196px;
   min-width: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
@@ -32,7 +32,7 @@
 }
 a.space-card:hover,
 .space-create-card:hover {
-  background: var(--elevated);
+  background: var(--row-hover);
   border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
   transform: translateY(-2px);
 }
@@ -66,25 +66,12 @@ a.space-card:active,
   height: 20px;
   stroke-width: 1.6;
 }
-.space-child-count {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-left: auto;
-  font-size: 10px;
-  color: var(--muted);
-}
-.space-child-count svg {
-  width: 13px;
-  height: 13px;
-  flex-shrink: 0;
-}
 .space-card h3,
 .space-create-card > strong {
   font-size: 15px;
   font-weight: 600;
   line-height: 24px;
-  margin: 16px 0 8px;
+  margin: 12px 0 6px;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
@@ -96,19 +83,19 @@ a.space-card:active,
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  min-height: 36px;
+  min-height: 42px;
   overflow: hidden;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.65;
-  margin: 0 0 16px;
+  margin: 0 0 12px;
   overflow-wrap: anywhere;
 }
 .space-card-footer {
   position: relative;
   margin-top: auto;
   border-top: 1px solid var(--border);
-  padding-top: 12px;
+  padding-top: 10px;
   padding-right: 16px;
 }
 .space-card-path,

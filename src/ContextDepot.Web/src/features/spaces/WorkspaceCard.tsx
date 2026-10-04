@@ -1,4 +1,4 @@
-import { ChevronRightIcon, FolderIcon, FolderTreeIcon } from "lucide-react";
+import { ChevronRightIcon, FolderIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,7 +8,7 @@ import "@/styles/workspace-card.css";
 type Workspace = Pick<
   WorkspaceSummary,
   "id" | "name" | "description" | "path" | "contextCount" | "documentCount"
-> & { subspaceCount?: number };
+>;
 
 export function WorkspaceCounts({
   space,
@@ -42,7 +42,7 @@ export function WorkspaceCard({
   space: Workspace;
   navigation: "home" | "spaces";
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const location = useLocation();
   return (
     <Link
@@ -54,17 +54,6 @@ export function WorkspaceCard({
         <span className="space-card-icon">
           <FolderIcon aria-hidden="true" />
         </span>
-        {!!space.subspaceCount && (
-          <span className="space-child-count">
-            <FolderTreeIcon aria-hidden="true" />
-            {t("spacesSubspaceCount", {
-              count: space.subspaceCount,
-              value: new Intl.NumberFormat(i18n.resolvedLanguage).format(
-                space.subspaceCount,
-              ),
-            })}
-          </span>
-        )}
       </div>
       <h3 title={space.name}>{space.name}</h3>
       <p

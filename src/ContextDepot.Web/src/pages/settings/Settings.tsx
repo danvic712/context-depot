@@ -14,7 +14,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useAppContext } from "@/hooks/use-app-context";
 import type { Lang } from "@/lib/i18n";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ThemeOptions } from "@/features/settings/ThemeOptions";
 import { AppSelect } from "@/components/ui/AppSelect";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/content/PageHeader";
@@ -66,7 +66,9 @@ export function Settings() {
         setActive("about");
         return;
       }
-      const offset = 180;
+      const offset = window.matchMedia("(max-width: 740px)").matches
+        ? 160
+        : 180;
       let next: string = "appearance";
       for (const [id] of sections) {
         if (
@@ -108,6 +110,15 @@ export function Settings() {
       window.removeEventListener("keydown", cancelRestore);
     };
   }, []);
+  useEffect(() => {
+    const nav = document.querySelector<HTMLElement>(".section-nav");
+    const link = nav?.querySelector<HTMLElement>("[aria-current]");
+    if (nav && link && nav.scrollWidth > nav.clientWidth)
+      nav.scrollTo({
+        left: link.offsetLeft - (nav.clientWidth - link.offsetWidth) / 2,
+        behavior: "instant",
+      });
+  }, [active]);
   return (
     <>
       <PageHeader
@@ -139,28 +150,11 @@ export function Settings() {
             <div className="settings-appearance-grid">
               <Field>
                 <FieldLabel>{t("theme")}</FieldLabel>
-                <ToggleGroup
-                  type="single"
-                  className="settings-theme-options"
+                <ThemeOptions
                   value={theme}
-                  disabled={appearancePending}
-                  aria-label={t("theme")}
-                  onValueChange={(value) => {
-                    if (
-                      value === "light" ||
-                      value === "dark" ||
-                      value === "system"
-                    )
-                      onTheme(value);
-                  }}
-                >
-                  {(["light", "dark", "system"] as const).map((value) => (
-                    <ToggleGroupItem key={value} value={value}>
-                      {t(value)}
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-                <FieldDescription>{t("deploymentDefault")}</FieldDescription>
+                  pending={appearancePending}
+                  onChange={onTheme}
+                />
               </Field>
               <Field>
                 <FieldLabel htmlFor="lang-select">{t("language")}</FieldLabel>
@@ -175,9 +169,11 @@ export function Settings() {
                     { value: "en", label: "English" },
                   ]}
                 />
-                <FieldDescription>
-                  {t(languagePending ? "loading" : "deploymentDefault")}
-                </FieldDescription>
+                {languagePending && (
+                  <FieldDescription role="status">
+                    {t("loading")}
+                  </FieldDescription>
+                )}
               </Field>
             </div>
           </SettingsSection>

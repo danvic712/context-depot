@@ -60,8 +60,8 @@
     transform var(--motion-fast) ease;
 }
 .top-controls [data-slot="button"] {
-  height: 36px;
-  font-size: 12px;
+  height: var(--control-height);
+  font-size: 13px;
 }
 
 .preference-trigger:active:not(:disabled) {
@@ -83,7 +83,7 @@
 }
 
 .preference-option {
-  min-height: 36px;
+  min-height: var(--control-height);
   transition:
     background-color var(--motion-fast) ease,
     color var(--motion-fast) ease;
@@ -159,8 +159,11 @@
 
 .header-search-shortcut {
   color: var(--muted);
-  font-size: 11px;
-  font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-compact);
+  background: var(--subtle);
+  padding: 1px 5px;
+  font: 11px/1.5 var(--font-ui);
 }
 @media (max-width: 800px) {
   .header-search-shortcut {

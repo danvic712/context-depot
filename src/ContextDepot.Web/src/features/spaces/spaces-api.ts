@@ -143,3 +143,14 @@ export function getSpaceKnowledge(
     },
   });
 }
+
+export function selectedSpaceKnowledge(
+  items: KnowledgeSummary[],
+  selected: string | null,
+  spaceId: string,
+) {
+  return items.find(
+    (item) =>
+      `${item.type}:${item.id}` === selected && item.workspace.id === spaceId,
+  );
+}

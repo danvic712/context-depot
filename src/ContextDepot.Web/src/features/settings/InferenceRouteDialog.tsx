@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/field";
 import { FormDialog } from "@/components/content/FormDialog";
 import { SubmitButton } from "@/components/content/SubmitButton";
+import { PlusIcon } from "lucide-react";
+import { availableInferenceProviders } from "./inference-connections";
 import {
   saveInferenceRoute,
   validateInferenceRouteDraft,
@@ -33,11 +35,13 @@ export function InferenceRouteDialog({
   route,
   settings,
   onClose,
+  onConnect,
   onSaved,
 }: {
   route: InferenceRoute;
   settings: InferenceProviderSettings;
   onClose: () => void;
+  onConnect: () => void;
   onSaved: () => void;
 }) {
   const { t } = useTranslation();
@@ -57,12 +61,14 @@ export function InferenceRouteDialog({
   const form = useRef<HTMLFormElement>(null);
   const request = useRef<AbortController | null>(null);
   useEffect(() => () => request.current?.abort(), []);
-  const providers = settings.providers.filter(
-    (provider) =>
-      route.capability === "chat" ||
-      settings.presets.find((preset) => preset.kind === provider.kind)
-        ?.supportsEmbedding,
+  const providers = availableInferenceProviders(settings, route.capability);
+  const currentProvider = settings.providers.find(
+    (provider) => provider.id === route.providerId,
   );
+  const choices =
+    currentProvider && !providers.includes(currentProvider)
+      ? [currentProvider, ...providers]
+      : providers;
   const selected = providers.find(
     (provider) => provider.id === draft.providerId,
   );
@@ -171,7 +177,9 @@ export function InferenceRouteDialog({
         }
       >
         <Field data-invalid={invalid.includes("providerId")}>
-          <FieldLabel htmlFor="route-provider">Provider</FieldLabel>
+          <FieldLabel htmlFor="route-provider">
+            {t("settingsProviderType")}
+          </FieldLabel>
           <Select
             value={draft.providerId ?? "unconfigured"}
             disabled={pending}
@@ -199,7 +207,7 @@ export function InferenceRouteDialog({
               <SelectItem value="unconfigured">
                 {t("settingsState_unconfigured")}
               </SelectItem>
-              {providers.map((provider) => (
+              {choices.map((provider) => (
                 <SelectItem
                   key={provider.id}
                   value={provider.id}
@@ -213,6 +221,17 @@ export function InferenceRouteDialog({
               ))}
             </SelectContent>
           </Select>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="settings-connect-another"
+            disabled={pending}
+            onClick={onConnect}
+          >
+            <PlusIcon aria-hidden="true" />
+            {t("settingsConnectAnotherProvider")}
+          </Button>
           <FieldDescription id="route-provider-hint">
             {selected?.endpoint ?? t("settingsRouteProviderHint")}
           </FieldDescription>

@@ -3,9 +3,9 @@ import { useSearchParams } from "react-router";
 import { useRequestResource } from "@/hooks/use-request-resource";
 import { getSpaceDirectory } from "./spaces-api";
 
-export function useSpaceDirectory(parentId?: string) {
+export function useSpaceDirectory(parentId?: string, pageKey = "page") {
   const [params, setParams] = useSearchParams();
-  const requestedPage = Number(params.get("page") ?? 1);
+  const requestedPage = Number(params.get(pageKey) ?? 1);
   const page =
     Number.isSafeInteger(requestedPage) &&
     requestedPage > 0 &&
@@ -24,9 +24,9 @@ export function useSpaceDirectory(parentId?: string) {
   );
   function changePage(value: number) {
     const next = new URLSearchParams(params);
-    if (value === 1) next.delete("page");
-    else next.set("page", String(value));
-    setParams(next);
+    if (value === 1) next.delete(pageKey);
+    else next.set(pageKey, String(value));
+    setParams(next, { preventScrollReset: true });
   }
   return {
     ...resource,

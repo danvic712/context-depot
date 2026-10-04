@@ -22,12 +22,12 @@ export function KnowledgeSkeleton() {
     <div className="home-knowledge-list" aria-hidden="true">
       {Array.from({ length: 3 }, (_, index) => (
         <div className="home-knowledge-row" key={index}>
-          <Skeleton className="size-10 shrink-0" />
+          <Skeleton className="home-knowledge-icon" />
           <div className="home-knowledge-copy">
             <Skeleton className="mb-3 h-4 w-2/3" />
             <Skeleton className="h-3 w-1/2" />
           </div>
-          <Skeleton className="h-3 w-12 shrink-0" />
+          <Skeleton className="home-knowledge-time-skeleton h-3 w-12" />
         </div>
       ))}
     </div>

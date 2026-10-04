@@ -2,6 +2,7 @@ import "@/styles/search-box.css";
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowRightIcon, SearchIcon, XIcon } from "lucide-react";
+import { SearchShortcut } from "@/components/content/SearchShortcut";
 import { Field, FieldGroup, FieldLabel } from "../../components/ui/field";
 import {
   InputGroup,
@@ -53,7 +54,7 @@ export function SearchBox({
               <SearchIcon aria-hidden="true" />
             </InputGroupAddon>
             <InputGroupAddon align="inline-end">
-              {home && <kbd className="home-search-shortcut">⌘ / Ctrl K</kbd>}
+              {home && <SearchShortcut className="home-search-shortcut" />}
               {input && (
                 <InputGroupButton
                   type="button"

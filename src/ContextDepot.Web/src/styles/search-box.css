@@ -20,6 +20,13 @@
 .search-input-group [data-slot="input-group-control"] {
   min-width: 0;
 }
+.search-input-group:has([data-slot="input-group-control"]:focus-visible) {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px var(--focus-soft);
+}
+.search-input-group [data-slot="input-group-control"]:focus-visible {
+  outline: none;
+}
 
 .search-input-group [data-slot="input-group-addon"] > svg {
   color: var(--primary);
@@ -28,5 +35,8 @@
 @media (max-width: 640px) {
   .search-input-group {
     min-height: 54px;
+  }
+  .search-input-group [data-slot="input-group-control"] {
+    font-size: 16px;
   }
 }

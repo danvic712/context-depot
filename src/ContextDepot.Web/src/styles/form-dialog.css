@@ -39,6 +39,7 @@
   overscroll-behavior: contain;
   padding: var(--space-6);
   background: var(--elevated);
+  scrollbar-width: thin;
 }
 .form-dialog-fields[data-slot="field-group"] {
   gap: var(--space-5);

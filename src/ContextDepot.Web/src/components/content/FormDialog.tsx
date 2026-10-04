@@ -1,4 +1,5 @@
 import type { ComponentProps, FormEventHandler, ReactNode, Ref } from "react";
+import { useRef } from "react";
 import {
   DialogContent,
   DialogDescription,
@@ -37,6 +38,7 @@ export function FormDialog({
   onSubmit?: FormEventHandler<HTMLFormElement>;
   formRef?: Ref<HTMLFormElement>;
 }) {
+  const returnFocus = useRef<HTMLElement | null>(null);
   const content = (
     <>
       <div className="form-dialog-body">
@@ -60,6 +62,18 @@ export function FormDialog({
       )}
       closeLabel={closeLabel}
       closeDisabled={pending}
+      onOpenAutoFocus={(event) => {
+        const active = document.activeElement;
+        returnFocus.current = active instanceof HTMLElement ? active : null;
+        props.onOpenAutoFocus?.(event);
+      }}
+      onCloseAutoFocus={(event) => {
+        props.onCloseAutoFocus?.(event);
+        if (!event.defaultPrevented && returnFocus.current?.isConnected) {
+          event.preventDefault();
+          returnFocus.current.focus({ preventScroll: true });
+        }
+      }}
       onEscapeKeyDown={(event) => {
         if (pending || preventDismiss) event.preventDefault();
       }}

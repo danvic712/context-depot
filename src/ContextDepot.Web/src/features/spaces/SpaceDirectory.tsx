@@ -1,8 +1,8 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef } from "react";
 import { ChevronLeftIcon, ChevronRightIcon, FolderIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { WorkspaceCard, WorkspaceCardSkeleton } from "./WorkspaceCard";
+import { WorkspaceRow, WorkspaceRowSkeleton } from "./WorkspaceRow";
 import { RequestFeedback } from "@/components/feedback/RequestFeedback";
 import {
   Empty,
@@ -13,12 +13,12 @@ import {
 } from "@/components/ui/empty";
 import type { useSpaceDirectory } from "./use-space-directory";
 
-export function SpaceGridSkeleton({ count = 4 }: { count?: number }) {
+export function SpaceListSkeleton({ count = 4 }: { count?: number }) {
   return (
     <>
       {Array.from({ length: count }, (_, i) => (
         <li key={i} aria-hidden="true">
-          <WorkspaceCardSkeleton />
+          <WorkspaceRowSkeleton />
         </li>
       ))}
     </>
@@ -27,23 +27,19 @@ export function SpaceGridSkeleton({ count = 4 }: { count?: number }) {
 
 export function SpaceDirectory({
   resource,
-  root = false,
-  creation,
 }: {
   resource: ReturnType<typeof useSpaceDirectory>;
-  root?: boolean;
-  creation?: ReactNode;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const data =
+    resource.error && !resource.error.retryable ? undefined : resource.data;
   const pages = Math.max(
     1,
-    Math.ceil(
-      (resource.data?.totalCount ?? 0) / (resource.data?.pageSize ?? 12),
-    ),
+    Math.ceil((data?.totalCount ?? 0) / (data?.pageSize ?? 12)),
   );
   const heading = useRef<HTMLHeadingElement>(null);
   const previousPage = useRef<number | undefined>(undefined);
-  const loadedPage = resource.data?.page;
+  const loadedPage = data?.page;
   useEffect(() => {
     if (loadedPage === undefined) return;
     if (
@@ -54,7 +50,7 @@ export function SpaceDirectory({
       heading.current?.focus({ preventScroll: true });
     previousPage.current = loadedPage;
   }, [loadedPage]);
-  const initial = !resource.data && resource.pending && !resource.error;
+  const initial = !data && resource.pending && !resource.error;
   return (
     <section
       className="space-directory"
@@ -63,11 +59,16 @@ export function SpaceDirectory({
     >
       <div className="spaces-section-heading">
         <h2 id="space-directory-title" ref={heading} tabIndex={-1}>
-          {t(root ? "spacesRootTitle" : "spacesChildrenTitle")}
+          {t("spacesAllSpaces")}
+          {data && (
+            <span className="spaces-directory-total">
+              {new Intl.NumberFormat(i18n.resolvedLanguage).format(
+                data.totalCount,
+              )}
+            </span>
+          )}
         </h2>
-        <span className="spaces-section-note">
-          {t(root ? "spacesRootLabel" : "spacesDirectoryOrder")}
-        </span>
+        <span className="spaces-section-note">{t("spacesDirectoryOrder")}</span>
       </div>
       {initial && (
         <span className="sr-only" role="status">
@@ -80,61 +81,54 @@ export function SpaceDirectory({
           failure={resource.error}
           onRetry={resource.refresh}
           pending={resource.pending}
-          stale={!!resource.data}
-          compact={!!resource.data}
+          stale={!!data}
+          compact={!!data}
         />
       )}
-      {resource.data?.totalCount === 0 && root && (
-        <div className="spaces-empty-note" role="status">
-          <strong>{t("spacesEmptyTitle")}</strong>
-          <p>{t("spacesEmptyDescription")}</p>
+      {data?.totalCount === 0 && (
+        <Empty className="spaces-empty">
+          <EmptyHeader>
+            <EmptyMedia className="spaces-empty-art">
+              <FolderIcon aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>
+              <h3>{t("spacesEmptyTitle")}</h3>
+            </EmptyTitle>
+            <EmptyDescription>{t("spacesEmptyDescription")}</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      )}
+      {data && !data.items.length && data.totalCount > 0 && (
+        <Empty className="spaces-empty">
+          <EmptyHeader>
+            <EmptyTitle>{t("spacesPageEmpty")}</EmptyTitle>
+            <EmptyDescription>
+              {t("spacesPageEmptyDescription")}
+            </EmptyDescription>
+          </EmptyHeader>
+          <Button variant="outline" onClick={() => resource.changePage(1)}>
+            {t("spacesFirstPage")}
+          </Button>
+        </Empty>
+      )}
+      {(initial || !!data?.items.length) && (
+        <div className="workspace-list-panel">
+          <div className="workspace-list-labels" aria-hidden="true">
+            <span>{t("spacesColumnSpace")}</span>
+            <span>{t("spacesColumnContents")}</span>
+            <span>{t("spacesActivity")}</span>
+          </div>
+          <ul className="workspace-list">
+            {initial && <SpaceListSkeleton />}
+            {data?.items.map((space) => (
+              <li key={space.id}>
+                <WorkspaceRow space={space} />
+              </li>
+            ))}
+          </ul>
         </div>
       )}
-      {resource.data &&
-        !resource.data.items.length &&
-        !root &&
-        resource.data.totalCount === 0 && (
-          <Empty className="spaces-empty">
-            <EmptyHeader>
-              <EmptyMedia className="spaces-empty-art">
-                <FolderIcon aria-hidden="true" />
-              </EmptyMedia>
-              <EmptyTitle>
-                <h3>{t("spacesChildrenEmptyTitle")}</h3>
-              </EmptyTitle>
-              <EmptyDescription>
-                {t("spacesChildrenEmptyDescription")}
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        )}
-      {resource.data &&
-        !resource.data.items.length &&
-        resource.data.totalCount > 0 && (
-          <Empty className="spaces-empty">
-            <EmptyHeader>
-              <EmptyTitle>{t("spacesPageEmpty")}</EmptyTitle>
-              <EmptyDescription>
-                {t("spacesPageEmptyDescription")}
-              </EmptyDescription>
-            </EmptyHeader>
-            <Button variant="outline" onClick={() => resource.changePage(1)}>
-              {t("spacesFirstPage")}
-            </Button>
-          </Empty>
-        )}
-      {(initial || resource.data?.items.length || creation) && (
-        <ul className="workspace-grid">
-          {initial && <SpaceGridSkeleton count={root ? 3 : 4} />}
-          {resource.data?.items.map((space) => (
-            <li key={space.id}>
-              <WorkspaceCard space={space} navigation="spaces" />
-            </li>
-          ))}
-          {creation && <li>{creation}</li>}
-        </ul>
-      )}
-      {resource.data && pages > 1 && (
+      {data && pages > 1 && (
         <nav className="spaces-pagination" aria-label={t("spacesPagination")}>
           <span role="status">
             {t("spacesPage", { page: resource.page, pages })}
