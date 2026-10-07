@@ -14,9 +14,11 @@ src/ContextDepot/wwwroot/
 tests/
 docs/
 README.md
+README.zh-CN.md
 AGENTS.md
 CONTEXT.md
 docker-compose*.yml
+docker-compose*.yaml
 
 # Application configuration is intentionally kept in the build context so the
 # published application retains its default settings. Secrets should be supplied

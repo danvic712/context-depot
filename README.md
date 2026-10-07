@@ -1,175 +1,137 @@
 # ContextDepot
 
-> A self-hosted durable context service for AI agents.
+[English](README.md) · [简体中文](README.zh-CN.md)
 
-ContextDepot provides AI agents with persistent, structured, and access-controlled context through the Model Context Protocol (MCP).
+ContextDepot is a self-hosted service that stores structured context and Markdown documents for agents. Agents read and write knowledge through MCP (Model Context Protocol), while a web interface provides browsing, search, and configuration.
 
-It combines structured memory with canonical Markdown, allowing agents to retain project knowledge, decisions, preferences, goals, events, and operational documentation across tasks and sessions.
+Project facts, preferences, decisions, goals, designs, and research notes can be saved and reused across tasks and conversations.
 
-## Why ContextDepot
+## Features
 
-AI agents often lose important context between tasks. Conversation history is temporary, while project knowledge and long-term decisions need to remain available, searchable, and properly scoped.
+- **Structured context**: save, retrieve, update, and archive facts, preferences, decisions, goals, states, and events.
+- **Markdown documents**: store and read complete designs, research notes, plans, and operating guides.
+- **Spaces**: organize context and documents by project or topic.
+- **Search**: find context and document excerpts through keyword, semantic, or hybrid retrieval.
+- **MCP integration**: load task-related context and save knowledge from compatible agent clients.
+- **Access keys**: control which spaces each client can access, update grants, and rotate or revoke keys.
+- **Web interface**: browse and read knowledge, create spaces, and manage settings. Supports English and Simplified Chinese, with light and dark themes.
 
-ContextDepot provides a durable context layer that separates:
+Configure an Embedding model in Inference settings to enable semantic search. Keyword search works without a model provider and remains available if semantic retrieval is unavailable.
 
-- Structured context for reusable facts, preferences, decisions, goals, states, and events.
-- Canonical Markdown for designs, ADRs, runbooks, research, and plans.
-- Derived indexes for efficient lexical, semantic, and hybrid retrieval.
+## Core concepts
 
-Structured context and Markdown remain the source of truth. Chunks and vector indexes are rebuildable retrieval data.
-
-## Core Capabilities
-
-- Persistent context for AI agents and automation clients.
-- Stateless Streamable HTTP MCP endpoint.
-- Hierarchical Workspaces for knowledge organization.
-- Depot-level access keys with explicit Workspace grants.
-- Context lifecycle management, including save, update, search, retrieve, and archive.
-- Canonical Markdown document storage.
-- Lexical, semantic, and hybrid retrieval.
-- Automatic lexical fallback when embeddings are unavailable.
-- Background repair of derived indexes.
-- Source and sensitive-data checks during writes.
-- Structured retrieval results that remain data rather than instructions.
-
-## Core Concepts
-
-| Concept | Description |
+| Concept | Meaning |
 | --- | --- |
-| Depot | The ownership boundary for related resources |
-| Workspace | A knowledge and access boundary inside a Depot |
-| Context | Reusable structured long-term information |
-| Document | Canonical Markdown content stored within a Workspace |
-| Access Key | A credential used by an MCP client |
-| Workspace Grant | An explicit permission connecting an Access Key to a Workspace |
+| Space | A grouping of context and documents for a project or topic; called a Workspace in MCP |
+| Context | A reusable piece of knowledge, such as a fact, preference, or decision |
+| Document | Longer content stored as a complete Markdown document |
+| Access key | A credential that lets an MCP client access authorized spaces |
 
-## MCP Tools
+## Deployment and usage
 
-| Tool | Purpose |
-| --- | --- |
-| `context_bootstrap` | Load task-relevant context and Markdown excerpts |
-| `context_save` | Save durable structured context |
-| `context_search` | Search structured context and Markdown |
-| `context_get` | Retrieve details for a known context item |
-| `context_archive` | Archive a context item |
-| `document_upsert` | Create or update a canonical Markdown document |
-| `document_get` | Read a canonical Markdown document |
-| `document_archive` | Archive a Markdown document |
-| `workspace_list` | List available Workspaces |
-| `workspace_upsert` | Create or update a Workspace |
-| `depot_get` | Read the current Depot profile |
+### 1. Run with Docker
 
-## Request Flow
+Install Docker and Docker Compose. The `danvic712/context-depot` image includes the web interface and application runtime, so .NET and Bun do not need to be installed separately.
 
-```text
-AI Agent
-   |
-   v
-MCP Endpoint
-   |
-   v
-Access Key Authentication
-   |
-   v
-Workspace Access Scope
-   |
-   v
-Structured Context + Canonical Markdown
-   |
-   v
-Lexical / Semantic / Hybrid Retrieval
-```
+Use [docker-compose.yaml](docker-compose.yaml) and [.env.example](.env.example) from the repository root. You can run them there or copy both files to a separate deployment directory.
 
-## HTTP Endpoints
-
-| Endpoint | Description |
-| --- | --- |
-| `/` | Home: live spaces, recent knowledge and root workspace creation |
-| `/search` | Search saved knowledge, filter results and read full content |
-| `/settings` | Appearance, storage/retrieval status, MCP access keys and Inference configuration |
-| `/setup` | First-run setup with Workspace, optional Inference and MCP access key, and review |
-| `GET /api/setup` | Installation status and the next setup step |
-| `GET /api/setup/inference` | Read model presets and metadata for the page draft |
-| `POST /api/setup/complete` | Atomically save the complete setup draft and permanently complete setup |
-| Workspace and standalone detail routes | Navigation and API availability notices |
-| `GET /api/workspaces` | Recent workspace summaries, `sort=-activityAt`, `limit=1..8` (default 3) |
-| `GET /api/knowledge` | Recent active knowledge summaries, `sort=-updatedAt`, `limit=1..20` (default 3) |
-| `POST /api/workspaces` | Create a root workspace; duplicate paths return 409 without updating existing data |
-| `GET /api/settings/overview` | Public storage status and current Depot vector coverage |
-| `GET/POST /api/settings/access-keys` | List key metadata or issue a key with explicit Workspace grants |
-| `PUT /api/settings/access-keys/{id}/grants` | Update Workspace access for an active key |
-| `POST /api/settings/access-keys/{id}/rotate` or `/revoke` | Atomically rotate a key or revoke it |
-| `GET /api/settings/inference/providers`, `PUT /api/settings/inference/providers` | Manage shared Inference providers; OpenAI, Azure OpenAI and DeepSeek are seeded without credentials |
-| `GET /api/settings/inference`, `PUT /api/settings/inference/{capability}` | Read or configure Inference Embedding and Chat routes |
-| `/mcp` | Stateless Streamable HTTP MCP endpoint |
-| `/healthz` | Process health check |
-| `/readyz` | Dependency and retrieval readiness check |
-
-MCP requests must include:
-
-```text
-X-ContextDepot-Key: cdk_<public-part>.<secret-part>
-```
-
-## Requirements
-
-- .NET 10
-- Bun 1.4.2 for frontend development and builds
-- PostgreSQL 17
-- pgvector
-- A writable Markdown storage location
-- An optional embedding provider for semantic retrieval
-
-Embedding is optional. When semantic retrieval is unavailable, ContextDepot continues to support lexical retrieval.
-
-## Web Development and Publishing
-
-Install frontend dependencies, then start the Host with its Web profile:
+Create your local configuration:
 
 ```sh
-bun install --frozen-lockfile --cwd src/ContextDepot.Web
-dotnet run --project src/ContextDepot --launch-profile http
+cp .env.example .env
 ```
 
-The Host requires its normal PostgreSQL and storage configuration. The HTTP profile starts Bun/Vite on port 5173 and redirects the browser from the Host on port 5289. The existing HTTP/HTTPS profiles continue to run the backend independently.
+In `.env`, set `POSTGRES_PASSWORD` to a long, randomly generated password containing only letters and numbers. You can also adjust these options:
 
-Publish the frontend and Host together:
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `CONTEXTDEPOT_VERSION` | `latest` | Application image tag |
+| `HTTP_PORT` | `8080` | Local port for the web interface and MCP |
+| `DATA_DIR` | `./data` | Parent directory for persistent data |
+
+Start the services and wait for the application to become healthy:
 
 ```sh
-dotnet publish src/ContextDepot/ContextDepot.csproj -c Release -p:BuildFrontend=true -o artifacts/publish
+docker compose up -d --wait
 ```
 
-Frontend assets are built into the Host's generated `wwwroot` directory and included in the publish output. Production only requires ASP.NET Core. The Docker build also builds and packages the frontend. Home reads real data and creates root workspaces. Search reads real results and document or Context content from the Web API. Workspace browsing and standalone knowledge detail pages retain their API availability notices.
+Compose waits for PostgreSQL, runs `database-init` to enable pgvector, and then starts ContextDepot. The initialization service exits after completing its work. ContextDepot creates the required database tables on startup.
 
-This iteration does not apply Web permissions. Set the server-side `ContextDepot:Web:DepotId` (environment variable `ContextDepot__Web__DepotId`) to the Depot shown in Home. If unset, the Host selects a Depot only when exactly one exists; an empty or ambiguous selection returns 503 with `web.depot_unavailable`. The client cannot supply a Depot ID. This Web selection does not change MCP access-key behavior.
+Open [http://localhost:8080](http://localhost:8080). If you changed `HTTP_PORT`, use that port in the web and MCP addresses below.
 
-Home reads metadata independently of semantic retrieval. Readiness reports storage and index coverage, and does not test model connectivity.
+The Compose configuration listens on localhost. For remote access, configure a reachable service address and protect access to the web interface in your deployment.
 
-Run PostgreSQL resource integration tests with `CONTEXTDEPOT_TEST_CONNECTION` set to a migrated test connection. Tests use isolated fixtures and roll back writes or remove their fixtures; these tests are skipped when the variable is unset.
+### 2. Complete the first-run guide
 
-## First Run
+1. **Create a space.** Choose a name and a path, such as `my-project`, and describe what belongs there.
+2. **Configure optional model services.** Set up an Embedding model for semantic search, or skip Inference and configure it later.
+3. **Create an MCP access key.** Give the key a recognizable name. You can also create keys later in Settings.
+4. **Review and finish.** If you created a key, copy it along with the connection details. The full key is shown only once.
 
-An empty installation opens a four-step sidebar wizard. Each step only updates an in-memory page draft; final confirmation atomically creates the Workspace and its internal Depot, saves the selected model settings, and optionally issues an MCP key. Inference and the MCP access key are optional and can be configured later in Settings. Theme and language controls remain available throughout setup.
+The guide saves all changes when you finish. Refreshing the page before then clears the draft.
 
-Drafts are not written to browser storage or the database; refresh clears them. Ordinary knowledge APIs, Settings writes and MCP remain gated until the final save completes. The newly issued MCP key is shown once after setup is saved; copy it before entering the app. If the final response is lost, check installation status before retrying, and recover the key in Settings if setup has already completed.
+### 3. Connect your agent
 
-Upgrading a database that already contains a Depot marks setup complete and preserves existing resources. Completed installations never reopen setup after resources are deleted. Database connections, Markdown storage and the Data Protection key ring remain deployment-managed. If an empty installation preselects `ContextDepot:Web:DepotId`, it must be a UUID v7.
+In a compatible MCP client, select **Streamable HTTP**, enter `http://localhost:8080/mcp` as the server address, and set the `X-ContextDepot-Key` request header to your access key.
 
-## Security Model
+For clients that use an `mcpServers` configuration, add:
 
-Access keys are stored using a public key prefix and a cryptographic hash rather than the original secret.
+```json
+{
+  "mcpServers": {
+    "contextdepot": {
+      "url": "http://localhost:8080/mcp",
+      "headers": {
+        "X-ContextDepot-Key": "<YOUR_ACCESS_KEY>"
+      }
+    }
+  }
+}
+```
 
-MCP requests are restricted to the Workspaces explicitly granted to their Access Key. Retrieved context is returned as application data and does not receive instruction priority.
+Replace `<YOUR_ACCESS_KEY>` with your key. If the client runs on another machine, replace `localhost:8080` with your service's reachable address. Configuration formats vary by client; you can adapt the connection example provided by the setup guide.
 
-The Web UI, setup and Settings management APIs use the existing trusted deployment boundary, without a user login system. The Host selects one Depot through `ContextDepot:Web:DepotId`, or automatically when only one Depot exists. MCP keys do not grant management access. Management writes require `X-ContextDepot-Management: web` to prevent cross-site form submissions; this header is not an authentication credential.
+In **Settings → Access keys**, grant the key access to each space the client should use. Add a grant whenever you create another space that the client needs to access.
 
-New and rotated MCP secrets are returned once. Inference provider API keys are encrypted with Data Protection and never returned by read APIs. Embedding changes prepare isolated derived collections before saving and refresh the running profile. Embedding and Chat independently reference their selected provider; changing one route preserves the other. Chat configuration is stored for later use; the current app does not provide chat features. Configuration activation does not verify remote provider connectivity.
+### 4. Save and retrieve knowledge
 
-## Project Status
+Ask your connected agent to save or retrieve knowledge with requests like these. Replace `my-project` with your space path and provide the content you want to save:
 
-ContextDepot is under active development.
+> In the `my-project` space, remember this preference: review changes before merging and explain important tradeoffs.
 
-The current implementation focuses on durable context storage, Workspace-scoped access, MCP integration, retrieval, and reliable degradation when semantic dependencies are unavailable.
+> Save this project design as a Markdown document at `project-design.md` in the `my-project` space.
+
+> Before continuing work on `my-project`, retrieve the relevant decisions, preferences, and design documents from ContextDepot.
+
+Browse saved content in **Spaces**, or find context and documents with **Search**. Read the full content on the web, and use your connected agent to update or archive knowledge as the project changes.
+
+## Data and updates
+
+Both services store persistent data under `DATA_DIR`, which defaults to `./data` alongside the Compose file:
+
+| Directory | Contents |
+| --- | --- |
+| `data/postgresql` | PostgreSQL database files |
+| `data/context-depot` | Markdown documents, logs, and encryption keys |
+
+The directories are created on startup. To make a consistent filesystem backup, stop the services before copying the entire data directory. Saved Inference credentials require the original encryption keys.
+
+To stop the containers while keeping the data:
+
+```sh
+docker compose down
+```
+
+After backing up your data, pull the application image and recreate its container:
+
+```sh
+docker compose pull context-depot
+docker compose up -d --wait context-depot
+```
+
+To pin an application version, set `CONTEXTDEPOT_VERSION` in `.env` to a published release tag. Container logs use automatic rotation, with up to three files of 10 MB each per container.
+
+If the application does not start, view its logs with `docker compose logs context-depot`.
 
 ## License
 

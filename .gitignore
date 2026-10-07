@@ -11,6 +11,9 @@
 *.sln.docstates
 *.env
 
+# Container runtime data
+/data/
+
 # Local project documentation and agent context
 /docs/
 CONTEXT.md
