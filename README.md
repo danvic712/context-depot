@@ -31,11 +31,13 @@ Configure an Embedding model in Inference settings to enable semantic search. Ke
 
 ### 1. Run with Docker
 
-Install Docker and Docker Compose. The `danvic712/context-depot` image includes the web interface and application runtime, so .NET and Bun do not need to be installed separately.
+Install Docker. The `danvic712/context-depot` image includes the web interface and application runtime, so .NET and Bun do not need to be installed separately. Choose Docker Compose to start the application and database together, or run the application image against an existing database.
 
-Use [docker-compose.yaml](docker-compose.yaml) and [.env.example](.env.example) from the repository root. You can run them there or copy both files to a separate deployment directory.
+#### Option A: Docker Compose
 
-Create your local configuration:
+Install Docker Compose and use [docker-compose.yaml](docker-compose.yaml) and [.env.example](.env.example) from the repository root. You can run them there or copy both files to a separate deployment directory.
+
+Create your configuration:
 
 ```sh
 cp .env.example .env
@@ -46,8 +48,17 @@ In `.env`, set `POSTGRES_PASSWORD` to a long, randomly generated password contai
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `CONTEXTDEPOT_VERSION` | `latest` | Application image tag |
-| `HTTP_PORT` | `8080` | Local port for the web interface and MCP |
+| `HTTP_PORT` | `8080` | Server port for the web interface and MCP |
 | `DATA_DIR` | `./data` | Parent directory for persistent data |
+
+To access the service through your server's IP or domain, replace the `context-depot` service's `ports` entry in `docker-compose.yaml` with:
+
+```yaml
+ports:
+  - "${HTTP_PORT:-8080}:8080"
+```
+
+This publishes the port on the server's network interfaces. Protect access to the web interface in your deployment. If you use a reverse proxy, configure the port mapping to match your setup.
 
 Start the services and wait for the application to become healthy:
 
@@ -57,9 +68,40 @@ docker compose up -d --wait
 
 Compose waits for PostgreSQL, runs `database-init` to enable pgvector, and then starts ContextDepot. The initialization service exits after completing its work. ContextDepot creates the required database tables on startup.
 
-Open [http://localhost:8080](http://localhost:8080). If you changed `HTTP_PORT`, use that port in the web and MCP addresses below.
+#### Option B: Run the image directly
 
-The Compose configuration listens on localhost. For remote access, configure a reachable service address and protect access to the web interface in your deployment.
+Use this option if you already have PostgreSQL 17 with pgvector installed. Prepare a database and a user with permission to create the application's tables. In that database, enable the extension before starting ContextDepot:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
+```
+
+Replace `<DB_HOST>`, `<DB_NAME>`, `<DB_USER>`, and `<DB_PASSWORD>` below with your database connection details. `<DB_HOST>` must be an IP or hostname reachable from the application container; adjust port `5432` if needed.
+
+Run these commands on the server in your deployment directory:
+
+```sh
+mkdir -p data/context-depot
+
+docker run -d \
+  --name context-depot \
+  --restart unless-stopped \
+  --publish 8080:8080 \
+  --env ASPNETCORE_ENVIRONMENT=Production \
+  --env 'ConnectionStrings__ContextDepot=Host=<DB_HOST>;Port=5432;Database=<DB_NAME>;Username=<DB_USER>;Password=<DB_PASSWORD>' \
+  --env DataProtection__KeyRingPath=/home/context-depot/keys \
+  --mount "type=bind,source=$(pwd)/data/context-depot,target=/home/context-depot" \
+  --log-driver local \
+  --log-opt max-size=10m \
+  --log-opt max-file=3 \
+  danvic712/context-depot:latest
+```
+
+The application creates its database tables on startup and stores documents, logs, and encryption keys in `data/context-depot`. Replace `latest` with a published release tag to pin the image version. To change the server port, change the first `8080` in `--publish 8080:8080`.
+
+#### Access the service
+
+Open `http://<SERVER_IP_OR_DOMAIN>:8080`. In every web and MCP address in this guide, replace `<SERVER_IP_OR_DOMAIN>` with your server's IP or domain, such as `192.168.1.100` or `context.example.com`. Use the port you published; if your reverse proxy provides HTTPS, use its HTTPS address instead.
 
 ### 2. Complete the first-run guide
 
@@ -72,7 +114,7 @@ The guide saves all changes when you finish. Refreshing the page before then cle
 
 ### 3. Connect your agent
 
-In a compatible MCP client, select **Streamable HTTP**, enter `http://localhost:8080/mcp` as the server address, and set the `X-ContextDepot-Key` request header to your access key.
+In a compatible MCP client, select **Streamable HTTP**, enter `http://<SERVER_IP_OR_DOMAIN>:8080/mcp` as the server address, and set the `X-ContextDepot-Key` request header to your access key.
 
 For clients that use an `mcpServers` configuration, add:
 
@@ -80,7 +122,7 @@ For clients that use an `mcpServers` configuration, add:
 {
   "mcpServers": {
     "contextdepot": {
-      "url": "http://localhost:8080/mcp",
+      "url": "http://<SERVER_IP_OR_DOMAIN>:8080/mcp",
       "headers": {
         "X-ContextDepot-Key": "<YOUR_ACCESS_KEY>"
       }
@@ -89,7 +131,7 @@ For clients that use an `mcpServers` configuration, add:
 }
 ```
 
-Replace `<YOUR_ACCESS_KEY>` with your key. If the client runs on another machine, replace `localhost:8080` with your service's reachable address. Configuration formats vary by client; you can adapt the connection example provided by the setup guide.
+Replace `<SERVER_IP_OR_DOMAIN>` with your server's IP or domain and `<YOUR_ACCESS_KEY>` with your key. Use the same service address and port as the web interface, including HTTPS if configured. Configuration formats vary by client; you can adapt the connection example provided by the setup guide.
 
 In **Settings → Access keys**, grant the key access to each space the client should use. Add a grant whenever you create another space that the client needs to access.
 
@@ -107,16 +149,16 @@ Browse saved content in **Spaces**, or find context and documents with **Search*
 
 ## Data and updates
 
-Both services store persistent data under `DATA_DIR`, which defaults to `./data` alongside the Compose file:
+For Docker Compose deployments, both services store persistent data under `DATA_DIR`, which defaults to `./data` alongside the Compose file:
 
 | Directory | Contents |
 | --- | --- |
 | `data/postgresql` | PostgreSQL database files |
 | `data/context-depot` | Markdown documents, logs, and encryption keys |
 
-The directories are created on startup. To make a consistent filesystem backup, stop the services before copying the entire data directory. Saved Inference credentials require the original encryption keys.
+The directories are created on startup. The direct `docker run` example uses `data/context-depot` for application data; back up its external PostgreSQL database separately. To make a consistent filesystem backup, stop the services before copying the entire data directory. Saved Inference credentials require the original encryption keys.
 
-To stop the containers while keeping the data:
+For a Compose deployment, stop the containers while keeping the data:
 
 ```sh
 docker compose down
@@ -129,9 +171,11 @@ docker compose pull context-depot
 docker compose up -d --wait context-depot
 ```
 
-To pin an application version, set `CONTEXTDEPOT_VERSION` in `.env` to a published release tag. Container logs use automatic rotation, with up to three files of 10 MB each per container.
+For a Compose deployment, pin an application version by setting `CONTEXTDEPOT_VERSION` in `.env` to a published release tag. Both deployment examples enable automatic container log rotation, with up to three files of 10 MB each per container.
 
-If the application does not start, view its logs with `docker compose logs context-depot`.
+For a container started with `docker run`, stop it with `docker stop context-depot` and view its logs with `docker logs context-depot`. To update it after backing up your data, pull the chosen image tag, remove the stopped container with `docker rm context-depot`, and repeat the `docker run` command using the same data directory.
+
+If the application does not start in a Compose deployment, view its logs with `docker compose logs context-depot`.
 
 ## License
 

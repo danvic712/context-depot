@@ -31,11 +31,13 @@ ContextDepot 是一个可自行部署的上下文与文档服务，用于为智�
 
 ### 1. 使用 Docker 启动
 
-先安装 Docker 和 Docker Compose。`danvic712/context-depot` 镜像已包含网页界面和应用运行环境，无需另外安装 .NET 或 Bun。
+先安装 Docker。`danvic712/context-depot` 镜像已包含网页界面和应用运行环境，无需另外安装 .NET 或 Bun。可以使用 Docker Compose 一起启动应用与数据库，也可以直接运行应用镜像，连接已有数据库。
 
-使用仓库根目录的 [docker-compose.yaml](docker-compose.yaml) 和 [.env.example](.env.example)。可以直接在仓库根目录运行，也可以将两个文件复制到独立的部署目录。
+#### 方式一：Docker Compose
 
-创建本地配置文件：
+安装 Docker Compose，并使用仓库根目录的 [docker-compose.yaml](docker-compose.yaml) 和 [.env.example](.env.example)。可以直接在仓库根目录运行，也可以将两个文件复制到独立的部署目录。
+
+创建配置文件：
 
 ```sh
 cp .env.example .env
@@ -46,8 +48,17 @@ cp .env.example .env
 | 变量 | 默认值 | 用途 |
 | --- | --- | --- |
 | `CONTEXTDEPOT_VERSION` | `latest` | 应用镜像的版本标签 |
-| `HTTP_PORT` | `8080` | 网页和 MCP 使用的本机端口 |
+| `HTTP_PORT` | `8080` | 网页和 MCP 使用的服务器端口 |
 | `DATA_DIR` | `./data` | 持久化数据的父目录 |
+
+需要通过服务器 IP 或域名访问时，将 `docker-compose.yaml` 中 `context-depot` 服务的 `ports` 配置替换为：
+
+```yaml
+ports:
+  - "${HTTP_PORT:-8080}:8080"
+```
+
+这样会在服务器的网络接口上开放该端口，请在部署环境中保护网页的访问。如果使用反向代理，请根据实际部署方式配置端口映射。
 
 启动服务，并等待应用通过健康检查：
 
@@ -57,9 +68,40 @@ docker compose up -d --wait
 
 Compose 会等待 PostgreSQL 就绪，运行 `database-init` 启用 pgvector，再启动 ContextDepot。初始化服务完成后退出，ContextDepot 会在启动时创建所需的数据表。
 
-打开 [http://localhost:8080](http://localhost:8080)。如果修改了 `HTTP_PORT`，请在网页和下方的 MCP 地址中使用对应端口。
+#### 方式二：直接运行镜像
 
-该 Compose 配置默认只监听本机地址。需要远程访问时，请配置可访问的服务地址，并在部署环境中保护网页的访问。
+如果已有安装了 pgvector 的 PostgreSQL 17，可以使用此方式。先准备数据库和有权限创建应用数据表的用户，并在该数据库中启用扩展，再启动 ContextDepot：
+
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
+```
+
+将下方的 `<DB_HOST>`、`<DB_NAME>`、`<DB_USER>` 和 `<DB_PASSWORD>` 替换为实际数据库连接信息。`<DB_HOST>` 必须是应用容器可以访问的 IP 或主机名；数据库端口不是 `5432` 时，也需要修改对应端口。
+
+在服务器的部署目录中执行：
+
+```sh
+mkdir -p data/context-depot
+
+docker run -d \
+  --name context-depot \
+  --restart unless-stopped \
+  --publish 8080:8080 \
+  --env ASPNETCORE_ENVIRONMENT=Production \
+  --env 'ConnectionStrings__ContextDepot=Host=<DB_HOST>;Port=5432;Database=<DB_NAME>;Username=<DB_USER>;Password=<DB_PASSWORD>' \
+  --env DataProtection__KeyRingPath=/home/context-depot/keys \
+  --mount "type=bind,source=$(pwd)/data/context-depot,target=/home/context-depot" \
+  --log-driver local \
+  --log-opt max-size=10m \
+  --log-opt max-file=3 \
+  danvic712/context-depot:latest
+```
+
+应用会在启动时创建数据表，并将文档、日志和加密密钥保存到 `data/context-depot`。需要固定镜像版本时，将 `latest` 替换为已发布的版本标签。需要修改服务器端口时，调整 `--publish 8080:8080` 中的第一个 `8080`。
+
+#### 访问服务
+
+打开 `http://<SERVER_IP_OR_DOMAIN>:8080`。本文所有网页和 MCP 地址中的 `<SERVER_IP_OR_DOMAIN>` 都需要替换为你的服务器 IP 或域名，例如 `192.168.1.100` 或 `context.example.com`。请使用实际映射的端口；如果反向代理提供 HTTPS，请改用对应的 HTTPS 地址。
 
 ### 2. 完成首次使用向导
 
@@ -72,7 +114,7 @@ Compose 会等待 PostgreSQL 就绪，运行 `database-init` 启用 pgvector，�
 
 ### 3. 连接智能体
 
-在兼容的 MCP 客户端中选择 **Streamable HTTP**，填写服务地址 `http://localhost:8080/mcp`，并添加请求头 `X-ContextDepot-Key`，值为你的访问密钥。
+在兼容的 MCP 客户端中选择 **Streamable HTTP**，填写服务地址 `http://<SERVER_IP_OR_DOMAIN>:8080/mcp`，并添加请求头 `X-ContextDepot-Key`，值为你的访问密钥。
 
 对于使用 `mcpServers` 配置的客户端，可以添加：
 
@@ -80,7 +122,7 @@ Compose 会等待 PostgreSQL 就绪，运行 `database-init` 启用 pgvector，�
 {
   "mcpServers": {
     "contextdepot": {
-      "url": "http://localhost:8080/mcp",
+      "url": "http://<SERVER_IP_OR_DOMAIN>:8080/mcp",
       "headers": {
         "X-ContextDepot-Key": "<YOUR_ACCESS_KEY>"
       }
@@ -89,7 +131,7 @@ Compose 会等待 PostgreSQL 就绪，运行 `database-init` 启用 pgvector，�
 }
 ```
 
-将 `<YOUR_ACCESS_KEY>` 替换为你的密钥。如果客户端运行在另一台设备上，请将 `localhost:8080` 替换为可访问的服务地址。不同客户端的配置格式可能有所区别，可以参考首次使用向导提供的连接示例进行调整。
+将 `<SERVER_IP_OR_DOMAIN>` 替换为你的服务器 IP 或域名，将 `<YOUR_ACCESS_KEY>` 替换为你的密钥。请使用与网页相同的服务地址和端口，如果已配置 HTTPS，也需要使用 HTTPS 地址。不同客户端的配置格式可能有所区别，可以参考首次使用向导提供的连接示例进行调整。
 
 在**设置 → 访问密钥**中，为密钥授权客户端需要使用的空间。之后新建空间时，也需要为相关客户端添加授权。
 
@@ -107,16 +149,16 @@ Compose 会等待 PostgreSQL 就绪，运行 `database-init` 启用 pgvector，�
 
 ## 数据与更新
 
-两个服务的持久化数据统一放在 `DATA_DIR` 下，默认是 Compose 文件所在目录的 `./data`：
+使用 Docker Compose 部署时，两个服务的持久化数据统一放在 `DATA_DIR` 下，默认是 Compose 文件所在目录的 `./data`：
 
 | 目录 | 保存内容 |
 | --- | --- |
 | `data/postgresql` | PostgreSQL 数据库文件 |
 | `data/context-depot` | Markdown 文档、日志和加密密钥 |
 
-这些目录会在启动时创建。使用文件复制方式备份时，请先停止服务，再备份整个数据目录，以保持数据一致。读取已保存的 Inference 凭证需要原有的加密密钥。
+这些目录会在启动时创建。直接运行 `docker run` 示例时，应用数据保存在 `data/context-depot`，外部 PostgreSQL 数据库需要单独备份。使用文件复制方式备份时，请先停止服务，再备份整个数据目录，以保持数据一致。读取已保存的 Inference 凭证需要原有的加密密钥。
 
-停止容器并保留数据：
+使用 Compose 部署时，停止容器并保留数据：
 
 ```sh
 docker compose down
@@ -129,9 +171,11 @@ docker compose pull context-depot
 docker compose up -d --wait context-depot
 ```
 
-需要固定应用版本时，在 `.env` 中将 `CONTEXTDEPOT_VERSION` 设置为已发布的版本标签。容器日志会自动轮转，每个容器最多保留 3 个日志文件，每个文件不超过 10 MB。
+使用 Compose 部署时，如需固定应用版本，在 `.env` 中将 `CONTEXTDEPOT_VERSION` 设置为已发布的版本标签。两种部署示例都启用了容器日志自动轮转，每个容器最多保留 3 个日志文件，每个文件不超过 10 MB。
 
-应用无法启动时，可通过 `docker compose logs context-depot` 查看日志。
+通过 `docker run` 启动的容器，可以使用 `docker stop context-depot` 停止，使用 `docker logs context-depot` 查看日志。备份数据后，如需更新，先拉取目标版本的镜像，用 `docker rm context-depot` 删除已停止的容器，再使用相同的数据目录重新执行 `docker run` 命令。
+
+使用 Compose 部署时，应用无法启动可通过 `docker compose logs context-depot` 查看日志。
 
 ## 许可证
 
