@@ -9,30 +9,59 @@ permissions:
   contents: read
   packages: write
 
-concurrency:
-  group: docker-image-${{ github.event.release.tag_name }}
-  cancel-in-progress: false
-
 env:
   DOCKERHUB_IMAGE: danvic712/context-depot
   GHCR_IMAGE: ghcr.io/danvic712/context-depot
 
 jobs:
-  docker:
-    name: Build and publish multi-architecture image
+  resolve:
+    name: Validate release version
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
+    timeout-minutes: 5
+    outputs:
+      app_version: ${{ steps.version.outputs.app_version }}
+      channel: ${{ steps.version.outputs.channel }}
+      revision: ${{ steps.version.outputs.revision }}
     steps:
       - name: Check out release tag
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event.release.tag_name }}
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+      - name: Resolve release version
+        id: version
+        run: dotnet run --file scripts/release.cs -- resolve
+
+  docker:
+    name: Build and publish multi-architecture image
+    needs: resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: docker-image-${{ needs.resolve.outputs.app_version }}
+      cancel-in-progress: false
+    outputs:
+      dockerhub_digest: ${{ steps.digest.outputs.dockerhub_digest }}
+      ghcr_digest: ${{ steps.digest.outputs.ghcr_digest }}
+
+    steps:
+      - name: Check out validated release commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve.outputs.revision }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         with:
           platforms: all
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -51,6 +80,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install registry copy tool
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes skopeo
+
+      - name: Reuse or repair existing release images
+        id: prepare
+        run: dotnet run --file scripts/release.cs -- prepare
+
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v6
@@ -60,9 +98,13 @@ jobs:
             ${{ env.GHCR_IMAGE }}
           tags: |
             type=raw,value=${{ github.event.release.tag_name }}
-            type=raw,value=latest
+          flavor: latest=false
+          labels: |
+            org.opencontainers.image.version=${{ needs.resolve.outputs.app_version }}
+            org.opencontainers.image.revision=${{ needs.resolve.outputs.revision }}
 
       - name: Build and push Docker image
+        if: steps.prepare.outputs.build_required == 'true'
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -71,5 +113,54 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          annotations: |
+            index:org.opencontainers.image.version=${{ needs.resolve.outputs.app_version }}
+            index:org.opencontainers.image.revision=${{ needs.resolve.outputs.revision }}
+          build-args: |
+            APP_VERSION=${{ needs.resolve.outputs.app_version }}
+            VCS_REF=${{ needs.resolve.outputs.revision }}
           cache-from: type=gha,scope=context-depot
           cache-to: type=gha,mode=max,scope=context-depot
+
+      - name: Verify and record published digests
+        id: digest
+        run: dotnet run --file scripts/release.cs -- record
+
+  promote-latest:
+    name: Promote current stable release to latest
+    needs: [resolve, docker]
+    if: needs.resolve.outputs.channel == 'stable'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: context-depot-latest
+      cancel-in-progress: false
+    steps:
+      - name: Check out validated release commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve.outputs.revision }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+      - name: Recheck latest Release and promote verified digests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCKERHUB_DIGEST: ${{ needs.docker.outputs.dockerhub_digest }}
+          GHCR_DIGEST: ${{ needs.docker.outputs.ghcr_digest }}
+        run: dotnet run --file scripts/release.cs -- promote

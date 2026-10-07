@@ -1,4 +1,3 @@
-using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using ContextDepot.Application.Settings.Contracts;
 using ContextDepot.Application.Settings.Dtos;
@@ -32,8 +31,7 @@ public sealed class SettingsOverviewRepository(ContextDepotDbContext db, FileSys
                 indexState = "unknown";
             }
         }
-        var version = typeof(SettingsOverviewRepository).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
         return new SettingsOverviewDto(depotName, databaseState, markdown.CanReadAndWrite() ? "available" : "unavailable",
-            semanticState, indexState, indexed, total, "/mcp", version);
+            semanticState, indexState, indexed, total, "/mcp");
     }
 }

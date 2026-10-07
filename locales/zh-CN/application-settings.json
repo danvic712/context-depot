@@ -31,8 +31,6 @@
   "help": "连接说明",
   "helpWhy": "请使用部署管理员提供的地址和访问密钥。访问密钥不会在此浏览器显示或保存。",
   "aboutWhy": "一个随时间整理有用上下文的个人知识系统。",
-  "version": "版本",
-  "versionMissing": "服务端未提供",
   "settingsKicker": "偏好 / 设置",
   "InvalidAppearanceTheme": "主题必须为 system、light 或 dark。",
   "InvalidAppearanceLanguage": "语言必须为 zh-CN 或 en-US。",

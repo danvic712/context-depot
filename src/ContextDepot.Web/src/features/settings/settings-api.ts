@@ -9,7 +9,6 @@ export interface SettingsOverview {
   indexedCount: number | null;
   totalCount: number | null;
   mcpPath: string;
-  version: string | null;
 }
 export interface AccessKey {
   id: string;
@@ -163,7 +162,6 @@ export function parseOverview(data: unknown): SettingsOverview {
     indexedCount: v.indexedCount === null ? null : number(v.indexedCount),
     totalCount: v.totalCount === null ? null : number(v.totalCount),
     mcpPath: string(v.mcpPath),
-    version: nullable(v.version),
   };
 }
 export function parseAccessKey(data: unknown): AccessKey {

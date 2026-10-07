@@ -27,6 +27,9 @@ import {
   CopySetting,
 } from "@/features/settings/SettingsStatus";
 import { getSettingsOverview } from "@/features/settings/settings-api";
+import { ApplicationVersion } from "@/components/meta/ApplicationVersion";
+import { getApplicationMeta } from "@/lib/meta-api";
+import { useRequestResource } from "@/hooks/use-request-resource";
 import { useSettingsResource } from "@/features/settings/use-settings-resource";
 import { SettingsSection } from "./SettingsSection";
 import "@/styles/settings.css";
@@ -51,6 +54,7 @@ export function Settings() {
   } = useAppContext();
   const { t } = useTranslation();
   const resource = useSettingsResource(getSettingsOverview, true);
+  const meta = useRequestResource("application-meta", 0, getApplicationMeta);
   const [active, setActive] = useState("appearance");
   const overview = resource.data;
   const endpoint = overview
@@ -363,11 +367,11 @@ export function Settings() {
                   {t("settingsDepot")}: <strong>{overview.depotName}</strong>
                 </span>
               )}
-              {overview?.version && (
-                <span>
-                  {t("version")}: <code>{overview.version.split("+")[0]}</code>
-                </span>
-              )}
+              <ApplicationVersion
+                version={meta.data?.version}
+                pending={meta.pending}
+                failed={!!meta.error}
+              />
               <Button variant="outline" size="sm" asChild>
                 <a
                   href="https://github.com/danvic712/context-depot"

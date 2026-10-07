@@ -1,0 +1,6 @@
+.application-version {
+  min-width: 0;
+}
+.application-version code {
+  overflow-wrap: anywhere;
+}

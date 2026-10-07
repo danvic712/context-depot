@@ -224,7 +224,6 @@ describe("Settings contracts", () => {
       indexedCount: null,
       totalCount: null,
       mcpPath: "/mcp",
-      version: null,
     };
     expect(parseOverview(overview).semanticState).toBe("unconfigured");
     expect(() =>

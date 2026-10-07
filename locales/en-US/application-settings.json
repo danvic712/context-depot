@@ -31,8 +31,6 @@
   "help": "Connection guidance",
   "helpWhy": "Use the endpoint and access key supplied by your deployment administrator. Access keys are never shown or stored in this browser.",
   "aboutWhy": "A personal knowledge system for useful context, organized over time.",
-  "version": "Version",
-  "versionMissing": "Not provided by server",
   "settingsKicker": "PREFERENCES / SETTINGS",
   "InvalidAppearanceTheme": "Theme must be system, light or dark.",
   "InvalidAppearanceLanguage": "Language must be zh-CN or en-US.",

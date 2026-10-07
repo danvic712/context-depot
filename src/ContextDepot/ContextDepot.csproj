@@ -32,12 +32,26 @@
 
     <!-- Opt in for local build/publish; CI and Docker build the frontend separately. -->
     <Target Name="BuildContextDepotFrontend"
-            BeforeTargets="PrepareForBuild;ComputeFilesToPublish"
+            BeforeTargets="ResolveProjectStaticWebAssets;PrepareForBuild;ComputeFilesToPublish"
+            DependsOnTargets="ValidateContextDepotVersion"
             Condition="'$(BuildFrontend)' == 'true' and '$(DesignTimeBuild)' != 'true'">
+        <PropertyGroup>
+            <_FrontendRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', 'wwwroot'))</_FrontendRoot>
+        </PropertyGroup>
+        <!-- Remove evaluated assets before Vite deletes obsolete hashed files. -->
+        <ItemGroup>
+            <Content Remove="@(Content)"
+                     Condition="$([System.String]::Copy('%(Content.FullPath)').StartsWith('$(_FrontendRoot)'))" />
+        </ItemGroup>
         <Exec Command="&quot;$(BunExecutable)&quot; install --frozen-lockfile"
               WorkingDirectory="$(MSBuildProjectDirectory)/$(SpaRoot)" />
         <Exec Command="&quot;$(BunExecutable)&quot; run --bun build"
+              EnvironmentVariables="VITE_APP_VERSION=$(AppVersion);RELEASE_BUILD=$(ReleaseBuild)"
               WorkingDirectory="$(MSBuildProjectDirectory)/$(SpaRoot)" />
+        <!-- Include the assets generated after project evaluation. -->
+        <ItemGroup>
+            <Content Include="wwwroot/**/*" CopyToPublishDirectory="PreserveNewest" />
+        </ItemGroup>
     </Target>
 
     <!-- Include newly generated assets even when wwwroot did not exist at project evaluation. -->

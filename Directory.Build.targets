@@ -1,0 +1,29 @@
+<Project>
+  <Target Name="ValidateContextDepotVersion"
+          BeforeTargets="Restore;PrepareForBuild;GetAssemblyVersion;GenerateAssemblyInfo;Publish"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <Error Condition="'$(ReleaseBuild)' != 'true' and '$(ReleaseBuild)' != 'false'"
+           Text="ReleaseBuild must be true or false." />
+    <Error Condition="'$(AppVersion)' == ''" Text="Release builds require an explicit AppVersion." />
+    <PropertyGroup>
+      <_ReleaseVersionMatch>$([System.Text.RegularExpressions.Regex]::Match('$(AppVersion)', '$(_ReleaseVersionPattern)').Value)</_ReleaseVersionMatch>
+    </PropertyGroup>
+    <Error Condition="'$(_ReleaseVersionMatch)' != '$(AppVersion)' and ('$(ReleaseBuild)' == 'true' or '$(AppVersion)' != '$(_DevelopmentVersion)')"
+           Text="AppVersion must be X.Y.Z or X.Y.Z-{alpha|beta|rc|preview}.N (N &gt;= 1). Release builds reject dev, v prefixes and build metadata." />
+    <Error Condition="$([System.String]::Copy('$(AppVersion)').Length) &gt; 127" Text="AppVersion is too long for a release tag." />
+    <PropertyGroup Condition="'$(AppVersion)' != '$(_DevelopmentVersion)'">
+      <_VersionMajor>$([System.Text.RegularExpressions.Regex]::Match('$(AppVersion)', '$(_ReleaseVersionPattern)').Groups[1].Value)</_VersionMajor>
+      <_VersionMinor>$([System.Text.RegularExpressions.Regex]::Match('$(AppVersion)', '$(_ReleaseVersionPattern)').Groups[2].Value)</_VersionMinor>
+      <_VersionPatch>$([System.Text.RegularExpressions.Regex]::Match('$(AppVersion)', '$(_ReleaseVersionPattern)').Groups[3].Value)</_VersionPatch>
+    </PropertyGroup>
+    <Error Condition="'$(AppVersion)' != '$(_DevelopmentVersion)' and ('$(_VersionMajor)' &gt; '$(_MaxAssemblyComponent)' or '$(_VersionMinor)' &gt; '$(_MaxAssemblyComponent)' or '$(_VersionPatch)' &gt; '$(_MaxAssemblyComponent)')"
+           Text="AppVersion components exceed the .NET assembly version limit." />
+    <Error Condition="'$(Version)' != '$(AppVersion)' or '$(InformationalVersion)' != '$(AppVersion)' or '$(IncludeSourceRevisionInInformationalVersion)' != 'false'"
+           Text="Version and InformationalVersion must equal AppVersion, with IncludeSourceRevisionInInformationalVersion=false." />
+  </Target>
+
+  <Target Name="VerifyContextDepotReleaseArtifacts" AfterTargets="Publish"
+          Condition="'$(ReleaseBuild)' == 'true' and '$(MSBuildProjectName)' == 'ContextDepot'">
+    <Exec Command="dotnet run --file &quot;$(MSBuildThisFileDirectory)scripts/release.cs&quot; -- verify-artifacts &quot;$(PublishDir)&quot; &quot;$(AppVersion)&quot;" />
+  </Target>
+</Project>

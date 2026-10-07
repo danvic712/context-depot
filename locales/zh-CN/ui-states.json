@@ -1,4 +1,8 @@
 {
+  "appVersion": "版本",
+  "appVersionMissing": "服务端未提供",
+  "appVersionLoading": "正在加载…",
+  "appVersionUnavailable": "暂不可用",
   "loading": "加载中",
   "retry": "重试",
   "pageLoadError": "页面无法加载",

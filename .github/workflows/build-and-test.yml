@@ -3,7 +3,7 @@ name: Build and test
 on:
   push:
     branches:
-      - '**'
+      - "**"
   pull_request:
 
 permissions:
@@ -29,12 +29,17 @@ jobs:
       - name: Set up .NET SDK
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: "10.0.x"
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.2
+
+      - name: Validate release tooling
+        run: |
+          dotnet build scripts/release.cs -o artifacts/release-tool
+          bun test tests/build
 
       - name: Validate and build frontend
         working-directory: src/ContextDepot.Web

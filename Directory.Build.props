@@ -7,5 +7,15 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AnalysisLevel>latest</AnalysisLevel>
     <Deterministic>true</Deterministic>
+    <_VersionPolicyFile>$(MSBuildThisFileDirectory)scripts/version.json</_VersionPolicyFile>
+    <_VersionPolicy>$([System.IO.File]::ReadAllText('$(_VersionPolicyFile)'))</_VersionPolicy>
+    <_DevelopmentVersion>$([System.Text.RegularExpressions.Regex]::Match('$(_VersionPolicy)', '&quot;developmentVersion&quot;\s*:\s*&quot;([^&quot;]+)&quot;').Groups[1].Value)</_DevelopmentVersion>
+    <_ReleaseVersionPattern>$([System.Text.RegularExpressions.Regex]::Unescape($([System.Text.RegularExpressions.Regex]::Match('$(_VersionPolicy)', '&quot;releaseVersionPattern&quot;\s*:\s*&quot;([^&quot;]+)&quot;').Groups[1].Value)))</_ReleaseVersionPattern>
+    <_MaxAssemblyComponent>$([System.Text.RegularExpressions.Regex]::Match('$(_VersionPolicy)', '&quot;maxAssemblyComponent&quot;\s*:\s*([0-9]+)').Groups[1].Value)</_MaxAssemblyComponent>
+    <ReleaseBuild Condition="'$(ReleaseBuild)' == ''">false</ReleaseBuild>
+    <AppVersion Condition="'$(AppVersion)' == '' and '$(ReleaseBuild)' != 'true'">$(_DevelopmentVersion)</AppVersion>
+    <Version>$(AppVersion)</Version>
+    <InformationalVersion>$(AppVersion)</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 </Project>
