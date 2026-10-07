@@ -14,13 +14,3 @@ public interface IAccessKeyRepository
     Task<AccessKeyDto?> SetGrantsAsync(Guid depotId, Guid id, IReadOnlyList<Guid> ids,
         DateTimeOffset now, CancellationToken cancellationToken);
 }
-
-public interface IAccessKeySecretGenerator
-{
-    GeneratedAccessKey Generate();
-}
-
-public sealed record GeneratedAccessKey(string Plaintext, string Prefix, string SecretHash)
-{
-    public override string ToString() => $"{nameof(GeneratedAccessKey)} {{ Secret = [REDACTED] }}";
-}

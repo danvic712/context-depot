@@ -28,6 +28,17 @@
   line-height: 1.6;
   margin: 0;
 }
+.form-dialog-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.form-dialog-title-row > svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--primary);
+}
 .form-dialog-form {
   min-height: 0;
   display: flex;

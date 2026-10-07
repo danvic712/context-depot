@@ -2,6 +2,15 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { isAxiosError } from "axios";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import {
+  EyeIcon,
+  EyeOffIcon,
+  PlugIcon,
+  ScanSearchIcon,
+  MessageSquareIcon,
+  SaveIcon,
+} from "lucide-react";
+import "@/styles/inference-dialog.css";
 import type { Messages } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,8 +31,6 @@ import {
 import { FormDialog } from "@/components/content/FormDialog";
 import { SubmitButton } from "@/components/content/SubmitButton";
 import {
-  getInferenceProviders,
-  saveInferenceProvider,
   validateInferenceProviderDraft,
   type InferenceProvider,
   type InferenceProviderSettings,
@@ -34,10 +41,16 @@ import { inferenceProviderDraft } from "./inference-drafts";
 import { SettingsConflictRecovery } from "./SettingsConflictRecovery";
 import { useSettingsConflictRecovery } from "./use-settings-conflict-recovery";
 
+import {
+  savedInferenceEditor,
+  type InferenceSettingsEditor,
+} from "./inference-settings-editor";
+
 export function InferenceProviderDialog({
   provider: initialProvider,
   capability,
   settings: initialSettings,
+  editor = savedInferenceEditor,
   onClose,
   onSaved,
   onRefresh,
@@ -45,6 +58,7 @@ export function InferenceProviderDialog({
   provider?: InferenceProvider;
   capability?: InferenceRoute["capability"];
   settings: InferenceProviderSettings;
+  editor?: InferenceSettingsEditor;
   onClose: () => void;
   onSaved: () => void;
   onRefresh: () => void;
@@ -63,7 +77,8 @@ export function InferenceProviderDialog({
     inferenceProviderDraft(provider, settings, capability),
   );
   const [saving, setSaving] = useState(false);
-  const recovery = useSettingsConflictRecovery(getInferenceProviders);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const recovery = useSettingsConflictRecovery(editor.load);
   const pending = saving || recovery.pending;
   const [invalid, setInvalid] = useState<string[]>([]);
   const [failure, setFailure] = useState<keyof Messages>();
@@ -97,12 +112,13 @@ export function InferenceProviderDialog({
     request.current = controller;
     setSaving(true);
     try {
-      const result = await saveInferenceProvider(draft, controller.signal);
+      const result = await editor.saveProvider(draft, controller.signal);
       if (controller.signal.aborted) return;
       const savedEmbedding = result.routes.find(
         (route) => route.capability === "embedding",
       );
-      if (
+      if (editor.isDraft) toast.success(t("setupDraftUpdated"));
+      else if (
         draft.embedding.enabled &&
         savedEmbedding &&
         !savedEmbedding.isApplied
@@ -184,6 +200,14 @@ export function InferenceProviderDialog({
       }}
     >
       <FormDialog
+        className="inference-config-dialog"
+        titleIcon={
+          capability === "embedding"
+            ? ScanSearchIcon
+            : capability === "chat"
+              ? MessageSquareIcon
+              : PlugIcon
+        }
         variant="wide"
         title={t(
           provider
@@ -193,7 +217,13 @@ export function InferenceProviderDialog({
             : capability
               ? "settingsConfigureCapability"
               : "settingsConnectProvider",
-          { capability: capability === "embedding" ? "Embedding" : "Chat" },
+          {
+            capability: t(
+              capability === "embedding"
+                ? "settingsEmbeddingTitle"
+                : "settingsChatTitle",
+            ),
+          },
         )}
         description={t(
           capability ? "settingsConnectModelWhy" : "settingsProviderDialogWhy",
@@ -215,12 +245,15 @@ export function InferenceProviderDialog({
               {t("cancel")}
             </Button>
             <SubmitButton
+              icon={SaveIcon}
               pending={pending}
               disabled={
                 failure === "settingsConflict" ||
                 failure === "settingsProviderRemoved"
               }
-              label={t("settingsSaveProvider")}
+              label={t(
+                editor.isDraft ? "setupApplyDraft" : "settingsSaveProvider",
+              )}
               pendingLabel={t("settingsSaving")}
             />
           </>
@@ -249,74 +282,77 @@ export function InferenceProviderDialog({
             }
           />
         )}
-        <fieldset className="settings-provider-picker" disabled={pending}>
-          <legend id="provider-kind-label">{t("settingsProviderType")}</legend>
-          {provider ? (
-            <p className="settings-provider-type-summary">
-              <strong>
-                {preset.kind === "custom"
-                  ? t("settingsProviderCustom")
-                  : preset.name}
-              </strong>
-              <span>
-                {t(
-                  preset.supportsEmbedding
-                    ? "settingsProviderBothCapabilities"
-                    : "settingsProviderChatCapability",
-                )}
-              </span>
-            </p>
-          ) : (
-            <Select
-              value={draft.kind}
-              disabled={pending}
-              onValueChange={(kind) => {
-                const option = settings.presets.find(
-                  (item) => item.kind === kind,
-                )!;
-                setDraft((value) =>
-                  connectInferenceProviderDraft(
-                    value,
-                    option,
-                    settings,
-                    capability,
-                  ),
-                );
-                setInvalid([]);
-                setFailure(undefined);
-              }}
-            >
-              <SelectTrigger
-                className="w-full"
-                aria-labelledby="provider-kind-label"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {settings.presets
-                  .filter(
-                    (option) =>
-                      capability !== "embedding" || option.supportsEmbedding,
-                  )
-                  .map((option) => (
-                    <SelectItem key={option.kind} value={option.kind}>
-                      {option.kind === "custom"
-                        ? t("settingsProviderCustom")
-                        : option.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          )}
-        </fieldset>
         <fieldset className="settings-provider-section" disabled={pending}>
           <legend>{t("settingsProviderConnection")}</legend>
           <FieldGroup className="settings-form-grid">
+            <fieldset className="settings-provider-picker" disabled={pending}>
+              <legend id="provider-kind-label">
+                {t("settingsProviderType")}
+              </legend>
+              {provider ? (
+                <p className="settings-provider-type-summary">
+                  <strong>
+                    {preset.kind === "custom"
+                      ? t("settingsProviderCustom")
+                      : preset.name}
+                  </strong>
+                  <span>
+                    {t(
+                      preset.supportsEmbedding
+                        ? "settingsProviderBothCapabilities"
+                        : "settingsProviderChatCapability",
+                    )}
+                  </span>
+                </p>
+              ) : (
+                <Select
+                  value={draft.kind}
+                  disabled={pending}
+                  onValueChange={(kind) => {
+                    const option = settings.presets.find(
+                      (item) => item.kind === kind,
+                    )!;
+                    setDraft((value) =>
+                      connectInferenceProviderDraft(
+                        value,
+                        option,
+                        settings,
+                        capability,
+                      ),
+                    );
+                    setInvalid([]);
+                    setFailure(undefined);
+                  }}
+                >
+                  <SelectTrigger
+                    className="w-full"
+                    aria-labelledby="provider-kind-label"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {settings.presets
+                      .filter(
+                        (option) =>
+                          capability !== "embedding" ||
+                          option.supportsEmbedding,
+                      )
+                      .map((option) => (
+                        <SelectItem key={option.kind} value={option.kind}>
+                          {option.kind === "custom"
+                            ? t("settingsProviderCustom")
+                            : option.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </fieldset>
             {common.map((field) => (
               <Field
                 key={field.key}
                 className={
-                  field.key === "apiKey" ? "settings-form-full" : undefined
+                  field.key !== "name" ? "settings-form-full" : undefined
                 }
                 data-invalid={invalid.includes(field.key)}
                 data-disabled={pending}
@@ -324,42 +360,73 @@ export function InferenceProviderDialog({
                 <FieldLabel htmlFor={`provider-${field.key}`}>
                   {field.label === "API Key" ? field.label : t(field.label)}
                 </FieldLabel>
-                <Input
-                  id={`provider-${field.key}`}
-                  type={field.type}
-                  value={draft[field.key]}
-                  placeholder={
-                    field.key === "endpoint"
-                      ? preset.endpointPlaceholder
+                <div
+                  className={
+                    field.key === "apiKey"
+                      ? "inference-secret-input"
                       : undefined
                   }
-                  disabled={pending}
-                  maxLength={field.max}
-                  autoComplete={
-                    field.type === "password" ? "new-password" : "off"
-                  }
-                  spellCheck={false}
-                  autoCapitalize="none"
-                  aria-invalid={invalid.includes(field.key)}
-                  aria-describedby={
-                    invalid.includes(field.key)
-                      ? `provider-${field.key}-error`
-                      : field.key === "apiKey"
-                        ? "provider-key-hint"
-                        : field.key === "endpoint"
-                          ? "provider-endpoint-hint"
-                          : undefined
-                  }
-                  onChange={(event) => {
-                    setInvalid((value) =>
-                      value.filter((key) => key !== field.key),
-                    );
-                    setDraft((value) => ({
-                      ...value,
-                      [field.key]: event.target.value,
-                    }));
-                  }}
-                />
+                >
+                  <Input
+                    id={`provider-${field.key}`}
+                    type={
+                      field.key === "apiKey" && showApiKey ? "text" : field.type
+                    }
+                    value={draft[field.key]}
+                    placeholder={
+                      field.key === "endpoint"
+                        ? preset.endpointPlaceholder
+                        : undefined
+                    }
+                    disabled={pending}
+                    maxLength={field.max}
+                    autoComplete={
+                      field.type === "password" ? "new-password" : "off"
+                    }
+                    spellCheck={false}
+                    autoCapitalize="none"
+                    aria-invalid={invalid.includes(field.key)}
+                    aria-describedby={
+                      invalid.includes(field.key)
+                        ? `provider-${field.key}-error`
+                        : field.key === "apiKey"
+                          ? "provider-key-hint"
+                          : field.key === "endpoint"
+                            ? "provider-endpoint-hint"
+                            : undefined
+                    }
+                    onChange={(event) => {
+                      setInvalid((value) =>
+                        value.filter((key) => key !== field.key),
+                      );
+                      setDraft((value) => ({
+                        ...value,
+                        [field.key]: event.target.value,
+                      }));
+                    }}
+                  />
+                  {field.key === "apiKey" && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      disabled={pending}
+                      aria-label={t(
+                        showApiKey
+                          ? "settingsHideApiKey"
+                          : "settingsShowApiKey",
+                      )}
+                      aria-pressed={showApiKey}
+                      onClick={() => setShowApiKey((value) => !value)}
+                    >
+                      {showApiKey ? (
+                        <EyeOffIcon aria-hidden="true" />
+                      ) : (
+                        <EyeIcon aria-hidden="true" />
+                      )}
+                    </Button>
+                  )}
+                </div>
                 {field.key === "endpoint" && (
                   <FieldDescription id="provider-endpoint-hint">
                     {t(

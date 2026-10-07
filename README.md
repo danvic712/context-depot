@@ -87,6 +87,10 @@ Lexical / Semantic / Hybrid Retrieval
 | `/` | Home: live spaces, recent knowledge and root workspace creation |
 | `/search` | Search saved knowledge, filter results and read full content |
 | `/settings` | Appearance, storage/retrieval status, MCP access keys and Inference configuration |
+| `/setup` | First-run setup with Workspace, optional Inference and MCP access key, and review |
+| `GET /api/setup` | Installation status and the next setup step |
+| `GET /api/setup/inference` | Read model presets and metadata for the page draft |
+| `POST /api/setup/complete` | Atomically save the complete setup draft and permanently complete setup |
 | Workspace and standalone detail routes | Navigation and API availability notices |
 | `GET /api/workspaces` | Recent workspace summaries, `sort=-activityAt`, `limit=1..8` (default 3) |
 | `GET /api/knowledge` | Recent active knowledge summaries, `sort=-updatedAt`, `limit=1..20` (default 3) |
@@ -143,13 +147,21 @@ Home reads metadata independently of semantic retrieval. Readiness reports stora
 
 Run PostgreSQL resource integration tests with `CONTEXTDEPOT_TEST_CONNECTION` set to a migrated test connection. Tests use isolated fixtures and roll back writes or remove their fixtures; these tests are skipped when the variable is unset.
 
+## First Run
+
+An empty installation opens a four-step sidebar wizard. Each step only updates an in-memory page draft; final confirmation atomically creates the Workspace and its internal Depot, saves the selected model settings, and optionally issues an MCP key. Inference and the MCP access key are optional and can be configured later in Settings. Theme and language controls remain available throughout setup.
+
+Drafts are not written to browser storage or the database; refresh clears them. Ordinary knowledge APIs, Settings writes and MCP remain gated until the final save completes. The newly issued MCP key is shown once after setup is saved; copy it before entering the app. If the final response is lost, check installation status before retrying, and recover the key in Settings if setup has already completed.
+
+Upgrading a database that already contains a Depot marks setup complete and preserves existing resources. Completed installations never reopen setup after resources are deleted. Database connections, Markdown storage and the Data Protection key ring remain deployment-managed. If an empty installation preselects `ContextDepot:Web:DepotId`, it must be a UUID v7.
+
 ## Security Model
 
 Access keys are stored using a public key prefix and a cryptographic hash rather than the original secret.
 
 MCP requests are restricted to the Workspaces explicitly granted to their Access Key. Retrieved context is returned as application data and does not receive instruction priority.
 
-The Web UI and Settings management APIs use the existing trusted deployment boundary, without a user login system. The Host selects one Depot through `ContextDepot:Web:DepotId`, or automatically when only one Depot exists. MCP keys do not grant Settings management access. Settings writes require `X-ContextDepot-Management: web` to prevent cross-site form submissions; this header is not an authentication credential.
+The Web UI, setup and Settings management APIs use the existing trusted deployment boundary, without a user login system. The Host selects one Depot through `ContextDepot:Web:DepotId`, or automatically when only one Depot exists. MCP keys do not grant management access. Management writes require `X-ContextDepot-Management: web` to prevent cross-site form submissions; this header is not an authentication credential.
 
 New and rotated MCP secrets are returned once. Inference provider API keys are encrypted with Data Protection and never returned by read APIs. Embedding changes prepare isolated derived collections before saving and refresh the running profile. Embedding and Chat independently reference their selected provider; changing one route preserves the other. Chat configuration is stored for later use; the current app does not provide chat features. Configuration activation does not verify remote provider connectivity.
 

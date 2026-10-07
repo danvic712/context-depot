@@ -1,0 +1,8 @@
+{
+  "SetupRequired": "Complete the initial setup before using this part of ContextDepot.",
+  "SetupConflict": "Initialization has changed or has already started with different values. Reload to continue.",
+  "SetupIncomplete": "Complete the earlier initialization steps before continuing.",
+  "SetupUnavailable": "Initialization resources or the server-selected Depot configuration are unavailable. Check the deployment configuration.",
+  "InvalidSetupWorkspace": "Enter a Workspace name of 1–200 characters, a root path of 1–100 lowercase letters, digits or hyphens, and a description of up to 2000 characters.",
+  "InvalidSetupStep": "Choose a valid initialization step."
+}

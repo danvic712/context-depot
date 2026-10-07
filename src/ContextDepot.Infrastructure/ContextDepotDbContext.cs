@@ -4,6 +4,7 @@ using ContextDepot.Domain.Documents;
 using ContextDepot.Domain.Depots;
 using ContextDepot.Domain.Inferences;
 using ContextDepot.Domain.Settings;
+using ContextDepot.Domain.Setup;
 using ContextDepot.Domain.Workspaces;
 using ContextDepot.Infrastructure.RuntimeConfiguration;
 using Microsoft.EntityFrameworkCore;
@@ -37,6 +38,8 @@ public sealed class ContextDepotDbContext(
 
     public DbSet<ApplicationSetting> ApplicationSettings => Set<ApplicationSetting>();
 
+    public DbSet<InstallationState> InstallationStates => Set<InstallationState>();
+
     public DbSet<InferenceProvider> InferenceProviders => Set<InferenceProvider>();
 
     public DbSet<InferenceRoute> InferenceRoutes => Set<InferenceRoute>();
@@ -51,6 +54,9 @@ public sealed class ContextDepotDbContext(
         modelBuilder.Entity<ContextItem>()
             .HasQueryFilter(context =>
                 HasUnrestrictedWorkspaceAccess || AccessibleWorkspaceIds.Contains(context.WorkspaceId));
+        modelBuilder.Entity<WorkspaceAccessGrant>()
+            .HasQueryFilter(grant =>
+                HasUnrestrictedWorkspaceAccess || NavigableWorkspaceIds.Contains(grant.WorkspaceId));
         modelBuilder.Entity<Document>()
             .HasQueryFilter(document =>
                 HasUnrestrictedWorkspaceAccess || AccessibleWorkspaceIds.Contains(document.WorkspaceId));

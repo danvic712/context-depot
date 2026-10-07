@@ -15,6 +15,8 @@ import {
   useLocation,
   useNavigate,
   useSearchParams,
+  useLoaderData,
+  useRevalidator,
 } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Lang } from "@/lib/i18n";
@@ -26,12 +28,23 @@ import type { AppContext, PageHandle } from "./hooks/use-app-context";
 import { normalizeKnowledgeParams } from "./features/knowledge/query-params";
 import { FeatureBoundary } from "./components/feedback/FeatureBoundary";
 import { SearchDialogFailure } from "./features/knowledge/SearchDialogFailure";
+import type { SetupGate } from "./features/setup/setup-loader";
+import type { SetupStatus } from "./features/setup/setup-api";
+import { SetupFrame } from "./features/setup/SetupFrame";
 
 const KnowledgeSearchDialog = lazy(
   () => import("./features/knowledge/KnowledgeSearchDialog"),
 );
 
 export default function App() {
+  const gate = useLoaderData<SetupGate | null>();
+  const revalidator = useRevalidator();
+  const [setupOverride, setSetupOverride] = useState<{
+    source: typeof gate;
+    status: SetupStatus;
+  }>();
+  const setup =
+    setupOverride?.source === gate ? setupOverride.status : gate?.status;
   const [searchDialog, setSearchDialog] = useState<{
     query: string;
     session: number;
@@ -98,6 +111,7 @@ export default function App() {
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        if (page === "setup" || gate?.error) return;
         e.preventDefault();
         if (!document.querySelector("[role=dialog]")) {
           if (page === "search")
@@ -108,7 +122,7 @@ export default function App() {
     };
     addEventListener("keydown", key);
     return () => removeEventListener("keydown", key);
-  }, [openSearch, page]);
+  }, [openSearch, page, gate?.error]);
   useEffect(() => {
     if (
       page === "search" &&
@@ -127,6 +141,48 @@ export default function App() {
     onTheme: changeTheme,
     onLanguage: changeLang,
   };
+  const appearanceFeedback = appearanceError && (
+    <RequestFeedback
+      className="appearance-error"
+      title={t("requestAppearanceError")}
+      description={t("requestAppearanceWhy")}
+      onRetry={refreshAppearance}
+      pending={appearanceRefreshPending}
+      compact
+    />
+  );
+  if (gate?.error || page === "setup") {
+    return (
+      <>
+        <ScrollRestoration />
+        <SetupFrame preferences={context} feedback={appearanceFeedback}>
+          {gate?.error ? (
+            <div className="setup-gate-error">
+              <h1>{t("setupCheckTitle")}</h1>
+              <RequestFeedback
+                title={t("setupCheckError")}
+                description={t("setupCheckWhy")}
+                failure={gate.error}
+                onRetry={() => revalidator.revalidate()}
+                pending={revalidator.state !== "idle"}
+              />
+            </div>
+          ) : (
+            setup && (
+              <Outlet
+                context={{
+                  ...context,
+                  setup,
+                  onSetupChanged: (status: SetupStatus) =>
+                    setSetupOverride({ source: gate, status }),
+                }}
+              />
+            )
+          )}
+        </SetupFrame>
+      </>
+    );
+  }
   return (
     <>
       {searchDialog && (
@@ -182,18 +238,7 @@ export default function App() {
             ? document.getElementById("knowledge-search")?.focus()
             : openSearch()
         }
-        feedback={
-          appearanceError && (
-            <RequestFeedback
-              className="appearance-error"
-              title={t("requestAppearanceError")}
-              description={t("requestAppearanceWhy")}
-              onRetry={refreshAppearance}
-              pending={appearanceRefreshPending}
-              compact
-            />
-          )
-        }
+        feedback={appearanceFeedback}
       >
         {navigation.state === "loading" ? (
           <RouteLoading

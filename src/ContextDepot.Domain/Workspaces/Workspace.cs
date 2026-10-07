@@ -60,4 +60,10 @@ public sealed class Workspace
         MetadataJson = metadataJson;
         UpdatedAt = now;
     }
+
+    public void UpdateDetails(string name, string slug, string? description, DateTimeOffset now)
+    {
+        Slug = slug;
+        Update(name, description, MetadataJson, now);
+    }
 }

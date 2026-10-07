@@ -4,12 +4,26 @@ import { Glob } from "bun";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Header } from "../../src/components/layout/Header";
-import { appRoutes } from "../../src/routes";
+import { appRoutes as productionRoutes } from "../../src/routes";
 import { AppLoading } from "../../src/components/feedback/RouteFeedback";
 import { initializeI18n } from "../../src/lib/i18n";
 import { KnowledgeEmptyState } from "../../src/features/home/KnowledgeEmptyState";
 import { WorkspaceTiles } from "../../src/features/home/HomeCollections";
 import type { WorkspaceSummary } from "../../src/features/home/home-api";
+
+// These route-layout tests use an existing installation; setup gating has its own API-boundary tests.
+const appRoutes = productionRoutes.map((route) => ({
+  ...route,
+  loader: () => ({
+    status: {
+      state: "completed",
+      workspace: null,
+      nextStep: "review",
+      mcpPath: "/mcp",
+    },
+    error: null,
+  }),
+}));
 
 const workspaces: WorkspaceSummary[] = [
   {

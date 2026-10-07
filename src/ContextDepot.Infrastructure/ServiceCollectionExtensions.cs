@@ -11,6 +11,7 @@ using ContextDepot.Application.Shared.Runtime.Contracts;
 using ContextDepot.Application.Workspaces.Contracts;
 using ContextDepot.Application.VectorIndex.Contracts;
 using ContextDepot.Application.Settings.Contracts;
+using ContextDepot.Application.Setup.Contracts;
 using ContextDepot.Infrastructure.Contracts;
 using ContextDepot.Infrastructure.RuntimeConfiguration;
 using ContextDepot.Infrastructure.CurrentDepot;
@@ -85,6 +86,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<VectorCoverageSnapshotProvider>();
         services.AddSingleton<VectorCoverageComputationGate>();
         services.AddScoped<IAppearanceSettingsRepository, AppearanceSettingsRepository>();
+        services.AddScoped<ISetupRepository, SetupRepository>();
         services.AddScoped<IAccessKeyRepository, AccessKeyRepository>();
         services.AddScoped<ISettingsOverviewRepository, SettingsOverviewRepository>();
         services.AddScoped<IInferenceSettingsRepository, InferenceSettingsRepository>();

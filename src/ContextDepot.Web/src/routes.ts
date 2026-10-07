@@ -9,6 +9,7 @@ import {
 import { PageNotFound } from "@/components/feedback/PageState";
 
 import type { PageHandle } from "@/hooks/use-app-context";
+import { setupLoader } from "@/features/setup/setup-loader";
 
 type PageRoute = RouteObject & { handle: PageHandle };
 
@@ -17,9 +18,24 @@ export const appRoutes: RouteObject[] = [
     id: "app",
     path: "/",
     Component: App,
+    loader: setupLoader,
+    shouldRevalidate: ({ currentUrl, nextUrl }) =>
+      currentUrl.pathname !== nextUrl.pathname ||
+      currentUrl.search === nextUrl.search,
     ErrorBoundary: RouteError,
     HydrateFallback: AppLoading,
     children: [
+      {
+        path: "setup",
+        id: "setup",
+        ErrorBoundary: PageRouteError,
+        handle: { page: "setup", title: "setupTitle", navigation: "home" },
+        lazy: lazyPage(() =>
+          import("./pages/setup/Setup").then(({ Setup }) => ({
+            Component: Setup,
+          })),
+        ),
+      },
       {
         index: true,
         id: "home",

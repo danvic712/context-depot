@@ -106,6 +106,7 @@ try
 
     app.UseExceptionHandler();
     app.UseMiddleware<DepotAccessKeyAuthenticationMiddleware>();
+    app.UseMiddleware<InstallationSetupMiddleware>();
     app.UseMiddleware<WebDepotContextMiddleware>();
     app.UseDefaultFiles();
     app.UseStaticFiles();

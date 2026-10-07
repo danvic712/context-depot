@@ -1,5 +1,6 @@
 import type { ComponentProps, FormEventHandler, ReactNode, Ref } from "react";
 import { useRef } from "react";
+import type { LucideIcon } from "lucide-react";
 import {
   DialogContent,
   DialogDescription,
@@ -13,6 +14,7 @@ import "@/styles/form-dialog.css";
 
 export function FormDialog({
   title,
+  titleIcon: TitleIcon,
   description,
   closeLabel,
   pending = false,
@@ -29,6 +31,7 @@ export function FormDialog({
   "title" | "closeDisabled" | "onEscapeKeyDown" | "onPointerDownOutside"
 > & {
   title: string;
+  titleIcon?: LucideIcon;
   description: string;
   pending?: boolean;
   preventDismiss?: boolean;
@@ -82,7 +85,10 @@ export function FormDialog({
       }}
     >
       <DialogHeader className="form-dialog-header">
-        <DialogTitle>{title}</DialogTitle>
+        <DialogTitle className="form-dialog-title-row">
+          {TitleIcon && <TitleIcon aria-hidden="true" />}
+          {title}
+        </DialogTitle>
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
       {onSubmit ? (

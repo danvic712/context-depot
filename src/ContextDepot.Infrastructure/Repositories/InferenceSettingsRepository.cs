@@ -1,5 +1,6 @@
 using ContextDepot.Application.DataProtection;
 using ContextDepot.Application.DataProtection.Enums;
+using ContextDepot.Application.Settings;
 using ContextDepot.Application.Settings.Contracts;
 using ContextDepot.Application.Settings.Dtos;
 using ContextDepot.Application.Shared.Exceptions;
@@ -26,7 +27,7 @@ public sealed class InferenceSettingsRepository(ContextDepotDbContext db, ISecre
         var providers = await db.InferenceProviders.AsNoTracking().OrderBy(provider => provider.Name)
             .ToArrayAsync(cancellationToken);
         return new(providers.Select(provider => new InferenceProviderDto(provider.Id, provider.Name, provider.ProtocolCode,
-            PublicEndpoint(provider.BaseUrl), !string.IsNullOrWhiteSpace(provider.ProtectedApiKey), provider.UpdatedAt, provider.Kind)).ToArray(),
+            InferenceConfigurationValidator.PublicEndpoint(provider.BaseUrl), !string.IsNullOrWhiteSpace(provider.ProtectedApiKey), provider.UpdatedAt, provider.Kind)).ToArray(),
             await GetAsync(cancellationToken));
     }
 
@@ -178,13 +179,6 @@ public sealed class InferenceSettingsRepository(ContextDepotDbContext db, ISecre
         return (await GetAsync(cancellationToken)).Single(route => route.Capability == capability);
     }
 
-    // Old database rows may predate the editor's URL validation. Never return URL credentials.
-    private static string? PublicEndpoint(string? value)
-    {
-        if (!Uri.TryCreate(value, UriKind.Absolute, out var endpoint) || endpoint.Scheme is not ("http" or "https")) return null;
-        return new UriBuilder(endpoint) { UserName = "", Password = "", Query = "", Fragment = "" }.Uri.AbsoluteUri;
-    }
-
     private InferenceRouteDto ToDto(InferenceRoute route)
     {
         var snapshot = snapshots.Current;
@@ -195,7 +189,7 @@ public sealed class InferenceSettingsRepository(ContextDepotDbContext db, ISecre
             snapshot.Embedding.ApiKey == key;
         var state = route.Capability == "chat" ? (route.ProviderId is null ? "unconfigured" : "configured")
             : applied ? "active" : route.ProviderId is null ? "unconfigured" : "pending";
-        return new InferenceRouteDto(route.Capability, route.Provider?.Name, "openai-compatible", PublicEndpoint(route.Provider?.BaseUrl),
+        return new InferenceRouteDto(route.Capability, route.Provider?.Name, "openai-compatible", InferenceConfigurationValidator.PublicEndpoint(route.Provider?.BaseUrl),
             route.ModelName, route.Dimensions, route.TimeoutSeconds, !string.IsNullOrWhiteSpace(route.Provider?.ProtectedApiKey),
             route.UpdatedAt, state, route.IndexState, applied, route.ProviderId);
     }

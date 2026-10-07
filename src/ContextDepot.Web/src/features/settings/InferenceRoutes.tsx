@@ -84,8 +84,11 @@ export function InferenceRoutes({
               onClick={() => onConfigure(route)}
             >
               {t("settingsConfigureCapability", {
-                capability:
-                  route.capability === "embedding" ? "Embedding" : "Chat",
+                capability: t(
+                  route.capability === "embedding"
+                    ? "settingsEmbeddingTitle"
+                    : "settingsChatTitle",
+                ),
               })}
             </Button>
           </article>

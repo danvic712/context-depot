@@ -11,6 +11,8 @@ using ContextDepot.Application.Settings;
 using ContextDepot.Application.Settings.Contracts;
 using ContextDepot.Application.Settings.Dtos;
 using ContextDepot.Application.Settings.Validators;
+using ContextDepot.Application.Setup;
+using ContextDepot.Application.Setup.Contracts;
 using FluentValidation;
 using ContextDepot.Application.Retrieval;
 using ContextDepot.Application.SemanticRetrieval;
@@ -33,6 +35,8 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(configuration);
         services.AddSingleton(TimeProvider.System);
+        services.AddOptions<SetupOptions>().Bind(configuration.GetSection("ContextDepot:Web"));
+        services.AddScoped<ISetupAppService, SetupAppService>();
         services.AddSingleton<DocumentWriteCoordinator>();
         services.AddSingleton<HeadingAwareMarkdownChunker>();
         services.AddOptions<EmbeddingOptions>();

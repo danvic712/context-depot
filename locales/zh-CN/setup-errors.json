@@ -1,0 +1,8 @@
+{
+  "SetupRequired": "请先完成首次初始化，再使用 ContextDepot 的这部分功能。",
+  "SetupConflict": "初始化状态已变化，或已使用其他配置开始。请刷新后继续。",
+  "SetupIncomplete": "请先完成前面的初始化步骤。",
+  "SetupUnavailable": "初始化资源或服务端选定的 Depot 配置不可用，请检查部署配置。",
+  "InvalidSetupWorkspace": "Workspace 名称应为 1–200 个字符；根路径应为 1–100 个小写字母、数字或连字符；描述不超过 2000 个字符。",
+  "InvalidSetupStep": "请选择有效的初始化步骤。"
+}

@@ -4,6 +4,12 @@ namespace ContextDepot.Application.Shared.Exceptions;
 
 public static class ApplicationErrorCodes
 {
+    public const string SetupConflict = "SetupConflict";
+    public const string SetupRequired = "SetupRequired";
+    public const string SetupIncomplete = "SetupIncomplete";
+    public const string SetupUnavailable = "SetupUnavailable";
+    public const string InvalidSetupWorkspace = "InvalidSetupWorkspace";
+    public const string InvalidSetupStep = "InvalidSetupStep";
     public const string SettingsForbidden = "SettingsForbidden";
     public const string AccessKeyNotFound = "AccessKeyNotFound";
     public const string SettingsConflict = "SettingsConflict";

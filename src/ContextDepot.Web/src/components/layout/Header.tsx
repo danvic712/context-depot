@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Separator } from "../ui/separator";
+import { Brand } from "../Brand";
 import { Button } from "../ui/button";
 import {
   DropdownMenu,
@@ -34,6 +35,7 @@ interface Props {
   onTheme: (value: Theme) => void;
   onLanguage: (value: Lang) => void;
   onSearch?: () => void;
+  showBrandIcon?: boolean;
 }
 
 function PreferenceMenu({
@@ -132,12 +134,16 @@ export function Header({
   onTheme,
   onLanguage,
   onSearch,
+  showBrandIcon = false,
 }: Props) {
   const { t } = useTranslation();
   return (
     <header className="topbar">
       <div className="brand-lockup">
-        <strong>ContextDepot</strong>
+        <div className="brand-name">
+          {showBrandIcon && <Brand />}
+          <strong>ContextDepot</strong>
+        </div>
         <Separator orientation="vertical" className="brand-divider" />
         <small>{t("tagline")}</small>
       </div>

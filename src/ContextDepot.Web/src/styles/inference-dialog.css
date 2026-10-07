@@ -1,0 +1,92 @@
+.inference-config-dialog {
+  width: min(720px, calc(100% - 32px));
+  max-width: 720px;
+  max-height: calc(100dvh - 48px);
+}
+.inference-config-dialog .form-dialog-header {
+  padding: 20px 72px 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+.inference-config-dialog .form-dialog-body {
+  padding: 24px;
+}
+.inference-config-dialog .form-dialog-fields[data-slot="field-group"] {
+  gap: 20px;
+}
+.inference-config-dialog
+  .settings-provider-section
+  + .settings-provider-section {
+  padding-top: 0;
+}
+.inference-config-dialog .settings-provider-section > legend {
+  margin-bottom: 12px;
+}
+.inference-config-dialog .settings-model-editor {
+  padding: 16px;
+  border: 0;
+  background: var(--subtle);
+}
+.inference-config-dialog .settings-model-fields[data-slot="field-group"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+.inference-config-dialog
+  .settings-model-fields[data-slot="field-group"]
+  > :first-child {
+  grid-column: 1 / -1;
+}
+.inference-config-dialog .form-dialog-footer {
+  padding: 16px 24px;
+}
+.inference-secret-input {
+  position: relative;
+}
+.inference-secret-input input {
+  padding-right: 48px;
+}
+.inference-secret-input button {
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  color: var(--muted);
+}
+@media (max-width: 640px) {
+  .inference-config-dialog {
+    max-height: calc(100dvh - 24px);
+  }
+  .inference-config-dialog .form-dialog-body {
+    padding: 20px;
+  }
+  .inference-config-dialog .form-dialog-header {
+    padding: 20px 72px 20px 20px;
+  }
+  .inference-config-dialog .settings-model-fields[data-slot="field-group"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .inference-config-dialog .form-dialog-footer {
+    padding: 16px 20px;
+  }
+  .inference-config-dialog [data-slot="button"],
+  .inference-config-dialog [data-slot="input"],
+  .inference-config-dialog [data-slot="select-trigger"] {
+    min-height: 44px;
+  }
+  .inference-secret-input button {
+    width: 44px;
+  }
+}
+
+.inference-config-dialog .settings-provider-model-editor {
+  margin-top: 0;
+}
+.inference-config-dialog .settings-form-grid[data-slot="field-group"] {
+  gap: 16px;
+}
+.inference-config-dialog .settings-provider-picker > legend {
+  font-weight: 500;
+  margin-bottom: 8px;
+}

@@ -21,11 +21,15 @@ import {
 } from "@/components/ui/field";
 import { FormDialog } from "@/components/content/FormDialog";
 import { SubmitButton } from "@/components/content/SubmitButton";
-import { PlusIcon } from "lucide-react";
+import {
+  PlusIcon,
+  ScanSearchIcon,
+  MessageSquareIcon,
+  SaveIcon,
+} from "lucide-react";
+import "@/styles/inference-dialog.css";
 import { availableInferenceProviders } from "./inference-connections";
 import {
-  getInferenceProviders,
-  saveInferenceRoute,
   validateInferenceRouteDraft,
   type InferenceProviderSettings,
   type InferenceRoute,
@@ -35,9 +39,15 @@ import { inferenceRouteDraft } from "./inference-drafts";
 import { SettingsConflictRecovery } from "./SettingsConflictRecovery";
 import { useSettingsConflictRecovery } from "./use-settings-conflict-recovery";
 
+import {
+  savedInferenceEditor,
+  type InferenceSettingsEditor,
+} from "./inference-settings-editor";
+
 export function InferenceRouteDialog({
   route: initialRoute,
   settings: initialSettings,
+  editor = savedInferenceEditor,
   onClose,
   onConnect,
   onSaved,
@@ -45,6 +55,7 @@ export function InferenceRouteDialog({
 }: {
   route: InferenceRoute;
   settings: InferenceProviderSettings;
+  editor?: InferenceSettingsEditor;
   onClose: () => void;
   onConnect: () => void;
   onSaved: () => void;
@@ -60,7 +71,7 @@ export function InferenceRouteDialog({
     inferenceRouteDraft(route, settings),
   );
   const [saving, setSaving] = useState(false);
-  const recovery = useSettingsConflictRecovery(getInferenceProviders);
+  const recovery = useSettingsConflictRecovery(editor.load);
   const pending = saving || recovery.pending;
   const [invalid, setInvalid] = useState<string[]>([]);
   const [failure, setFailure] = useState<keyof Messages>();
@@ -100,18 +111,23 @@ export function InferenceRouteDialog({
     request.current = controller;
     setSaving(true);
     try {
-      const saved = await saveInferenceRoute(
+      const saved = await editor.saveRoute(
         route.capability,
         draft,
         controller.signal,
       );
       if (controller.signal.aborted) return;
-      if (saved.runtimeState === "pending")
+      if (editor.isDraft) toast.success(t("setupDraftUpdated"));
+      else if (saved.runtimeState === "pending")
         toast.warning(t("settingsInferenceSavedPending"));
       else
         toast.success(
           t("settingsRouteSaved", {
-            capability: route.capability === "embedding" ? "Embedding" : "Chat",
+            capability: t(
+              route.capability === "embedding"
+                ? "settingsEmbeddingTitle"
+                : "settingsChatTitle",
+            ),
           }),
         );
       onSaved();
@@ -155,8 +171,16 @@ export function InferenceRouteDialog({
       }}
     >
       <FormDialog
+        className="inference-config-dialog"
+        titleIcon={
+          route.capability === "embedding" ? ScanSearchIcon : MessageSquareIcon
+        }
         title={t("settingsConfigureCapability", {
-          capability: route.capability === "embedding" ? "Embedding" : "Chat",
+          capability: t(
+            route.capability === "embedding"
+              ? "settingsEmbeddingTitle"
+              : "settingsChatTitle",
+          ),
         })}
         description={t("settingsRouteDialogWhy")}
         closeLabel={t("cancel")}
@@ -176,9 +200,12 @@ export function InferenceRouteDialog({
               {t("cancel")}
             </Button>
             <SubmitButton
+              icon={SaveIcon}
               pending={pending}
               disabled={failure === "settingsConflict"}
-              label={t("settingsSaveRoute")}
+              label={t(
+                editor.isDraft ? "setupApplyDraft" : "settingsSaveRoute",
+              )}
               pendingLabel={t("settingsSaving")}
             />
           </>

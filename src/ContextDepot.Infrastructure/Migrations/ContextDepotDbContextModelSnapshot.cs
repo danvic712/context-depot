@@ -572,6 +572,69 @@ namespace ContextDepot.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("ContextDepot.Domain.Setup.InstallationState", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("AccessKeyReviewed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("access_key_reviewed");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<bool>("InferenceReviewed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("inference_reviewed");
+
+                    b.Property<Guid?>("InitialDepotId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("initial_depot_id");
+
+                    b.Property<Guid?>("InitialWorkspaceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("initial_workspace_id");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("scope");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("state");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_installation_state");
+
+                    b.HasIndex("InitialDepotId")
+                        .HasDatabaseName("ix_installation_state_initial_depot_id");
+
+                    b.HasIndex("Scope")
+                        .IsUnique()
+                        .HasDatabaseName("ux_installation_state_scope");
+
+                    b.HasIndex("InitialWorkspaceId", "InitialDepotId")
+                        .HasDatabaseName("ix_installation_state_initial_workspace_id_initial_depot_id");
+
+                    b.ToTable("installation_state", "public", t =>
+                        {
+                            t.HasCheckConstraint("ck_installation_state_scope", "scope = 'installation'");
+
+                            t.HasCheckConstraint("ck_installation_state_state", "state IN ('pending', 'inProgress', 'completed')");
+                        });
+                });
+
             modelBuilder.Entity("ContextDepot.Domain.Workspaces.Workspace", b =>
                 {
                     b.Property<Guid>("Id")
@@ -736,6 +799,22 @@ namespace ContextDepot.Infrastructure.Migrations
                         .HasConstraintName("fk_inference_routes_provider");
 
                     b.Navigation("Provider");
+                });
+
+            modelBuilder.Entity("ContextDepot.Domain.Setup.InstallationState", b =>
+                {
+                    b.HasOne("ContextDepot.Domain.Depots.Depot", null)
+                        .WithMany()
+                        .HasForeignKey("InitialDepotId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_installation_state_depots_initial_depot_id");
+
+                    b.HasOne("ContextDepot.Domain.Workspaces.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("InitialWorkspaceId", "InitialDepotId")
+                        .HasPrincipalKey("Id", "DepotId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_installation_state_workspaces_initial_workspace_id_depot_id");
                 });
 
             modelBuilder.Entity("ContextDepot.Domain.Workspaces.Workspace", b =>

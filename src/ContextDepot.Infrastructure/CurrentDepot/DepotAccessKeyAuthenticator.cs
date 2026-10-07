@@ -19,6 +19,8 @@ public sealed class DepotAccessKeyAuthenticator(
         }
 
         var accessKey = await db.DepotAccessKeys
+            // Authentication resolves the access scope before scoped filters can be applied.
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .Include(key => key.Depot)
             .Include(key => key.WorkspaceGrants)

@@ -3,11 +3,7 @@ import { PlusIcon, SlidersHorizontalIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { SettingsSection } from "@/pages/settings/SettingsSection";
-import {
-  getInferenceProviders,
-  type InferenceProvider,
-  type InferenceRoute,
-} from "./settings-api";
+import { type InferenceProvider, type InferenceRoute } from "./settings-api";
 import { useSettingsResource } from "./use-settings-resource";
 import { SettingsResourceState } from "./SettingsResourceState";
 import { InferenceProviderDialog } from "./InferenceProviderDialog";
@@ -17,9 +13,20 @@ import { InferenceConnections } from "./InferenceConnections";
 import { availableInferenceProviders } from "./inference-connections";
 import { SettingsRefreshButton } from "./SettingsConflictRecovery";
 
-export function InferenceSettings({ onChanged }: { onChanged: () => void }) {
+import {
+  savedInferenceEditor,
+  type InferenceSettingsEditor,
+} from "./inference-settings-editor";
+
+export function InferenceSettings({
+  onChanged,
+  editor = savedInferenceEditor,
+}: {
+  onChanged: () => void;
+  editor?: InferenceSettingsEditor;
+}) {
   const { t } = useTranslation();
-  const resource = useSettingsResource(getInferenceProviders, true);
+  const resource = useSettingsResource(editor.load, !editor.isDraft);
   const [editing, setEditing] = useState<InferenceProvider | "new">();
   const [editingRoute, setEditingRoute] = useState<InferenceRoute>();
   const [connectingCapability, setConnectingCapability] =
@@ -82,6 +89,7 @@ export function InferenceSettings({ onChanged }: { onChanged: () => void }) {
       )}
       {editingRoute && resource.data && (
         <InferenceRouteDialog
+          editor={editor}
           route={editingRoute}
           settings={resource.data}
           onClose={() => setEditingRoute(undefined)}
@@ -92,6 +100,7 @@ export function InferenceSettings({ onChanged }: { onChanged: () => void }) {
       )}
       {editing && resource.data && (
         <InferenceProviderDialog
+          editor={editor}
           provider={editing === "new" ? undefined : editing}
           capability={editing === "new" ? connectingCapability : undefined}
           settings={resource.data}

@@ -10,6 +10,7 @@ export type PageId =
   | "context"
   | "document"
   | "settings"
+  | "setup"
   | "notFound";
 export type NavigationItem = "home" | "search" | "spaces" | "settings";
 
@@ -21,6 +22,7 @@ export interface PageHandle {
     | "search"
     | "spaces"
     | "settings"
+    | "setupTitle"
     | "contextDetailTitle"
     | "documentReaderTitle"
     | "pageNotFound";

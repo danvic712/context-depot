@@ -86,14 +86,16 @@ public sealed class GlobalExceptionHandler(
     {
         ApplicationErrorCodes.SettingsForbidden => StatusCodes.Status403Forbidden,
         ApplicationErrorCodes.AccessKeyNotFound => StatusCodes.Status404NotFound,
-        ApplicationErrorCodes.SettingsConflict => StatusCodes.Status409Conflict,
+        ApplicationErrorCodes.SettingsConflict or ApplicationErrorCodes.SetupConflict or
+            ApplicationErrorCodes.SetupIncomplete => StatusCodes.Status409Conflict,
         ApplicationErrorCodes.Unauthorized => StatusCodes.Status401Unauthorized,
         ApplicationErrorCodes.ContextNotFound or ApplicationErrorCodes.DocumentNotFound or
             ApplicationErrorCodes.WorkspaceNotFound or ApplicationErrorCodes.WorkspaceParentNotFound => StatusCodes.Status404NotFound,
         ApplicationErrorCodes.WorkspacePathConflict or ApplicationErrorCodes.WorkspaceConcurrencyConflict or
             ApplicationErrorCodes.ContextConcurrencyConflict or ApplicationErrorCodes.ContextKindConflict or
             ApplicationErrorCodes.DocumentConflict => StatusCodes.Status409Conflict,
-        ApplicationErrorCodes.WebDepotUnavailable or ApplicationErrorCodes.DatabaseUnavailable or
+        ApplicationErrorCodes.WebDepotUnavailable or ApplicationErrorCodes.SetupRequired or
+            ApplicationErrorCodes.SetupUnavailable or ApplicationErrorCodes.DatabaseUnavailable or
             ApplicationErrorCodes.MarkdownRootUnavailable or ApplicationErrorCodes.EmbeddingGeneratorUnavailable => StatusCodes.Status503ServiceUnavailable,
         ApplicationErrorCodes.InternalError or ApplicationErrorCodes.ContextWriteFailed or
             ApplicationErrorCodes.WorkspaceWriteFailed or ApplicationErrorCodes.DocumentWriteFailed or

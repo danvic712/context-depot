@@ -54,8 +54,10 @@ public sealed class AccessKeyRepository(ContextDepotDbContext db) : IAccessKeyRe
         var replacement = new DepotAccessKey(replacementId, depotId, key.Name, secret.Prefix, secret.SecretHash, now);
         foreach (var grant in key.WorkspaceGrants)
             replacement.WorkspaceGrants.Add(new WorkspaceAccessGrant(replacement.Id, depotId, grant.WorkspaceId, now));
-        key.Revoke(now);
         db.DepotAccessKeys.Add(replacement);
+        // Rotation replaces the credential rather than accumulating revoked keys and their grants.
+        db.WorkspaceAccessGrants.RemoveRange(key.WorkspaceGrants);
+        db.DepotAccessKeys.Remove(key);
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return ToDto(replacement);

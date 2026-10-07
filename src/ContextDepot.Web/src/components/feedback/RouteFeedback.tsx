@@ -9,6 +9,7 @@ import { HomeSkeleton } from "@/features/home/HomeSkeleton";
 import { SearchPageSkeleton } from "@/features/knowledge/SearchSkeleton";
 import { KnowledgeReaderSkeleton } from "@/features/knowledge/KnowledgeReaderSkeleton";
 import "@/styles/header.css";
+import { SetupSkeleton } from "@/features/setup/SetupSkeleton";
 
 function RouteSkeleton({ pathname }: { pathname: string }) {
   if (/^\/(contexts|documents)\/[^/]+$/.test(pathname))
@@ -42,6 +43,7 @@ export function AppLoading({
 }: {
   pathname?: string;
 }) {
+  if (pathname === "/setup") return <SetupSkeleton />;
   const home = pathname === "/";
   const search = pathname === "/search";
   return (

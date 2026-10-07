@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 const states = {
+  draft: "setupDraftState",
   unknown: "settingsState_unknown",
   available: "settingsState_available",
   unavailable: "settingsState_unavailable",
@@ -21,6 +22,7 @@ const states = {
   pending: "settingsState_pending",
 } as const;
 const tones: Record<string, StatusTone> = {
+  draft: "neutral",
   available: "success",
   active: "success",
   complete: "success",
