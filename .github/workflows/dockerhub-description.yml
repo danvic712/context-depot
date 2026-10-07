@@ -1,0 +1,61 @@
+name: Sync Docker Hub description
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - README.md
+      - README.zh-CN.md
+      - .github/workflows/dockerhub-description.yml
+  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - Build and publish Docker image
+    types:
+      - completed
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dockerhub-description
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Update Docker Hub description and overview
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'release'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Always publish the current main README, including after an old Release rerun.
+      - name: Check out current documentation
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Validate Docker Hub overview credentials
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [ -z "$DOCKERHUB_USERNAME" ] || [ -z "$DOCKERHUB_TOKEN" ]; then
+            echo "::error::Configure DOCKERHUB_USERNAME and DOCKERHUB_TOKEN repository secrets. Updating descriptions requires Read, Write and Delete permissions."
+            exit 1
+          fi
+
+      - name: Sync description and README overview
+        uses: peter-evans/dockerhub-description@v5
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: danvic712/context-depot
+          short-description: >-
+            Self-hosted context and Markdown document storage for agents, with MCP access and a web UI.
+          readme-filepath: ./README.md
+          enable-url-completion: true

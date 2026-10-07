@@ -12,6 +12,8 @@ permissions:
 env:
   DOCKERHUB_IMAGE: danvic712/context-depot
   GHCR_IMAGE: ghcr.io/danvic712/context-depot
+  IMAGE_DESCRIPTION: >-
+    Self-hosted context and Markdown document storage for agents, with MCP access and a web UI.
 
 jobs:
   resolve:
@@ -100,6 +102,7 @@ jobs:
             type=raw,value=${{ github.event.release.tag_name }}
           flavor: latest=false
           labels: |
+            org.opencontainers.image.description=${{ env.IMAGE_DESCRIPTION }}
             org.opencontainers.image.version=${{ needs.resolve.outputs.app_version }}
             org.opencontainers.image.revision=${{ needs.resolve.outputs.revision }}
 
@@ -111,9 +114,13 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
+          # Attestations appear as unknown/unknown platforms in registry UIs.
+          provenance: false
+          sbom: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: |
+            index:org.opencontainers.image.description=${{ env.IMAGE_DESCRIPTION }}
             index:org.opencontainers.image.version=${{ needs.resolve.outputs.app_version }}
             index:org.opencontainers.image.revision=${{ needs.resolve.outputs.revision }}
           build-args: |
