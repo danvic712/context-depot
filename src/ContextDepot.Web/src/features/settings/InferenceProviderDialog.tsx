@@ -11,6 +11,7 @@ import {
   SaveIcon,
 } from "lucide-react";
 import "@/styles/inference-dialog.css";
+import { EmbeddingDimensionsHelp } from "./EmbeddingDimensionsHelp";
 import type { Messages } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -200,7 +201,7 @@ export function InferenceProviderDialog({
       }}
     >
       <FormDialog
-        className="inference-config-dialog"
+        className="inference-config-dialog inference-provider-dialog"
         titleIcon={
           capability === "embedding"
             ? ScanSearchIcon
@@ -490,7 +491,8 @@ export function InferenceProviderDialog({
                       disabled={!supported}
                       checked={draft[capability].enabled}
                       onChange={(event) => {
-                        if (!event.target.checked)
+                        const enabled = event.target.checked;
+                        if (!enabled)
                           setInvalid((value) =>
                             value.filter((key) => !key.startsWith(capability)),
                           );
@@ -498,7 +500,7 @@ export function InferenceProviderDialog({
                           ...value,
                           [capability]: {
                             ...value[capability],
-                            enabled: event.target.checked,
+                            enabled,
                           },
                         }));
                       }}
@@ -571,9 +573,13 @@ export function InferenceProviderDialog({
                                   spellCheck={false}
                                   aria-invalid={invalid.includes(error)}
                                   aria-describedby={
-                                    invalid.includes(error)
-                                      ? `${id}-error`
-                                      : undefined
+                                    [
+                                      field.key === "dimensions" &&
+                                        `${id}-hint`,
+                                      invalid.includes(error) && `${id}-error`,
+                                    ]
+                                      .filter(Boolean)
+                                      .join(" ") || undefined
                                   }
                                   onChange={(event) => {
                                     setInvalid((value) =>
@@ -605,6 +611,9 @@ export function InferenceProviderDialog({
                               </Field>
                             );
                           })}
+                        {capability === "embedding" && (
+                          <EmbeddingDimensionsHelp id="provider-embedding-dimensions-hint" />
+                        )}
                       </FieldGroup>
                       {current.providerId &&
                         current.providerId !== draft.id && (

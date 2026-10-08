@@ -1,5 +1,6 @@
 import { knowledgeTypes } from "./knowledge-types";
 import { useState } from "react";
+import copyToClipboard from "copy-to-clipboard";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { CheckIcon, CopyIcon, SearchIcon } from "lucide-react";
@@ -116,7 +117,8 @@ export function SearchCopyButton({
     if (!detail || copyPending || pending) return;
     setCopyPending(true);
     try {
-      await navigator.clipboard.writeText(detail.content);
+      if (!(await copyToClipboard(detail.content)))
+        throw new Error("Clipboard unavailable");
       setCopied(detail);
       toast.success(t("dialogCopied"), { id: `copy-${hitKey(detail)}` });
     } catch {

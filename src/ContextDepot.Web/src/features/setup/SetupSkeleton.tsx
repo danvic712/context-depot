@@ -21,8 +21,32 @@ export function SetupSkeleton() {
       >
         <div className="setup-layout" data-step="workspace" aria-hidden="true">
           <aside className="setup-sidebar">
-            <Skeleton className="h-8 w-4/5" />
-            <Skeleton className="mt-6 h-64 w-full" />
+            <div className="setup-introduction">
+              <Skeleton className="mb-3 h-3 w-20" />
+              <Skeleton className="mb-3 h-8 w-4/5" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="mt-2 h-4 w-3/4" />
+            </div>
+            <ol className="setup-steps">
+              {Array.from({ length: 4 }, (_, index) => (
+                <li key={index}>
+                  <div className="setup-step-placeholder">
+                    <Skeleton className="size-7 shrink-0 rounded-full" />
+                    <div className="w-full min-w-0 flex-1">
+                      <Skeleton className="h-4 w-full max-w-20" />
+                      <Skeleton className="setup-step-placeholder-detail mt-1 h-3 w-full" />
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+            <div className="setup-resume">
+              <Skeleton className="size-4 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="mt-2 h-3 w-4/5" />
+              </div>
+            </div>
           </aside>
           <div className="setup-content">
             <div className="setup-page-heading">

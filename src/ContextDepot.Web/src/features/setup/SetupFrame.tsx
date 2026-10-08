@@ -15,7 +15,7 @@ export function SetupFrame({
 }) {
   const { t } = useTranslation();
   return (
-    <div className="setup-frame frame">
+    <div className="setup-frame frame setup-ready">
       <a className="skip-link" href="#main-content">
         {t("skipToContent")}
       </a>

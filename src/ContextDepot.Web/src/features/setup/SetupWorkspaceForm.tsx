@@ -75,10 +75,11 @@ export function SetupWorkspaceForm({
           autoComplete="off"
           disabled={pending}
           aria-invalid={invalid.includes("name")}
-          aria-describedby={
-            invalid.includes("name") ? "setup-name-error" : undefined
-          }
+          aria-describedby={`setup-name-hint${invalid.includes("name") ? " setup-name-error" : ""}`}
         />
+        <FieldDescription id="setup-name-hint">
+          {t("setupSpaceNameHint")}
+        </FieldDescription>
         {invalid.includes("name") && (
           <p
             id="setup-name-error"
@@ -91,7 +92,7 @@ export function SetupWorkspaceForm({
       </Field>
       <Field data-invalid={invalid.includes("path")}>
         <FieldLabel htmlFor="setup-space-path">
-          {t("spacePathLabel")}
+          {t("setupSpacePathLabel")}
         </FieldLabel>
         <Input
           id="setup-space-path"
@@ -111,7 +112,7 @@ export function SetupWorkspaceForm({
           aria-describedby={`setup-path-hint${invalid.includes("path") ? " setup-path-error" : ""}`}
         />
         <FieldDescription id="setup-path-hint">
-          {t("spacePathHint")}
+          {t("setupSpacePathHint")}
         </FieldDescription>
         {invalid.includes("path") && (
           <p
@@ -119,7 +120,7 @@ export function SetupWorkspaceForm({
             className="settings-field-error"
             role="alert"
           >
-            {t("spacePathInvalid")}
+            {t("setupSpacePathInvalid")}
           </p>
         )}
       </Field>
@@ -132,6 +133,7 @@ export function SetupWorkspaceForm({
         </FieldLabel>
         <Textarea
           id="setup-space-description"
+          placeholder={t("setupSpaceDescriptionPlaceholder")}
           value={description}
           onChange={(e) => {
             setDescription(e.target.value);

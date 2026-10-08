@@ -37,6 +37,7 @@ import {
 
 import { inferenceRouteDraft } from "./inference-drafts";
 import { SettingsConflictRecovery } from "./SettingsConflictRecovery";
+import { EmbeddingDimensionsHelp } from "./EmbeddingDimensionsHelp";
 import { useSettingsConflictRecovery } from "./use-settings-conflict-recovery";
 
 import {
@@ -334,9 +335,13 @@ export function InferenceRouteDialog({
                     spellCheck={false}
                     aria-invalid={invalid.includes(field.key)}
                     aria-describedby={
-                      invalid.includes(field.key)
-                        ? `route-${field.key}-error`
-                        : undefined
+                      [
+                        field.key === "dimensions" && "route-dimensions-hint",
+                        invalid.includes(field.key) &&
+                          `route-${field.key}-error`,
+                      ]
+                        .filter(Boolean)
+                        .join(" ") || undefined
                     }
                     onChange={(event) => {
                       setInvalid((current) =>
@@ -363,6 +368,9 @@ export function InferenceRouteDialog({
                   )}
                 </Field>
               ))}
+            {route.capability === "embedding" && (
+              <EmbeddingDimensionsHelp id="route-dimensions-hint" />
+            )}
           </FieldGroup>
         ) : route.providerId ? (
           <p className="settings-inline-note">{t("settingsRouteDisable")}</p>

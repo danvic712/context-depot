@@ -1,9 +1,13 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { PlusIcon, SlidersHorizontalIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { SettingsSection } from "@/pages/settings/SettingsSection";
-import { type InferenceProvider, type InferenceRoute } from "./settings-api";
+import {
+  type InferenceProvider,
+  type InferenceProviderSettings,
+  type InferenceRoute,
+} from "./settings-api";
 import { useSettingsResource } from "./use-settings-resource";
 import { SettingsResourceState } from "./SettingsResourceState";
 import { InferenceProviderDialog } from "./InferenceProviderDialog";
@@ -21,12 +25,25 @@ import {
 export function InferenceSettings({
   onChanged,
   editor = savedInferenceEditor,
+  draftSettings,
+  note,
 }: {
   onChanged: () => void;
   editor?: InferenceSettingsEditor;
+  draftSettings?: InferenceProviderSettings;
+  note?: ReactNode;
 }) {
   const { t } = useTranslation();
-  const resource = useSettingsResource(editor.load, !editor.isDraft);
+  const loadedResource = useSettingsResource(editor.load, !editor.isDraft);
+  const resource =
+    editor.isDraft && draftSettings
+      ? {
+          ...loadedResource,
+          data: draftSettings,
+          pending: false,
+          error: undefined,
+        }
+      : loadedResource;
   const [editing, setEditing] = useState<InferenceProvider | "new">();
   const [editingRoute, setEditingRoute] = useState<InferenceRoute>();
   const [connectingCapability, setConnectingCapability] =
@@ -80,11 +97,14 @@ export function InferenceSettings({
               else connect(route.capability);
             }}
           />
-          <InferenceConnections
-            settings={resource.data}
-            disabled={resource.pending || !!resource.error}
-            onEdit={setEditing}
-          />
+          <div className="settings-inference-guidance">
+            <InferenceConnections
+              settings={resource.data}
+              disabled={resource.pending || !!resource.error}
+              onEdit={setEditing}
+            />
+            {note}
+          </div>
         </>
       )}
       {editingRoute && resource.data && (
