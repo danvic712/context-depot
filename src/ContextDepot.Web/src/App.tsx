@@ -31,6 +31,7 @@ import { SearchDialogFailure } from "./features/knowledge/SearchDialogFailure";
 import type { SetupGate } from "./features/setup/setup-loader";
 import type { SetupStatus } from "./features/setup/setup-api";
 import { SetupFrame } from "./features/setup/SetupFrame";
+import { rememberSetupAppearance } from "./features/settings/appearance-preferences";
 
 const KnowledgeSearchDialog = lazy(
   () => import("./features/knowledge/KnowledgeSearchDialog"),
@@ -68,7 +69,9 @@ export default function App() {
     refreshAppearance,
     onTheme: changeTheme,
     onLanguage: changeLang,
-  } = useAppearanceSettings();
+  } = useAppearanceSettings(
+    !!gate?.error || (!!setup && setup.state !== "completed"),
+  );
   const location = useLocation();
   const navigate = useNavigate();
   const [rawParams, setParams] = useSearchParams();
@@ -173,8 +176,11 @@ export default function App() {
                 context={{
                   ...context,
                   setup,
-                  onSetupChanged: (status: SetupStatus) =>
-                    setSetupOverride({ source: gate, status }),
+                  onSetupChanged: (status: SetupStatus) => {
+                    if (status.state === "completed")
+                      rememberSetupAppearance({ theme, language: lang });
+                    setSetupOverride({ source: gate, status });
+                  },
                 }}
               />
             )

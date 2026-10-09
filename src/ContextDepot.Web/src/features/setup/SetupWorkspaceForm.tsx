@@ -7,17 +7,22 @@ import { Field, FieldLabel, FieldDescription } from "@/components/ui/field";
 import { SubmitButton } from "@/components/content/SubmitButton";
 import type { CreateWorkspace } from "@/features/home/home-api";
 import type { SetupWorkspace } from "./setup-api";
+import { suggestWorkspacePath } from "@/features/spaces/workspace-path";
 
 export function SetupWorkspaceForm({
   workspace,
+  pathCustomized,
   pending,
   onStart,
   onDraftChange,
+  onPathCustomized,
 }: {
   workspace: SetupWorkspace | null;
+  pathCustomized: boolean;
   pending: boolean;
   onStart: (draft: CreateWorkspace) => void;
   onDraftChange: (draft: CreateWorkspace) => void;
+  onPathCustomized: () => void;
 }) {
   const { t } = useTranslation();
   const [name, setName] = useState(workspace?.name ?? "");
@@ -67,8 +72,19 @@ export function SetupWorkspaceForm({
           placeholder={t("setupSpaceNamePlaceholder")}
           value={name}
           onChange={(e) => {
-            setName(e.target.value);
-            onDraftChange({ name: e.target.value, path, description });
+            const nextName = e.target.value;
+            const nextPath = pathCustomized
+              ? path
+              : suggestWorkspacePath(nextName);
+            setName(nextName);
+            setPath(nextPath);
+            setInvalid((fields) =>
+              fields.filter(
+                (field) =>
+                  field !== "name" && (pathCustomized || field !== "path"),
+              ),
+            );
+            onDraftChange({ name: nextName, path: nextPath, description });
           }}
           required
           maxLength={200}
@@ -100,6 +116,8 @@ export function SetupWorkspaceForm({
           value={path}
           onChange={(e) => {
             setPath(e.target.value);
+            onPathCustomized();
+            setInvalid((fields) => fields.filter((field) => field !== "path"));
             onDraftChange({ name, path: e.target.value, description });
           }}
           required

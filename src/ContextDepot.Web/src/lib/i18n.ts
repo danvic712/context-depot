@@ -1,6 +1,9 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
-import { load } from "../features/settings/browser-preferences";
+import {
+  browserLanguage,
+  load,
+} from "../features/settings/browser-preferences";
 
 // Type-only references preserve translation-key checking without bundling JSON.
 export type Messages =
@@ -56,7 +59,8 @@ export async function prepareLanguage(language: Lang) {
 }
 
 export async function initializeI18n(
-  language: Lang = load("contextdepot.language", ["en", "zh"]) ?? "en",
+  language: Lang = load("contextdepot.language", ["en", "zh"]) ??
+    browserLanguage(),
   loader: TranslationLoader = defaultLoader,
 ) {
   await i18n.use(initReactI18next).init({

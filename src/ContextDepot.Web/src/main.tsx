@@ -7,36 +7,42 @@ import { createRoot } from "react-dom/client";
 import "./styles/app.css";
 import "./styles/page-transitions.css";
 import { appRoutes } from "./routes";
-import { initializeI18n, type Lang } from "./lib/i18n";
+import { initializeI18n } from "./lib/i18n";
 import { Toaster } from "./components/ui/sonner";
 import {
   getAppearance,
   getInitialAppearance,
-  toUiLanguage,
 } from "./features/settings/appearance-api";
-import {
-  load,
-  save,
-  type Theme,
-} from "./features/settings/browser-preferences";
+import { save } from "./features/settings/browser-preferences";
+import { resolveAppearancePreferences } from "./features/settings/appearance-preferences";
+import type { SetupGate } from "./features/setup/setup-loader";
 
 const router = createBrowserRouter(appRoutes);
+const setupMode = new Promise<boolean>((resolve) => {
+  const resolveMode = () => {
+    const gate = router.state.loaderData.app as SetupGate | undefined;
+    resolve(gate?.status?.state !== "completed");
+  };
+  if (router.state.initialized) resolveMode();
+  else {
+    const unsubscribe = router.subscribe((state) => {
+      if (!state.initialized) return;
+      unsubscribe();
+      resolveMode();
+    });
+  }
+});
 
 const root = createRoot(document.getElementById("root")!);
 root.render(<AppLoading pathname={router.state.location.pathname} />);
 
-getAppearance()
-  .catch(() => getInitialAppearance().settings)
-  .then((settings) =>
-    initializeI18n(
-      load<Lang>("contextdepot.language", ["en", "zh"]) ??
-        toUiLanguage(settings.language),
-    ),
-  )
-  .then(() => {
-    const theme =
-      load<Theme>("contextdepot.theme", ["system", "light", "dark"]) ??
-      getInitialAppearance().settings.theme;
+Promise.all([
+  getAppearance().catch(() => getInitialAppearance().settings),
+  setupMode,
+])
+  .then(async ([settings, setup]) => {
+    const { theme, language } = resolveAppearancePreferences(settings, setup);
+    await initializeI18n(language);
     save("contextdepot.theme-mode", theme);
     root.render(
       <StrictMode>

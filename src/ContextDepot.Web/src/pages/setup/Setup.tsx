@@ -82,6 +82,9 @@ export function Setup() {
       },
   );
   const [reached, setReached] = useState<SetupStep>("workspace");
+  const [workspacePathCustomized, setWorkspacePathCustomized] = useState(
+    !!setup.workspace?.path,
+  );
   const localStatus: SetupStatus = {
     ...setup,
     state: "inProgress",
@@ -328,7 +331,9 @@ export function Setup() {
             {step === "workspace" && (
               <SetupWorkspaceForm
                 workspace={workspace}
+                pathCustomized={workspacePathCustomized}
                 pending={pending}
+                onPathCustomized={() => setWorkspacePathCustomized(true)}
                 onDraftChange={(draft) =>
                   setWorkspace({ ...workspace, ...draft })
                 }
