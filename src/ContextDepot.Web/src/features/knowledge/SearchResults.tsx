@@ -2,7 +2,6 @@ import { KnowledgeTypeIcon } from "./KnowledgeTypeIcon";
 import type { RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronRightIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { RequestFeedback } from "@/components/feedback/RequestFeedback";
 import type { Resource } from "@/hooks/use-request-resource";
 import { hitKey, type SearchHit, type SearchResponse } from "./search-api";
@@ -78,19 +77,21 @@ export function SearchResults({
             pending={resource.pending}
             stale={!!resource.data}
             onRetry={scopeMissing ? undefined : onRetry}
+            recoveryAction={
+              scopeMissing
+                ? { label: t("searchAllSpacesAction"), onClick: onClearScope }
+                : resource.error?.kind === "invalidQuery" && onReset
+                  ? { label: t("searchReset"), onClick: onReset }
+                  : undefined
+            }
           />
-        )}
-        {scopeMissing && (
-          <Button variant="outline" size="sm" onClick={onClearScope}>
-            {t("searchAllSpacesAction")}
-          </Button>
         )}
         {!query.trim() ? (
           <SearchEmpty
             title={t("dialogStart")}
             description={t("dialogStartWhy")}
           />
-        ) : resource.pending && !resource.data ? (
+        ) : resource.pending && !resource.data && !resource.error ? (
           <SearchResultsSkeleton />
         ) : (
           (!resource.error || resource.data) &&

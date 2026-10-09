@@ -2,7 +2,6 @@ import {
   CircleAlertIcon,
   TriangleAlertIcon,
   InfoIcon,
-  LoaderCircleIcon,
   RotateCwIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -13,26 +12,21 @@ import {
   AlertTitle,
 } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import type { RequestFailure, RequestFailureKind } from "@/lib/request-failure";
+import { SubmitButton } from "@/components/content/SubmitButton";
+import {
+  requestFailureReasonKeys,
+  type RequestFailure,
+} from "@/lib/request-failure";
 import { cn } from "@/lib/utils";
 import "@/styles/request-feedback.css";
-
-const reasonKeys = {
-  network: "requestNetworkWhy",
-  timeout: "requestTimeoutWhy",
-  forbidden: "requestForbiddenWhy",
-  notFound: "requestNotFoundWhy",
-  unavailable: "requestUnavailableWhy",
-  invalidResponse: "requestInvalidResponseWhy",
-  invalidQuery: "requestInvalidQueryWhy",
-  unknown: "requestUnknownWhy",
-} as const satisfies Record<RequestFailureKind, string>;
 
 export function RequestFeedback({
   title,
   description,
   failure,
   onRetry,
+  recoveryAction,
+  headingLevel,
   pending = false,
   stale = false,
   tone = "error",
@@ -43,6 +37,8 @@ export function RequestFeedback({
   description?: string;
   failure?: RequestFailure;
   onRetry?: () => void | Promise<void>;
+  recoveryAction?: { label: string; onClick: () => void };
+  headingLevel?: 1 | 2 | 3;
   pending?: boolean;
   stale?: boolean;
   tone?: "error" | "info" | "warning";
@@ -50,61 +46,82 @@ export function RequestFeedback({
   className?: string;
 }) {
   const { t } = useTranslation();
+  const Heading = headingLevel
+    ? (`h${headingLevel}` as "h1" | "h2" | "h3")
+    : null;
+  const hasStaleContent = stale && failure?.retryable !== false;
+  const feedbackTone = hasStaleContent && tone === "error" ? "warning" : tone;
+  const canRetry = !!onRetry && failure?.retryable !== false;
+  const detail = failure
+    ? t(requestFailureReasonKeys[failure.kind])
+    : (description ?? t("requestUnknownWhy"));
+  const note = hasStaleContent
+    ? t("requestStale")
+    : failure
+      ? description
+      : undefined;
   const Icon =
-    tone === "info"
+    feedbackTone === "info"
       ? InfoIcon
-      : tone === "warning"
+      : feedbackTone === "warning"
         ? TriangleAlertIcon
         : CircleAlertIcon;
   return (
     <Alert
       variant={
-        tone === "info"
+        feedbackTone === "info"
           ? "soft-info"
-          : tone === "warning"
+          : feedbackTone === "warning"
             ? "soft-warning"
             : "soft-error"
       }
-      role={tone === "error" ? "alert" : "status"}
+      role={feedbackTone === "error" ? "alert" : "status"}
       className={cn("request-feedback", className)}
-      data-compact={compact || undefined}
+      data-compact={compact || hasStaleContent || undefined}
       aria-busy={pending}
     >
       <Icon aria-hidden="true" />
       <div className="request-feedback-copy">
-        <AlertTitle className="line-clamp-none">{title}</AlertTitle>
+        <AlertTitle className="line-clamp-none">
+          {Heading ? (
+            <Heading tabIndex={-1}>
+              {hasStaleContent ? t("requestRefreshError") : title}
+            </Heading>
+          ) : hasStaleContent ? (
+            t("requestRefreshError")
+          ) : (
+            title
+          )}
+        </AlertTitle>
         <AlertDescription>
-          <p>
-            {stale && <>{t("requestStale")} </>}
-            {failure ? (
-              <>
-                {t(reasonKeys[failure.kind])} {description}
-              </>
-            ) : (
-              (description ?? t("requestUnknownWhy"))
-            )}
-          </p>
+          <p>{detail}</p>
+          {note && <p className="request-feedback-note">{note}</p>}
         </AlertDescription>
       </div>
-      {onRetry && failure?.retryable !== false && (
+      {(canRetry || recoveryAction) && (
         <AlertAction>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={pending}
-            onClick={() => void onRetry()}
-          >
-            {pending ? (
-              <LoaderCircleIcon
-                className="animate-spin"
-                data-icon="inline-start"
-                aria-hidden="true"
-              />
-            ) : (
-              <RotateCwIcon data-icon="inline-start" aria-hidden="true" />
-            )}
-            {t(pending ? "requestRetrying" : "retry")}
-          </Button>
+          {canRetry ? (
+            <SubmitButton
+              type="button"
+              variant="outline"
+              size="sm"
+              pending={pending}
+              label={t("retry")}
+              pendingLabel={t("requestRetrying")}
+              icon={RotateCwIcon}
+              onClick={() => void onRetry?.()}
+            />
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={pending}
+              onClick={recoveryAction?.onClick}
+            >
+              {recoveryAction?.label}
+            </Button>
+          )}
         </AlertAction>
       )}
     </Alert>

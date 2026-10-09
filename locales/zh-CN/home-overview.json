@@ -38,7 +38,7 @@
   "spaceNameInvalid": "空间名称需包含 1–200 个字符。",
   "spacePathInvalid": "路径需包含 1–100 个字符，仅支持小写英文字母、数字和单个连字符。",
   "spacePathConflict": "该路径已被使用，请换一个路径。",
-  "spaceCreateError": "未能创建空间，请检查输入或稍后重试。已保留填写的内容。",
+  "spaceCreateError": "空间暂时未能创建。你填写的内容还在，请稍后再试。",
   "spaceCreated": "空间已创建",
   "spaceCreating": "正在创建…",
   "homeKindFact": "事实",
@@ -81,6 +81,6 @@
   "homeMcpHeaderLabel": "请求头",
   "homeMcpKeyValue": "值：你的访问密钥",
   "homeMcpAccessHint": "访问密钥需获得目标空间的授权。网页新建空间后，也需要为密钥配置该空间的授权。",
-  "homeSpacesLoadError": "空间暂时无法加载",
-  "homeKnowledgeLoadError": "最近更新的知识暂时无法加载"
+  "homeSpacesLoadError": "暂时无法打开空间列表",
+  "homeKnowledgeLoadError": "暂时无法查看最近更新"
 }

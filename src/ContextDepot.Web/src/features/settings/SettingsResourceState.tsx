@@ -23,7 +23,7 @@ export function SettingsResourceState<T>({
           compact
         />
       )}
-      {!resource.data && resource.pending && (
+      {!resource.data && resource.pending && !resource.error && (
         <div role="status" aria-label={t("loading")}>
           <SettingsResourceSkeleton />
         </div>

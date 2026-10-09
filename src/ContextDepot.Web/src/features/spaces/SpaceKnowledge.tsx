@@ -95,6 +95,11 @@ export function SpaceKnowledge({ spaceId }: { spaceId: string }) {
           onRetry={() => setAttempt((value) => value + 1)}
           pending={resource.pending}
           stale={!!data}
+          recoveryAction={
+            resource.error.kind === "invalidQuery" && page > 1
+              ? { label: t("spacesFirstPage"), onClick: () => changePage(1) }
+              : undefined
+          }
         />
       )}
       {selected && data && !item && !resource.pending && (

@@ -38,7 +38,7 @@
   "spaceNameInvalid": "Use 1–200 characters for the space name.",
   "spacePathInvalid": "Use 1–100 characters: lowercase letters, numbers and single hyphens.",
   "spacePathConflict": "This path is already in use. Choose another.",
-  "spaceCreateError": "We couldn’t create the space. Check your input or try again later. Your entries are preserved.",
+  "spaceCreateError": "The space could not be created. What you entered is still here. Try again in a moment.",
   "spaceCreated": "Space created",
   "spaceCreating": "Creating…",
   "homeKindFact": "Fact",
@@ -81,6 +81,6 @@
   "homeMcpHeaderLabel": "Request header",
   "homeMcpKeyValue": "Value: your access key",
   "homeMcpAccessHint": "Your access key needs a grant for each target space, including spaces created on the web.",
-  "homeSpacesLoadError": "Spaces could not be loaded",
-  "homeKnowledgeLoadError": "Recent knowledge could not be loaded"
+  "homeSpacesLoadError": "Could not open your spaces",
+  "homeKnowledgeLoadError": "Could not show recent updates"
 }

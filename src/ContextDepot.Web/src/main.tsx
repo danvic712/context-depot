@@ -1,4 +1,5 @@
 import { AppLoading } from "./components/feedback/RouteFeedback";
+import { AppStartupError } from "./components/feedback/StartupError";
 import { StrictMode } from "react";
 import { ThemeProvider } from "next-themes";
 import { createBrowserRouter } from "react-router";
@@ -7,7 +8,7 @@ import { createRoot } from "react-dom/client";
 import "./styles/app.css";
 import "./styles/page-transitions.css";
 import { appRoutes } from "./routes";
-import { initializeI18n } from "./lib/i18n";
+import { initializeI18n, type Lang } from "./lib/i18n";
 import { Toaster } from "./components/ui/sonner";
 import {
   getAppearance,
@@ -35,6 +36,9 @@ const setupMode = new Promise<boolean>((resolve) => {
 
 const root = createRoot(document.getElementById("root")!);
 root.render(<AppLoading pathname={router.state.location.pathname} />);
+let startupLanguage: Lang = document.documentElement.lang.startsWith("zh")
+  ? "zh"
+  : "en";
 
 Promise.all([
   getAppearance().catch(() => getInitialAppearance().settings),
@@ -42,6 +46,7 @@ Promise.all([
 ])
   .then(async ([settings, setup]) => {
     const { theme, language } = resolveAppearancePreferences(settings, setup);
+    startupLanguage = language;
     await initializeI18n(language);
     save("contextdepot.theme-mode", theme);
     root.render(
@@ -60,10 +65,5 @@ Promise.all([
     );
   })
   .catch(() => {
-    root.render(
-      <p role="alert">
-        Unable to load translations. Please reload. /
-        无法加载语言资源，请刷新页面。
-      </p>,
-    );
+    root.render(<AppStartupError language={startupLanguage} />);
   });

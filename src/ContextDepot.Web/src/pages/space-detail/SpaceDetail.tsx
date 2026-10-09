@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { ChevronRightIcon, SearchIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import "@/styles/spaces.css";
 
 export function SpaceDetail() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { spaceId = "" } = useParams();
   const [params, setParams] = useSearchParams();
   useEffect(() => {
@@ -61,6 +62,10 @@ export function SpaceDetail() {
             onRetry={() => setAttempt((value) => value + 1)}
             pending={detail.pending}
             stale={!!space}
+            recoveryAction={{
+              label: t("spacesReturnDirectory"),
+              onClick: () => void navigate(`/spaces${rootQuery}`),
+            }}
           />
         )}
         {!space && detail.pending && !detail.error && (

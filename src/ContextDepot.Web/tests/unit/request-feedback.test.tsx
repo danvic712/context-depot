@@ -69,7 +69,7 @@ describe("Global request feedback", () => {
           onRetry={() => {}}
         />,
       );
-      expect(html).toContain(lang === "zh" ? "访问" : "access to this content");
+      expect(html).toContain(lang === "zh" ? "访问" : "access this content");
       expect(html).toContain('role="alert"');
       expect(html).not.toContain("<button");
       expect(html).not.toContain("Raw server error");
@@ -93,6 +93,49 @@ describe("Global request feedback", () => {
     expect(html).toContain("disabled");
     expect(html).toContain("Retrying");
     expect(html).toContain("last loaded content");
-    expect(html).toContain("Your query is kept.");
+    expect(html).toContain('role="status"');
+    expect(html).toContain("bg-warning-surface");
+    expect(html).toContain("Could not update just yet");
+    expect(html).not.toContain("Your query is kept.");
+    expect(html.match(/last loaded content/g)?.length).toBe(1);
+  });
+
+  test("an initial failure keeps its subject and separates the reason from a useful hint", async () => {
+    await language("en");
+    const html = renderToStaticMarkup(
+      <RequestFeedback
+        title="Could not finish your search"
+        failure={requestFailure(new AxiosError("Offline", "ERR_NETWORK"))}
+        description="Your keywords and filters are still here."
+        onRetry={() => {}}
+      />,
+    );
+    expect(html).toContain('role="alert"');
+    expect(html).toContain("Could not finish your search");
+    expect(html).toContain("Check your internet connection");
+    expect(html).toContain('<p class="request-feedback-note">Your keywords');
+    expect(html).not.toContain("last loaded content");
+    expect(html).not.toContain("Could not update just yet");
+  });
+
+  test("non-retryable failures offer a recovery action without claiming stale content is visible", async () => {
+    await language("en");
+    for (const status of [403, 404]) {
+      const html = renderToStaticMarkup(
+        <RequestFeedback
+          title="Could not open this item"
+          failure={requestFailure(httpFailure(status))}
+          stale
+          onRetry={() => {}}
+          recoveryAction={{ label: "Back to results", onClick: () => {} }}
+        />,
+      );
+      expect(html).toContain('role="alert"');
+      expect(html).toContain("Back to results");
+      expect(html.match(/<button/g)?.length).toBe(1);
+      expect(html).not.toContain("Retry");
+      expect(html).not.toContain("last loaded content");
+      expect(html).not.toContain("Could not update just yet");
+    }
   });
 });
