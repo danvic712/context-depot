@@ -133,7 +133,25 @@ For clients that use an `mcpServers` configuration, add:
 
 Replace `<SERVER_IP_OR_DOMAIN>` with your server's IP or domain and `<YOUR_ACCESS_KEY>` with your key. Use the same service address and port as the web interface, including HTTPS if configured. Configuration formats vary by client; you can adapt the connection example provided by the setup guide.
 
-In **Settings → Access keys**, grant the key access to each space the client should use. Add a grant whenever you create another space that the client needs to access.
+In **Settings → Access keys**, choose the spaces the client can use. You can also enable standalone space creation: spaces created by this key are granted automatically. Spaces created elsewhere or used by another key still need an explicit grant.
+
+#### Use the ContextDepot Skill
+
+The [ContextDepot Skill](skills/context-depot/SKILL.md) helps agents recall and save useful knowledge across personal tasks, research, and projects. Configure the MCP connection first, then install with Node.js and [the skills CLI](https://github.com/vercel-labs/skills):
+
+```sh
+npx skills add danvic712/context-depot --skill context-depot --global
+```
+
+Select the current agent as the installation target. `--global` installs to its global skills directory, making the Skill available across projects. Compatible clients can select it as needed. From a local checkout, replace `danvic712/context-depot` with `./skills/context-depot`.
+
+Send your agent this installation instruction:
+
+```text
+Run npx skills add danvic712/context-depot --skill context-depot --global to install the context-depot Skill, selecting only the current agent as the target. Read SKILL.md and confirm the Skill is available. Preserve existing MCP settings. If installation cannot be completed, report the issue rather than guessing a path or generating a replacement Skill.
+```
+
+After installation, ask for retrieval or saving using the examples below. Automatic capture and space preparation require your explicit enablement; installing the Skill grants no additional write permissions. Document updates check the current version and read back the saved content.
 
 ### 4. Save and retrieve knowledge
 
