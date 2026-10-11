@@ -30,6 +30,8 @@ public sealed class ContextDepotDbContext(
 
     public DbSet<Workspace> Workspaces => Set<Workspace>();
 
+    public DbSet<WorkspaceSubjectBinding> WorkspaceSubjectBindings => Set<WorkspaceSubjectBinding>();
+
     public DbSet<ContextItem> ContextItems => Set<ContextItem>();
 
     public DbSet<Document> Documents => Set<Document>();
@@ -51,6 +53,8 @@ public sealed class ContextDepotDbContext(
         modelBuilder.Entity<Workspace>()
             .HasQueryFilter(workspace =>
                 HasUnrestrictedWorkspaceAccess || NavigableWorkspaceIds.Contains(workspace.Id));
+        modelBuilder.Entity<WorkspaceSubjectBinding>()
+            .HasQueryFilter(binding => HasUnrestrictedWorkspaceAccess || AccessibleWorkspaceIds.Contains(binding.WorkspaceId));
         modelBuilder.Entity<ContextItem>()
             .HasQueryFilter(context =>
                 HasUnrestrictedWorkspaceAccess || AccessibleWorkspaceIds.Contains(context.WorkspaceId));

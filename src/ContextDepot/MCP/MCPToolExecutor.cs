@@ -28,7 +28,7 @@ public sealed class MCPToolExecutor(IHttpContextAccessor httpContextAccessor)
         }
     }
 
-    private string? GetRequestLocale()
+    public string? GetRequestLocale()
     {
         var acceptedLanguages = httpContextAccessor.HttpContext?.Request.Headers.AcceptLanguage.ToString();
         return acceptedLanguages?.Split(',', 2)[0].Split(';', 2)[0].Trim();

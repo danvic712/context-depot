@@ -165,6 +165,8 @@ describe("Settings contracts", () => {
       lastUsedAt: null,
       revokedAt: null,
       workspaceIds: ["workspace"],
+      canCreateRootWorkspaces: false,
+      accessVersion: "0",
       secretHash: "example-hash",
       secret: "example-secret",
     };
@@ -206,6 +208,8 @@ describe("Settings contracts", () => {
       lastUsedAt: null,
       revokedAt: null,
       workspaceIds: ["workspace"],
+      canCreateRootWorkspaces: false,
+      accessVersion: "0",
     };
     expect(() =>
       parseIssuedKey({ key, secret: "wrong-prefix." + "x".repeat(32) }),

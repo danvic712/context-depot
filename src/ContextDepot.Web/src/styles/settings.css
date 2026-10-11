@@ -627,8 +627,37 @@
   min-width: 0;
 }
 .settings-workspaces > p {
-  margin: 7px 0 12px;
+  margin: 0;
   font-size: 12px;
+}
+.settings-key-creation[data-slot="field"] {
+  align-items: flex-start;
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-5);
+}
+.settings-key-creation > input {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  accent-color: var(--primary);
+  flex: none;
+  cursor: pointer;
+}
+.settings-key-creation [data-slot="field-label"] {
+  min-height: 24px;
+  cursor: pointer;
+}
+.settings-key-creation[data-disabled="true"] input,
+.settings-key-creation[data-disabled="true"] [data-slot="field-label"] {
+  cursor: default;
+}
+@media (max-width: 640px) {
+  .settings-key-creation [data-slot="field-label"] {
+    min-height: var(--target-min);
+  }
+  .settings-key-creation > input {
+    margin-top: 14px;
+  }
 }
 .settings-workspace-options {
   max-height: 240px;

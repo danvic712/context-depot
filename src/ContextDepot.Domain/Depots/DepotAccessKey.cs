@@ -14,7 +14,8 @@ public sealed class DepotAccessKey
         string name,
         string keyPrefix,
         string secretHash,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        bool canCreateRootWorkspaces = false)
     {
         Id = id;
         DepotId = depotId;
@@ -22,6 +23,7 @@ public sealed class DepotAccessKey
         KeyPrefix = keyPrefix;
         SecretHash = secretHash;
         CreatedAt = now;
+        CanCreateRootWorkspaces = canCreateRootWorkspaces;
     }
 
     public Guid Id { get; private set; }
@@ -46,6 +48,14 @@ public sealed class DepotAccessKey
 
     public bool IsActive => RevokedAt is null;
 
+    public bool CanCreateRootWorkspaces { get; private set; }
+
+    public long AccessVersion { get; private set; }
+
+    public void ChangeCreationCapability(bool enabled) => CanCreateRootWorkspaces = enabled;
+
+    public void AdvanceAccessVersion() => AccessVersion = checked(AccessVersion + 1);
+
     public void MarkUsed(DateTimeOffset now)
     {
         LastUsedAt = now;
@@ -53,6 +63,8 @@ public sealed class DepotAccessKey
 
     public void Revoke(DateTimeOffset now)
     {
-        RevokedAt ??= now;
+        if (RevokedAt is not null) return;
+        RevokedAt = now;
+        AdvanceAccessVersion();
     }
 }

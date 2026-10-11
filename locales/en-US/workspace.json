@@ -3,8 +3,10 @@
   "WorkspaceParentNotFound": "We couldn't find the parent workspace. Create it first and try again.",
   "WorkspaceConcurrencyConflict": "This workspace was updated by another operation. Refresh it and try again.",
   "WorkspaceWriteFailed": "We couldn't save the workspace. Please try again later.",
-  "InvalidWorkspaceName": "A workspace name is required.",
+  "InvalidWorkspaceName": "A workspace name of 1–200 characters is required.",
   "InvalidWorkspaceMetadata": "Workspace metadata must be a valid JSON object.",
   "InvalidWorkspacePath": "The workspace path is invalid. Use a safe relative path.",
-  "workspace.path_conflict": "A workspace with this path already exists. Choose a different path."
+  "workspace.path_conflict": "A workspace with this path already exists. Choose a different path.",
+  "WorkspaceUnavailable": "This Workspace is unavailable. Check the key's Workspace permissions.",
+  "InvalidWorkspaceSubject": "We couldn't identify the Workspace to link. Check the type and identifier; the identifier must be 1–200 characters."
 }

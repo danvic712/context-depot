@@ -1,11 +1,9 @@
 using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Application.Shared.Runtime.Contracts;
 using ContextDepot.Application.Shared.Safety.Contracts;
-using ContextDepot.Application.Shared.Safety.Dtos;
 using ContextDepot.Application.Workspaces;
 using ContextDepot.Application.Workspaces.Contracts;
 using ContextDepot.Application.Workspaces.Dtos;
-using ContextDepot.Application.Workspaces.Enums;
 using ContextDepot.Domain.Workspaces;
 using Moq;
 
@@ -19,9 +17,8 @@ public sealed class WorkspaceAppServiceTests
     public async Task Missing_parent_is_reported_without_fallback_writes()
     {
         var repository = new Mock<IWorkspaceRepository>();
-        repository
-            .Setup(x => x.UpsertPathAsync(DepotId, "projects/context-depot", "ContextDepot", null, "{}", false, It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new WorkspaceUpsertPersistenceResult(null, WorkspaceUpsertPersistenceOutcome.ParentNotFound));
+        repository.Setup(x => x.LoadEnsureSnapshotAsync(DepotId, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WorkspaceWriteSnapshot(null, null, [], new(null, true, true, true, 0, [])));
         var service = CreateService(repository);
 
         var exception = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => service.UpsertAsync(new UpsertWorkspaceCommand("projects/context-depot", "ContextDepot"), CancellationToken.None));
@@ -42,11 +39,32 @@ public sealed class WorkspaceAppServiceTests
         Assert.Equal("projects/context-depot", result!.Path);
     }
 
+    [Theory]
+    [InlineData(" ", "{}", ApplicationErrorCodes.InvalidWorkspaceName)]
+    [InlineData("Valid", "[]", ApplicationErrorCodes.InvalidWorkspaceMetadata)]
+    [InlineData("Valid", "{", ApplicationErrorCodes.InvalidWorkspaceMetadata)]
+    public async Task Invalid_details_are_rejected_before_either_write_mode_accesses_persistence(
+        string name, string metadataJson, string errorCode)
+    {
+        var repository = new Mock<IWorkspaceRepository>(MockBehavior.Strict);
+        var service = CreateService(repository);
+        var upsertError = await Assert.ThrowsAsync<ContextDepotApplicationException>(() =>
+            service.UpsertAsync(new("projects/context-depot", name, MetadataJson: metadataJson), default));
+        var ensureError = await Assert.ThrowsAsync<ContextDepotApplicationException>(() =>
+            service.EnsureAsync(new(new(WorkspaceSubjectType.Project, "context-depot"),
+                "projects/context-depot", name, MetadataJson: metadataJson), default));
+
+        Assert.Equal(errorCode, upsertError.ErrorCode);
+        Assert.Equal(errorCode, ensureError.ErrorCode);
+        repository.VerifyNoOtherCalls();
+    }
+
     private static WorkspaceAppService CreateService(Mock<IWorkspaceRepository> repository)
     {
         var depot = new Mock<ICurrentDepotContext>();
         depot.SetupGet(x => x.DepotId).Returns(DepotId);
         var safety = new Mock<ISourceSafetyService>();
-        return new WorkspaceAppService(depot.Object, repository.Object, TimeProvider.System, safety.Object);
+        return new WorkspaceAppService(depot.Object, repository.Object, TimeProvider.System, safety.Object,
+            new WorkspaceWriter(repository.Object, new Mock<IIdGenerator>().Object, new Mock<IWorkspaceAccessContext>().Object));
     }
 }

@@ -4,6 +4,15 @@ import { isAxiosError } from "axios";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Link } from "react-router";
+import {
+  CheckIcon,
+  KeyRoundIcon,
+  PlusIcon,
+  RotateCwIcon,
+  SaveIcon,
+  Trash2Icon,
+  XIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
@@ -13,6 +22,7 @@ import {
   FieldSet,
   FieldLegend,
   FieldDescription,
+  FieldContent,
 } from "@/components/ui/field";
 import { FormDialog } from "@/components/content/FormDialog";
 import { SubmitButton } from "@/components/content/SubmitButton";
@@ -57,6 +67,9 @@ export function AccessKeyDialog({
   const inactive = action !== "create" && (!accessKey || !!accessKey.revokedAt);
   const [name, setName] = useState("");
   const [grants, setGrants] = useState(accessKey?.workspaceIds ?? []);
+  const [canCreateRootWorkspaces, setCanCreateRootWorkspaces] = useState(
+    accessKey?.canCreateRootWorkspaces ?? false,
+  );
   const [issued, setIssued] = useState<IssuedKey>();
   const [saving, setSaving] = useState(false);
   const recovery = useSettingsConflictRecovery(getAccessKeys);
@@ -71,13 +84,22 @@ export function AccessKeyDialog({
   }, [issued]);
   useEffect(() => () => request.current?.abort(), []);
   const editsGrants = action === "create" || action === "grants";
+  const ActionIcon =
+    action === "create"
+      ? PlusIcon
+      : action === "grants"
+        ? SaveIcon
+        : action === "rotate"
+          ? RotateCwIcon
+          : Trash2Icon;
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (pending || inactive || failure === "settingsConflict") return;
     const errors = [];
     if (action === "create" && (!name.trim() || name.trim().length > 200))
       errors.push("name");
-    if (editsGrants && !grants.length) errors.push("grants");
+    if (editsGrants && !grants.length && !canCreateRootWorkspaces)
+      errors.push("grants");
     setInvalid(errors);
     setFailure(undefined);
     if (errors.length) {
@@ -94,7 +116,12 @@ export function AccessKeyDialog({
     try {
       if (action === "create")
         setIssued(
-          await createAccessKey(name.trim(), grants, controller.signal),
+          await createAccessKey(
+            name.trim(),
+            grants,
+            controller.signal,
+            canCreateRootWorkspaces,
+          ),
         );
       else if (action === "rotate" && accessKey)
         setIssued(await rotateAccessKey(accessKey.id, controller.signal));
@@ -103,7 +130,13 @@ export function AccessKeyDialog({
         toast.success(t("settingsKeyRevoked"));
         onClose();
       } else if (accessKey) {
-        await updateAccessKeyGrants(accessKey.id, grants, controller.signal);
+        await updateAccessKeyGrants(
+          accessKey.id,
+          grants,
+          controller.signal,
+          canCreateRootWorkspaces,
+          accessKey.accessVersion,
+        );
         toast.success(t("settingsGrantsSaved"));
         onClose();
       }
@@ -132,6 +165,7 @@ export function AccessKeyDialog({
       <FormDialog
         variant="wide"
         title={t(issued ? "settingsKeyIssued" : titleKeys[action])}
+        titleIcon={KeyRoundIcon}
         description={t(
           issued
             ? "settingsKeyOnce"
@@ -139,7 +173,9 @@ export function AccessKeyDialog({
               ? "settingsRotateWhy"
               : action === "revoke"
                 ? "settingsRevokeWhy"
-                : "settingsGrantsWhy",
+                : action === "create"
+                  ? "settingsCreateKeyWhy"
+                  : "settingsGrantsWhy",
         )}
         closeLabel={t("cancel")}
         pending={pending}
@@ -151,6 +187,7 @@ export function AccessKeyDialog({
         footer={
           issued ? (
             <Button ref={done} onClick={onClose}>
+              <CheckIcon data-icon="inline-start" aria-hidden="true" />
               {t("settingsKeyDone")}
             </Button>
           ) : (
@@ -161,17 +198,25 @@ export function AccessKeyDialog({
                 disabled={pending}
                 onClick={onClose}
               >
+                <XIcon data-icon="inline-start" aria-hidden="true" />
                 {t("cancel")}
               </Button>
               <SubmitButton
                 pending={pending}
-                label={t(titleKeys[action])}
+                icon={ActionIcon}
+                label={t(
+                  action === "grants"
+                    ? "settingsSaveAccess"
+                    : titleKeys[action],
+                )}
                 pendingLabel={t("settingsSaving")}
                 variant={action === "revoke" ? "destructive" : "default"}
                 disabled={
                   inactive ||
                   failure === "settingsConflict" ||
-                  (editsGrants && !workspaces.length)
+                  (editsGrants &&
+                    !workspaces.length &&
+                    !canCreateRootWorkspaces)
                 }
               />
             </>
@@ -189,6 +234,9 @@ export function AccessKeyDialog({
                 setAccessKey(latestKey);
                 setWorkspaces(latest.workspaces);
                 setGrants(latestKey?.workspaceIds ?? []);
+                setCanCreateRootWorkspaces(
+                  latestKey?.canCreateRootWorkspaces ?? false,
+                );
                 setName("");
                 setInvalid([]);
                 setFailure(
@@ -210,9 +258,7 @@ export function AccessKeyDialog({
               <code>{issued.secret}</code>
               <CopySetting value={issued.secret} label={t("settingsCopyKey")} />
             </div>
-            <p className="settings-inline-note">
-              {t("settingsHeaderName")} <code>X-ContextDepot-Key</code>
-            </p>
+            <p className="settings-inline-note">{t("settingsKeyUse")}</p>
           </div>
         ) : (
           <>
@@ -227,8 +273,15 @@ export function AccessKeyDialog({
                 <Input
                   id="key-name"
                   value={name}
-                  onChange={(event) => setName(event.target.value)}
+                  onChange={(event) => {
+                    setName(event.target.value);
+                    if (event.target.value.trim())
+                      setInvalid((previous) =>
+                        previous.filter((field) => field !== "name"),
+                      );
+                  }}
                   maxLength={200}
+                  placeholder={t("settingsKeyNamePlaceholder")}
                   disabled={pending}
                   autoComplete="off"
                   aria-invalid={invalid.includes("name")}
@@ -251,7 +304,7 @@ export function AccessKeyDialog({
             )}
             {editsGrants && (
               <FieldSet
-                className="settings-workspaces"
+                className="settings-workspaces gap-3"
                 disabled={pending}
                 data-invalid={invalid.includes("grants")}
                 data-disabled={pending}
@@ -259,46 +312,86 @@ export function AccessKeyDialog({
                 <FieldLegend variant="label">
                   {t("settingsGrantedWorkspaces")}
                 </FieldLegend>
-                <FieldDescription>{t("settingsGrantsExact")}</FieldDescription>
+                <FieldDescription id="key-grants-description">
+                  {t("settingsGrantsExact")}
+                </FieldDescription>
                 {!workspaces.length && (
                   <p>
                     {t("settingsNoWorkspaces")}{" "}
                     <Link to="/spaces">{t("spaces")}</Link>
                   </p>
                 )}
-                <div className="settings-workspace-options">
-                  {workspaces.map((workspace, index) => (
-                    <label key={workspace.id}>
-                      <input
-                        type="checkbox"
-                        checked={grants.includes(workspace.id)}
-                        aria-invalid={index === 0 && invalid.includes("grants")}
-                        aria-describedby={
-                          invalid.includes("grants")
-                            ? "key-grants-error"
-                            : undefined
-                        }
-                        onChange={(event) =>
-                          setGrants((previous) =>
-                            event.target.checked
-                              ? [...previous, workspace.id]
-                              : previous.filter((id) => id !== workspace.id),
-                          )
-                        }
-                      />
-                      <span>
-                        <strong>{workspace.name}</strong>
-                        <code>{workspace.path}</code>
-                      </span>
-                    </label>
-                  ))}
-                </div>
+                {!!workspaces.length && (
+                  <div className="settings-workspace-options">
+                    {workspaces.map((workspace, index) => (
+                      <label key={workspace.id}>
+                        <input
+                          type="checkbox"
+                          checked={grants.includes(workspace.id)}
+                          aria-invalid={
+                            index === 0 && invalid.includes("grants")
+                          }
+                          aria-describedby={
+                            invalid.includes("grants")
+                              ? "key-grants-description key-grants-error"
+                              : "key-grants-description"
+                          }
+                          onChange={(event) => {
+                            setGrants((previous) =>
+                              event.target.checked
+                                ? [...previous, workspace.id]
+                                : previous.filter((id) => id !== workspace.id),
+                            );
+                            if (event.target.checked)
+                              setInvalid((previous) =>
+                                previous.filter((field) => field !== "grants"),
+                              );
+                          }}
+                        />
+                        <span>
+                          <strong>{workspace.name}</strong>
+                          <code>{workspace.path}</code>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
                 {invalid.includes("grants") && (
                   <p id="key-grants-error" className="settings-field-error">
                     {t("settingsGrantsInvalid")}
                   </p>
                 )}
               </FieldSet>
+            )}
+            {editsGrants && (
+              <Field
+                orientation="horizontal"
+                className="settings-key-creation"
+                data-disabled={pending}
+              >
+                <input
+                  id="key-create-root"
+                  type="checkbox"
+                  checked={canCreateRootWorkspaces}
+                  disabled={pending}
+                  onChange={(event) => {
+                    setCanCreateRootWorkspaces(event.target.checked);
+                    if (event.target.checked)
+                      setInvalid((previous) =>
+                        previous.filter((field) => field !== "grants"),
+                      );
+                  }}
+                  aria-describedby="key-create-root-description"
+                />
+                <FieldContent>
+                  <FieldLabel htmlFor="key-create-root">
+                    {t("settingsCanCreateRootWorkspaces")}
+                  </FieldLabel>
+                  <FieldDescription id="key-create-root-description">
+                    {t("settingsCreationPermissionWhy")}
+                  </FieldDescription>
+                </FieldContent>
+              </Field>
             )}
           </>
         )}

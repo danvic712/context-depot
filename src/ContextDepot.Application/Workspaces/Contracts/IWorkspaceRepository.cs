@@ -15,6 +15,12 @@ public interface IWorkspaceRepository
 
     Task<WorkspaceTopology> LoadVisibleTopologyAsync(Guid depotId, CancellationToken cancellationToken);
 
+    Task<WorkspaceWriteSnapshot> LoadEnsureSnapshotAsync(Guid depotId, WorkspaceSubject? subject,
+        CancellationToken cancellationToken);
+
+    Task<WorkspaceWritePersistenceResult> TryApplyEnsureAsync(Guid depotId, WorkspaceWritePlan plan,
+        DateTimeOffset now, CancellationToken cancellationToken);
+
     Task<WorkspaceUpsertPersistenceResult> UpsertPathAsync(
         Guid depotId,
         string normalizedPath,

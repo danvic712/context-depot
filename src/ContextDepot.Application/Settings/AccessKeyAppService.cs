@@ -1,3 +1,4 @@
+using System.Globalization;
 using ContextDepot.Application.Settings.Contracts;
 using ContextDepot.Application.Settings.Dtos;
 using ContextDepot.Application.Shared.Exceptions;
@@ -8,7 +9,7 @@ using ContextDepot.Domain.Workspaces;
 namespace ContextDepot.Application.Settings;
 
 public sealed class AccessKeyAppService(IAccessKeyRepository repository, IAccessKeySecretGenerator secrets,
-    ICurrentDepotContext depot, IWorkspaceAccessContext access, IIdGenerator ids, TimeProvider clock)
+    ICurrentDepotContext depot, IWorkspaceAccessContext access, IIdGenerator ids, TimeProvider clock) : IAccessKeyAppService
 {
     public Task<AccessKeyListDto> ListAsync(CancellationToken cancellationToken)
     {
@@ -21,10 +22,11 @@ public sealed class AccessKeyAppService(IAccessKeyRepository repository, IAccess
         SettingsAccess.RequireManagement(depot, access);
         if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 200)
             throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidRequest);
-        var grants = await ValidateGrantsAsync(request.WorkspaceIds, cancellationToken);
+        var grants = await ValidateGrantsAsync(request.WorkspaceIds, request.CanCreateRootWorkspaces, cancellationToken);
         var secret = secrets.Generate();
         var now = clock.GetUtcNow();
-        var key = new DepotAccessKey(ids.NewId(), depot.DepotId, request.Name.Trim(), secret.Prefix, secret.SecretHash, now);
+        var key = new DepotAccessKey(ids.NewId(), depot.DepotId, request.Name.Trim(), secret.Prefix, secret.SecretHash, now,
+            request.CanCreateRootWorkspaces);
         foreach (var workspaceId in grants)
             key.WorkspaceGrants.Add(new WorkspaceAccessGrant(key.Id, depot.DepotId, workspaceId, now));
         return new IssuedAccessKeyDto(await repository.CreateAsync(key, cancellationToken), secret.Plaintext);
@@ -49,17 +51,26 @@ public sealed class AccessKeyAppService(IAccessKeyRepository repository, IAccess
     public async Task<AccessKeyDto> SetGrantsAsync(Guid id, UpdateAccessKeyGrantsRequest request, CancellationToken cancellationToken)
     {
         SettingsAccess.RequireManagement(depot, access);
-        var grants = await ValidateGrantsAsync(request.WorkspaceIds, cancellationToken);
-        return await repository.SetGrantsAsync(depot.DepotId, id, grants, clock.GetUtcNow(), cancellationToken)
+        long? version = null;
+        if (request.ExpectedAccessVersion is not null)
+        {
+            if (!long.TryParse(request.ExpectedAccessVersion, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed) || parsed < 0)
+                throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidRequest);
+            version = parsed;
+        }
+        // The locked current capability determines whether an empty set is allowed.
+        var grants = await ValidateGrantsAsync(request.WorkspaceIds, true, cancellationToken);
+        return await repository.SetAccessAsync(depot.DepotId, id,
+            new(grants, request.CanCreateRootWorkspaces, version), clock.GetUtcNow(), cancellationToken)
             ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.AccessKeyNotFound);
     }
 
-    private async Task<Guid[]> ValidateGrantsAsync(Guid[]? workspaceIds, CancellationToken cancellationToken)
+    private async Task<Guid[]> ValidateGrantsAsync(Guid[]? workspaceIds, bool allowEmpty, CancellationToken cancellationToken)
     {
-        if (workspaceIds is null || workspaceIds.Length == 0 || workspaceIds.Length > 2000 || workspaceIds.Contains(Guid.Empty))
+        if (workspaceIds is null || (!allowEmpty && workspaceIds.Length == 0) || workspaceIds.Length > 2000 || workspaceIds.Contains(Guid.Empty))
             throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidRequest);
         var grants = workspaceIds.Distinct().Order().ToArray();
-        if (!await repository.WorkspacesBelongToDepotAsync(depot.DepotId, grants, cancellationToken))
+        if (grants.Length > 0 && !await repository.WorkspacesBelongToDepotAsync(depot.DepotId, grants, cancellationToken))
             throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidRequest);
         return grants;
     }

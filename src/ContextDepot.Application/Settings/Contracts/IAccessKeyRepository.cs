@@ -13,4 +13,6 @@ public interface IAccessKeyRepository
         DateTimeOffset now, CancellationToken cancellationToken);
     Task<AccessKeyDto?> SetGrantsAsync(Guid depotId, Guid id, IReadOnlyList<Guid> ids,
         DateTimeOffset now, CancellationToken cancellationToken);
+    Task<AccessKeyDto?> SetAccessAsync(Guid depotId, Guid id, AccessKeyAccessUpdate command,
+        DateTimeOffset now, CancellationToken cancellationToken);
 }

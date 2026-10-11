@@ -14,7 +14,7 @@ public static partial class WorkspacePath
         }
 
         var segments = path.Split('/', StringSplitOptions.None);
-        if (segments.Length == 0 || segments.Any(segment => string.IsNullOrWhiteSpace(segment) || !SlugRegex().IsMatch(segment)))
+        if (segments.Length == 0 || segments.Any(segment => string.IsNullOrWhiteSpace(segment) || segment.Length > 100 || !SlugRegex().IsMatch(segment)))
         {
             throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidWorkspacePath);
         }

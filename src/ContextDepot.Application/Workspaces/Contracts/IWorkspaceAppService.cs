@@ -14,4 +14,8 @@ public interface IWorkspaceAppService
     Task<WorkspaceTopology> LoadTopologyAsync(CancellationToken cancellationToken);
 
     Task<WorkspaceModel> UpsertAsync(UpsertWorkspaceCommand command, CancellationToken cancellationToken);
+
+    Task<WorkspaceSubjectResolution> ResolveSubjectAsync(WorkspaceSubject subject, CancellationToken cancellationToken);
+
+    Task<WorkspaceWriteResult> EnsureAsync(EnsureWorkspaceCommand command, CancellationToken cancellationToken);
 }

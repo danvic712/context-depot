@@ -45,12 +45,7 @@ export function AccessKeySettings() {
           />
           <Button
             size="sm"
-            disabled={
-              !resource.data ||
-              !!resource.error ||
-              resource.pending ||
-              !workspaces.length
-            }
+            disabled={!resource.data || !!resource.error || resource.pending}
             onClick={() => open("create")}
           >
             <PlusIcon aria-hidden="true" />
@@ -92,6 +87,13 @@ export function AccessKeySettings() {
                     />
                   </div>
                   <code>{key.prefix}.••••••••</code>
+                  <p>
+                    {t(
+                      key.canCreateRootWorkspaces
+                        ? "settingsCreationEnabled"
+                        : "settingsCreationDisabled",
+                    )}
+                  </p>
                   <p>
                     {t("settingsLastUsed")}:{" "}
                     {key.lastUsedAt
