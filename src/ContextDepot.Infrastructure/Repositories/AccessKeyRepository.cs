@@ -1,3 +1,5 @@
+using System.Globalization;
+using ContextDepot.Application.Settings;
 using ContextDepot.Application.Settings.Contracts;
 using ContextDepot.Application.Settings.Dtos;
 using ContextDepot.Application.Shared.Exceptions;
@@ -51,7 +53,8 @@ public sealed class AccessKeyRepository(ContextDepotDbContext db) : IAccessKeyRe
         var key = await LockAsync(depotId, id, cancellationToken);
         if (key is null) return null;
         if (!key.IsActive) throw new ContextDepotApplicationException(ApplicationErrorCodes.SettingsConflict);
-        var replacement = new DepotAccessKey(replacementId, depotId, key.Name, secret.Prefix, secret.SecretHash, now);
+        var replacement = new DepotAccessKey(replacementId, depotId, key.Name, secret.Prefix, secret.SecretHash, now,
+            key.CanCreateRootWorkspaces);
         foreach (var grant in key.WorkspaceGrants)
             replacement.WorkspaceGrants.Add(new WorkspaceAccessGrant(replacement.Id, depotId, grant.WorkspaceId, now));
         db.DepotAccessKeys.Add(replacement);
@@ -63,13 +66,20 @@ public sealed class AccessKeyRepository(ContextDepotDbContext db) : IAccessKeyRe
         return ToDto(replacement);
     }
 
-    public async Task<AccessKeyDto?> SetGrantsAsync(Guid depotId, Guid id, IReadOnlyList<Guid> ids,
+    public Task<AccessKeyDto?> SetGrantsAsync(Guid depotId, Guid id, IReadOnlyList<Guid> ids,
+        DateTimeOffset now, CancellationToken cancellationToken) => SetAccessAsync(depotId, id,
+            new(ids, null, null), now, cancellationToken);
+
+    public async Task<AccessKeyDto?> SetAccessAsync(Guid depotId, Guid id, AccessKeyAccessUpdate command,
         DateTimeOffset now, CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         var key = await LockAsync(depotId, id, cancellationToken);
         if (key is null) return null;
         if (!key.IsActive) throw new ContextDepotApplicationException(ApplicationErrorCodes.SettingsConflict);
+        var capability = AccessKeyAccessPolicy.Approve(key, command);
+        var ids = command.WorkspaceIds;
+        var changed = capability != key.CanCreateRootWorkspaces || !key.WorkspaceGrants.Select(grant => grant.WorkspaceId).Order().SequenceEqual(ids.Order());
         var removed = key.WorkspaceGrants.Where(grant => !ids.Contains(grant.WorkspaceId)).ToArray();
         foreach (var grant in removed)
         {
@@ -79,6 +89,8 @@ public sealed class AccessKeyRepository(ContextDepotDbContext db) : IAccessKeyRe
         var existing = key.WorkspaceGrants.Select(grant => grant.WorkspaceId).ToHashSet();
         foreach (var workspaceId in ids.Where(workspaceId => !existing.Contains(workspaceId)))
             key.WorkspaceGrants.Add(new WorkspaceAccessGrant(id, depotId, workspaceId, now));
+        key.ChangeCreationCapability(capability);
+        if (changed) key.AdvanceAccessVersion();
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return ToDto(key);
@@ -90,10 +102,17 @@ public sealed class AccessKeyRepository(ContextDepotDbContext db) : IAccessKeyRe
             $"SELECT * FROM public.depot_access_keys WHERE id = {id} AND depot_id = {depotId} FOR UPDATE")
             .ToListAsync(cancellationToken);
         var key = keys.SingleOrDefault();
-        if (key is not null) await db.Entry(key).Collection(item => item.WorkspaceGrants).LoadAsync(cancellationToken);
+        if (key is not null)
+        {
+            await db.Entry(key).ReloadAsync(cancellationToken);
+            foreach (var grant in key.WorkspaceGrants.ToArray()) db.Entry(grant).State = EntityState.Detached;
+            key.WorkspaceGrants.Clear();
+            await db.Entry(key).Collection(item => item.WorkspaceGrants).Query().IgnoreQueryFilters().LoadAsync(cancellationToken);
+        }
         return key;
     }
 
     private static AccessKeyDto ToDto(DepotAccessKey key) => new(key.Id, key.Name, key.KeyPrefix,
-        key.CreatedAt, key.LastUsedAt, key.RevokedAt, key.WorkspaceGrants.Select(grant => grant.WorkspaceId).Order().ToArray());
+        key.CreatedAt, key.LastUsedAt, key.RevokedAt, key.WorkspaceGrants.Select(grant => grant.WorkspaceId).Order().ToArray(),
+        key.CanCreateRootWorkspaces, key.AccessVersion.ToString(CultureInfo.InvariantCulture));
 }

@@ -18,6 +18,8 @@ export interface AccessKey {
   lastUsedAt: string | null;
   revokedAt: string | null;
   workspaceIds: string[];
+  canCreateRootWorkspaces: boolean;
+  accessVersion: string;
 }
 export interface KeyWorkspace {
   id: string;
@@ -166,6 +168,13 @@ export function parseOverview(data: unknown): SettingsOverview {
 }
 export function parseAccessKey(data: unknown): AccessKey {
   const v = object(data);
+  const accessVersion = string(v.accessVersion);
+  if (
+    !/^(0|[1-9][0-9]*)$/.test(accessVersion) ||
+    accessVersion.length > 19 ||
+    BigInt(accessVersion) > 9223372036854775807n
+  )
+    throw new Error("Invalid access version");
   return {
     id: string(v.id),
     name: string(v.name),
@@ -174,6 +183,8 @@ export function parseAccessKey(data: unknown): AccessKey {
     lastUsedAt: v.lastUsedAt === null ? null : date(v.lastUsedAt),
     revokedAt: v.revokedAt === null ? null : date(v.revokedAt),
     workspaceIds: array(v.workspaceIds, string),
+    canCreateRootWorkspaces: boolean(v.canCreateRootWorkspaces),
+    accessVersion,
   };
 }
 export function parseKeys(data: unknown): AccessKeyList {
@@ -400,12 +411,13 @@ export function createAccessKey(
   name: string,
   workspaceIds: string[],
   signal: AbortSignal,
+  canCreateRootWorkspaces = false,
 ) {
   return httpRequest({
     method: "POST",
     headers: { "X-ContextDepot-Management": "web" },
     url: "/settings/access-keys",
-    data: { name, workspaceIds },
+    data: { name, workspaceIds, canCreateRootWorkspaces },
     signal,
     parse: parseIssuedKey,
   });
@@ -432,12 +444,14 @@ export function updateAccessKeyGrants(
   id: string,
   workspaceIds: string[],
   signal: AbortSignal,
+  canCreateRootWorkspaces: boolean,
+  expectedAccessVersion: string,
 ) {
   return httpRequest({
     method: "PUT",
     headers: { "X-ContextDepot-Management": "web" },
     url: `/settings/access-keys/${encodeURIComponent(id)}/grants`,
-    data: { workspaceIds },
+    data: { workspaceIds, canCreateRootWorkspaces, expectedAccessVersion },
     signal,
     parse: parseAccessKey,
   });

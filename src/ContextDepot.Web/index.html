@@ -21,10 +21,25 @@
       }
     </style>
     <script>
+      const browserLanguages =
+        typeof navigator === "undefined"
+          ? []
+          : navigator.languages?.length
+            ? navigator.languages
+            : [navigator.language];
+      const browserLanguage =
+        browserLanguages
+          .map((value) => value?.toLowerCase().split("-")[0])
+          .find((value) => value === "zh" || value === "en") ?? "en";
       try {
+        const setup = location.pathname === "/setup";
         const allowedThemes = ["system", "light", "dark"];
-        const override = localStorage.getItem("contextdepot.theme");
-        const cachedTheme = localStorage.getItem("contextdepot.theme-mode");
+        const override = localStorage.getItem(
+          setup ? "contextdepot.setup.theme" : "contextdepot.theme",
+        );
+        const cachedTheme = setup
+          ? null
+          : localStorage.getItem("contextdepot.theme-mode");
         const theme = allowedThemes.includes(override)
           ? override
           : allowedThemes.includes(cachedTheme)
@@ -35,16 +50,21 @@
           (theme !== "light" &&
             matchMedia("(prefers-color-scheme: dark)").matches);
         document.documentElement.dataset.theme = dark ? "dark" : "light";
-        document.documentElement.lang =
-          localStorage.getItem("contextdepot.language") === "zh"
-            ? "zh-CN"
-            : "en";
+        const savedLanguage = localStorage.getItem(
+          setup ? "contextdepot.setup.language" : "contextdepot.language",
+        );
+        const language = ["en", "zh"].includes(savedLanguage)
+          ? savedLanguage
+          : browserLanguage;
+        document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
       } catch {
         document.documentElement.dataset.theme = matchMedia(
           "(prefers-color-scheme: dark)",
         ).matches
           ? "dark"
           : "light";
+        document.documentElement.lang =
+          browserLanguage === "zh" ? "zh-CN" : "en";
       }
     </script>
     <title>ContextDepot</title>

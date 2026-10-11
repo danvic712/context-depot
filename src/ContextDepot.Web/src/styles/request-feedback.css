@@ -20,8 +20,29 @@
   overflow-wrap: anywhere;
   line-height: 1.7;
 }
+.request-feedback [data-slot="alert-title"] > :is(h1, h2, h3) {
+  margin: 0;
+  font: inherit;
+  letter-spacing: inherit;
+}
+.request-feedback [data-slot="alert-title"] > :focus {
+  outline: none;
+}
+.request-feedback [data-slot="alert-description"] {
+  gap: 8px;
+}
+.request-feedback-note {
+  font-size: 13px;
+}
 .request-feedback [data-slot="alert-action"] {
   align-self: center;
+}
+.space-navigation-group .request-feedback {
+  grid-template-columns: 20px minmax(0, 1fr);
+}
+.space-navigation-group .request-feedback [data-slot="alert-action"] {
+  grid-column: 2;
+  justify-self: start;
 }
 @media (max-width: 640px) {
   .request-feedback {

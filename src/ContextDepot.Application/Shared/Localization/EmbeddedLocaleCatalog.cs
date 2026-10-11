@@ -18,6 +18,9 @@ public sealed class EmbeddedLocaleCatalog
     public bool Contains(string messageKey) =>
         messagesByLocale.Values.Any(messages => messages.ContainsKey(messageKey));
 
+    public IEnumerable<string> GetValues(string messageKey) =>
+        messagesByLocale.Values.Select(messages => messages[messageKey]);
+
     public IReadOnlyDictionary<string, string> GetMessages(string? locale)
     {
         var normalizedLocale = NormalizeLocale(locale);

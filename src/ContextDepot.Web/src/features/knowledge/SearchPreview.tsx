@@ -72,6 +72,7 @@ export function SearchPreview({
             failure={resource.error}
             pending={resource.pending}
             onRetry={onRetry}
+            recoveryAction={{ label: t("dialogBack"), onClick: onBack }}
           />
         ) : !resource.data ? (
           <SearchPreviewSkeleton />

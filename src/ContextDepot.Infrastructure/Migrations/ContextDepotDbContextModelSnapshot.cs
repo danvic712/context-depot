@@ -206,6 +206,18 @@ namespace ContextDepot.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<long>("AccessVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValue(0L)
+                        .HasColumnName("access_version");
+
+                    b.Property<bool>("CanCreateRootWorkspaces")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("can_create_root_workspaces");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -253,7 +265,10 @@ namespace ContextDepot.Infrastructure.Migrations
                     b.HasIndex("DepotId", "Name")
                         .HasDatabaseName("ix_depot_access_keys_depot_name");
 
-                    b.ToTable("depot_access_keys", "public");
+                    b.ToTable("depot_access_keys", "public", t =>
+                        {
+                            t.HasCheckConstraint("ck_depot_access_keys_access_version", "access_version >= 0");
+                        });
                 });
 
             modelBuilder.Entity("ContextDepot.Domain.Documents.Document", b =>
@@ -730,6 +745,50 @@ namespace ContextDepot.Infrastructure.Migrations
                     b.ToTable("workspace_access_grants", "public");
                 });
 
+            modelBuilder.Entity("ContextDepot.Domain.Workspaces.WorkspaceSubjectBinding", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("DepotId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("depot_id");
+
+                    b.Property<string>("SubjectKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("subject_key");
+
+                    b.Property<string>("SubjectType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("subject_type");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("workspace_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_workspace_subject_bindings");
+
+                    b.HasIndex("WorkspaceId", "DepotId")
+                        .HasDatabaseName("ix_workspace_subject_bindings_workspace");
+
+                    b.HasIndex("DepotId", "SubjectType", "SubjectKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_workspace_subject_bindings_subject");
+
+                    b.ToTable("workspace_subject_bindings", "public");
+                });
+
             modelBuilder.Entity("ContextDepot.Domain.Contexts.ContextItem", b =>
                 {
                     b.HasOne("ContextDepot.Domain.Workspaces.Workspace", "Workspace")
@@ -859,6 +918,24 @@ namespace ContextDepot.Infrastructure.Migrations
                     b.Navigation("AccessKey");
 
                     b.Navigation("Workspace");
+                });
+
+            modelBuilder.Entity("ContextDepot.Domain.Workspaces.WorkspaceSubjectBinding", b =>
+                {
+                    b.HasOne("ContextDepot.Domain.Depots.Depot", null)
+                        .WithMany()
+                        .HasForeignKey("DepotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_workspace_subject_bindings_depot");
+
+                    b.HasOne("ContextDepot.Domain.Workspaces.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "DepotId")
+                        .HasPrincipalKey("Id", "DepotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_workspace_subject_bindings_workspace");
                 });
 
             modelBuilder.Entity("ContextDepot.Domain.Depots.Depot", b =>

@@ -73,13 +73,6 @@
   line-height: 1.6;
   margin: 0;
 }
-.action-label {
-  display: grid;
-  min-width: 0;
-}
-.action-label > span {
-  grid-area: 1 / 1;
-}
 @media (max-width: 640px) {
   .form-dialog-header,
   .form-dialog-body {
@@ -101,10 +94,11 @@
 
 .form-dialog-feedback {
   flex: none;
-  margin: 0;
-  padding: var(--space-3) var(--space-6);
-  color: var(--danger);
-  background: var(--danger-surface);
-  font-size: 12px;
-  line-height: 1.6;
+  margin: 0 var(--space-6) var(--space-4);
+  width: auto;
+}
+@media (max-width: 640px) {
+  .form-dialog-feedback {
+    margin-inline: var(--space-5);
+  }
 }

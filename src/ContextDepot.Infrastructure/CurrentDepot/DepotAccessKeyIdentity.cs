@@ -5,4 +5,6 @@ public sealed record DepotAccessKeyIdentity(
     Guid DepotId,
     string DepotDisplayName,
     IReadOnlyList<Guid> WorkspaceIds,
-    IReadOnlyList<Guid> NavigableWorkspaceIds);
+    IReadOnlyList<Guid> NavigableWorkspaceIds,
+    bool CanCreateRootWorkspaces = false,
+    long AccessVersion = 0);

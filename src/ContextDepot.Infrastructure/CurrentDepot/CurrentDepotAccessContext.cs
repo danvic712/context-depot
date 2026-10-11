@@ -20,6 +20,10 @@ public sealed class CurrentDepotAccessContext : ICurrentDepotContext, IWorkspace
 
     public bool HasUnrestrictedAccess { get; private set; }
 
+    public bool CanCreateRootWorkspaces { get; private set; }
+
+    public long AccessVersion { get; private set; }
+
     public IReadOnlyList<Guid> WorkspaceIds => workspaceIds;
 
     public IReadOnlyList<Guid> NavigableWorkspaceIds => navigableWorkspaceIds;
@@ -41,6 +45,8 @@ public sealed class CurrentDepotAccessContext : ICurrentDepotContext, IWorkspace
         workspaceIds = identity.WorkspaceIds.Distinct().Order().ToArray();
         navigableWorkspaceIds = identity.NavigableWorkspaceIds.Distinct().Order().ToArray();
         HasUnrestrictedAccess = false;
+        CanCreateRootWorkspaces = identity.CanCreateRootWorkspaces;
+        AccessVersion = identity.AccessVersion;
         initialized = true;
     }
 
@@ -51,14 +57,18 @@ public sealed class CurrentDepotAccessContext : ICurrentDepotContext, IWorkspace
         depotId = id;
         displayName = name;
         HasUnrestrictedAccess = true;
+        CanCreateRootWorkspaces = true;
         initialized = true;
     }
 
-    internal void IncludeCreatedWorkspaces(IReadOnlyCollection<Guid> createdIds)
+    public void UpdateWorkspaceAccess(IReadOnlyCollection<Guid> accessibleIds, IReadOnlyCollection<Guid> navigableIds,
+        bool canCreateRootWorkspaces, long accessVersion)
     {
-        if (HasUnrestrictedAccess || createdIds.Count == 0) return;
-        workspaceIds = workspaceIds.Concat(createdIds).Distinct().Order().ToArray();
-        navigableWorkspaceIds = navigableWorkspaceIds.Concat(createdIds).Distinct().Order().ToArray();
+        if (HasUnrestrictedAccess) return;
+        AccessVersion = accessVersion;
+        CanCreateRootWorkspaces = canCreateRootWorkspaces;
+        workspaceIds = accessibleIds.Distinct().Order().ToArray();
+        navigableWorkspaceIds = navigableIds.Distinct().Order().ToArray();
     }
 
     public void AllowInternalAccess()
@@ -69,6 +79,7 @@ public sealed class CurrentDepotAccessContext : ICurrentDepotContext, IWorkspace
         }
 
         HasUnrestrictedAccess = true;
+        CanCreateRootWorkspaces = true;
         initialized = true;
     }
 }

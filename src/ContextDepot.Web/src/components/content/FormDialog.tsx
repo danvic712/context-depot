@@ -1,5 +1,6 @@
 import type { ComponentProps, FormEventHandler, ReactNode, Ref } from "react";
 import { useRef } from "react";
+import { useTranslation } from "react-i18next";
 import type { LucideIcon } from "lucide-react";
 import {
   DialogContent,
@@ -9,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { FieldGroup } from "@/components/ui/field";
+import { RequestFeedback } from "@/components/feedback/RequestFeedback";
 import { cn } from "@/lib/utils";
 import "@/styles/form-dialog.css";
 
@@ -41,6 +43,7 @@ export function FormDialog({
   onSubmit?: FormEventHandler<HTMLFormElement>;
   formRef?: Ref<HTMLFormElement>;
 }) {
+  const { t } = useTranslation();
   const returnFocus = useRef<HTMLElement | null>(null);
   const content = (
     <>
@@ -48,9 +51,13 @@ export function FormDialog({
         <FieldGroup className="form-dialog-fields">{children}</FieldGroup>
       </div>
       {error && (
-        <p className="form-dialog-feedback" role="alert">
-          {error}
-        </p>
+        <RequestFeedback
+          className="form-dialog-feedback"
+          title={t("requestActionError")}
+          description={error}
+          pending={pending}
+          compact
+        />
       )}
       <DialogFooter className="form-dialog-footer">{footer}</DialogFooter>
     </>

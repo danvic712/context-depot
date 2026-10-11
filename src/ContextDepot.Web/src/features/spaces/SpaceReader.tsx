@@ -80,6 +80,7 @@ export function SpaceReader({
             failure={resource.error}
             onRetry={() => setAttempt((value) => value + 1)}
             pending={resource.pending}
+            recoveryAction={{ label: t("spacesReturnList"), onClick: onClose }}
           />
         )}
         {!detail && resource.pending && !resource.error && (

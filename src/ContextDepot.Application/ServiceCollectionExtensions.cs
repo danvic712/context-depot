@@ -1,4 +1,6 @@
 using ContextDepot.Application.Contexts;
+using ContextDepot.Application.AgentContext;
+using ContextDepot.Application.AgentContext.Contracts;
 using ContextDepot.Application.Documents;
 using ContextDepot.Application.Bootstrap;
 using ContextDepot.Application.Bootstrap.Contracts;
@@ -50,7 +52,7 @@ public static class ServiceCollectionExtensions
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<IndexRepairOptions>, IndexRepairOptionsValidator>();
         services.AddScoped<IAppearanceSettingsAppService, AppearanceSettingsAppService>();
-        services.AddScoped<AccessKeyAppService>();
+        services.AddScoped<IAccessKeyAppService, AccessKeyAppService>();
         services.AddScoped<SettingsOverviewAppService>();
         services.AddScoped<InferenceSettingsAppService>();
         services.AddScoped<IValidator<ThemeRequest>, ThemeRequestValidator>();
@@ -74,6 +76,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ContextDepot.Application.Overview.OverviewAppService>();
         services.AddScoped<ContextDepot.Application.Overview.KnowledgeSearchAppService>();
         services.AddScoped<IWorkspaceAppService, WorkspaceAppService>();
+        services.AddScoped<WorkspaceWriter>();
+        services.AddScoped<IAgentContextAppService, AgentContextAppService>();
         services.AddScoped<WorkspaceBrowserAppService>();
         services.AddScoped<IContextAppService, ContextAppService>();
         services.AddScoped<IContextQueryAppService, ContextQueryAppService>();

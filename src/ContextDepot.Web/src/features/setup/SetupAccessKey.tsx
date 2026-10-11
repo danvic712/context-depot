@@ -96,7 +96,10 @@ export function SetupAccessKey({
       >
         <div>
           <h2 id="setup-client-example-title">{t("setupMcpExample")}</h2>
-          <CopySetting value={configuration} label={t("setupMcpExample")} />
+          <CopySetting
+            value={configuration}
+            label={t("setupCopyConfiguration")}
+          />
         </div>
         <p>{t("setupMcpExampleWhy")}</p>
         <pre>

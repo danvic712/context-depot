@@ -1,0 +1,6 @@
+interface:
+  display_name: "ContextDepot"
+  short_description: "Recall and save knowledge across tasks"
+
+policy:
+  allow_implicit_invocation: true

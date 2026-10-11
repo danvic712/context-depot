@@ -3,8 +3,10 @@
   "WorkspaceParentNotFound": "找不到父 Workspace，请先创建父级 Workspace。",
   "WorkspaceConcurrencyConflict": "Workspace 刚刚被其他操作更新，请刷新后再试。",
   "WorkspaceWriteFailed": "无法保存 Workspace，请稍后重试。",
-  "InvalidWorkspaceName": "Workspace 名称不能为空，请输入名称。",
+  "InvalidWorkspaceName": "空间名称不能为空，且不能超过 200 字符。",
   "InvalidWorkspaceMetadata": "Workspace 的 metadata 必须是有效的 JSON 对象。",
   "InvalidWorkspacePath": "Workspace 路径无效，请使用安全的相对路径。",
-  "workspace.path_conflict": "该路径的空间已存在，请使用其他路径。"
+  "workspace.path_conflict": "该路径的空间已存在，请使用其他路径。",
+  "WorkspaceUnavailable": "当前无法使用该空间，请检查密钥的空间权限。",
+  "InvalidWorkspaceSubject": "无法识别要关联的空间，请检查类型和标识；标识应为 1–200 个字符。"
 }

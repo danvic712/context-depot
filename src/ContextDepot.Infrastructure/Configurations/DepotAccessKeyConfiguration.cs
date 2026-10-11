@@ -8,7 +8,7 @@ public sealed class DepotAccessKeyConfiguration : IEntityTypeConfiguration<Depot
 {
     public void Configure(EntityTypeBuilder<DepotAccessKey> entity)
     {
-        entity.ToTable("depot_access_keys");
+        entity.ToTable("depot_access_keys", table => table.HasCheckConstraint("ck_depot_access_keys_access_version", "access_version >= 0"));
         entity.HasKey(x => x.Id).HasName("pk_depot_access_keys");
         entity.HasAlternateKey(x => new { x.Id, x.DepotId })
             .HasName("ak_depot_access_keys_id_depot_id");
@@ -20,6 +20,8 @@ public sealed class DepotAccessKeyConfiguration : IEntityTypeConfiguration<Depot
         entity.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("timestamp with time zone");
         entity.Property(x => x.LastUsedAt).HasColumnName("last_used_at").HasColumnType("timestamp with time zone");
         entity.Property(x => x.RevokedAt).HasColumnName("revoked_at").HasColumnType("timestamp with time zone");
+        entity.Property(x => x.CanCreateRootWorkspaces).HasColumnName("can_create_root_workspaces").HasDefaultValue(false);
+        entity.Property(x => x.AccessVersion).HasColumnName("access_version").HasDefaultValue(0L);
         entity.HasIndex(x => x.KeyPrefix)
             .IsUnique()
             .HasDatabaseName("ux_depot_access_keys_key_prefix");

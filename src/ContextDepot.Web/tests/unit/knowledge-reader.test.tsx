@@ -95,6 +95,7 @@ describe("Knowledge reader", () => {
           error: { kind, retryable },
         });
         expect(html).toContain('role="alert"');
+        expect(html.match(/<h1 /g)?.length).toBe(1);
         expect(html).toContain(' disabled=""');
         expect(html).not.toContain("Reading source");
         expect(html).not.toContain("Full content after the search excerpt.");

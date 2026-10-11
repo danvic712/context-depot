@@ -3,26 +3,26 @@ import { useTheme } from "next-themes";
 import { useTranslation } from "react-i18next";
 import { changeLanguage, prepareLanguage, type Lang } from "@/lib/i18n";
 import { isRequestCanceled } from "@/lib/http-client";
-import {
-  load,
-  save,
-  type Theme,
-} from "@/features/settings/browser-preferences";
+import { save, type Theme } from "@/features/settings/browser-preferences";
 import {
   getAppearance,
   getInitialAppearance,
   setAppearanceTheme,
   setAppearanceLanguage,
-  toUiLanguage,
 } from "@/features/settings/appearance-api";
+import {
+  resolveAppearancePreferences,
+  setupAppearanceKeys,
+  type AppearancePreferences,
+} from "@/features/settings/appearance-preferences";
 
-export function useAppearanceSettings() {
+export function useAppearanceSettings(setup = false) {
   const { i18n } = useTranslation();
   const { setTheme: applyTheme } = useTheme();
   const [theme, setTheme] = useState<Theme>(
     () =>
-      load("contextdepot.theme", ["system", "light", "dark"]) ??
-      getInitialAppearance().settings.theme,
+      resolveAppearancePreferences(getInitialAppearance().settings, setup)
+        .theme,
   );
   const [language, setLanguage] = useState<Lang>(() =>
     i18n.resolvedLanguage === "zh" ? "zh" : "en",
@@ -32,6 +32,7 @@ export function useAppearanceSettings() {
     !getInitialAppearance().available,
   );
   const saving = useRef(false);
+  const setupSelection = useRef<Partial<AppearancePreferences>>({});
   const refreshing = useRef(false);
   const [appearanceRefreshPending, setAppearanceRefreshPending] =
     useState(false);
@@ -47,12 +48,8 @@ export function useAppearanceSettings() {
         const settings = await getAppearance(signal);
         if (signal?.aborted || saving.current || request !== revision.current)
           return;
-        const effectiveTheme =
-          load<Theme>("contextdepot.theme", ["system", "light", "dark"]) ??
-          settings.theme;
-        const effectiveLanguage =
-          load<Lang>("contextdepot.language", ["en", "zh"]) ??
-          toUiLanguage(settings.language);
+        const { theme: effectiveTheme, language: effectiveLanguage } =
+          resolveAppearancePreferences(settings, setup, setupSelection.current);
         if (i18n.resolvedLanguage !== effectiveLanguage) {
           await prepareLanguage(effectiveLanguage);
           if (signal?.aborted || saving.current || request !== revision.current)
@@ -77,7 +74,7 @@ export function useAppearanceSettings() {
         setAppearanceRefreshPending(false);
       }
     },
-    [applyTheme, i18n],
+    [applyTheme, i18n, setup],
   );
 
   useEffect(() => {
@@ -111,6 +108,10 @@ export function useAppearanceSettings() {
       setPending("theme");
       void setAppearanceTheme(value)
         .then((saved) => {
+          if (setup) {
+            setupSelection.current.theme = saved;
+            save(setupAppearanceKeys.theme, saved);
+          }
           save("contextdepot.theme", null);
           setTheme(saved);
           applyTheme(saved);
@@ -122,29 +123,36 @@ export function useAppearanceSettings() {
           setPending(null);
         });
     },
-    [applyTheme],
+    [applyTheme, setup],
   );
 
-  const onLanguage = useCallback((value: Lang) => {
-    if (saving.current) return;
-    saving.current = true;
-    ++revision.current;
-    setPending("language");
-    void (async () => {
-      try {
-        const saved = await setAppearanceLanguage(value);
-        const resolved = await changeLanguage(saved);
-        if (resolved) {
-          save("contextdepot.language", null);
-          setLanguage(resolved);
+  const onLanguage = useCallback(
+    (value: Lang) => {
+      if (saving.current) return;
+      saving.current = true;
+      ++revision.current;
+      setPending("language");
+      void (async () => {
+        try {
+          const saved = await setAppearanceLanguage(value);
+          const resolved = await changeLanguage(saved);
+          if (resolved) {
+            if (setup) {
+              setupSelection.current.language = resolved;
+              save(setupAppearanceKeys.language, resolved);
+            }
+            save("contextdepot.language", null);
+            setLanguage(resolved);
+          }
+          setAppearanceError(false);
+        } finally {
+          saving.current = false;
+          setPending(null);
         }
-        setAppearanceError(false);
-      } finally {
-        saving.current = false;
-        setPending(null);
-      }
-    })().catch(() => undefined);
-  }, []);
+      })().catch(() => undefined);
+    },
+    [setup],
+  );
 
   return {
     theme,

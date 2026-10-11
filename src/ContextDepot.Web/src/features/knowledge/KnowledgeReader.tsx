@@ -53,9 +53,9 @@ export function KnowledgeReaderView({
       <article className="knowledge-reader-document">
         {resource.error ? (
           <div className="knowledge-reader-error">
-            <h1 tabIndex={-1}>{t(errorTitle)}</h1>
             <RequestFeedback
-              title={t("knowledgeLoadError")}
+              title={t(errorTitle)}
+              headingLevel={1}
               failure={resource.error}
               pending={resource.pending}
               onRetry={onRetry}

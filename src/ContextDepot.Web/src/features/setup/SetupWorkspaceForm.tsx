@@ -7,17 +7,22 @@ import { Field, FieldLabel, FieldDescription } from "@/components/ui/field";
 import { SubmitButton } from "@/components/content/SubmitButton";
 import type { CreateWorkspace } from "@/features/home/home-api";
 import type { SetupWorkspace } from "./setup-api";
+import { suggestWorkspacePath } from "@/features/spaces/workspace-path";
 
 export function SetupWorkspaceForm({
   workspace,
+  pathCustomized,
   pending,
   onStart,
   onDraftChange,
+  onPathCustomized,
 }: {
   workspace: SetupWorkspace | null;
+  pathCustomized: boolean;
   pending: boolean;
   onStart: (draft: CreateWorkspace) => void;
   onDraftChange: (draft: CreateWorkspace) => void;
+  onPathCustomized: () => void;
 }) {
   const { t } = useTranslation();
   const [name, setName] = useState(workspace?.name ?? "");
@@ -67,18 +72,30 @@ export function SetupWorkspaceForm({
           placeholder={t("setupSpaceNamePlaceholder")}
           value={name}
           onChange={(e) => {
-            setName(e.target.value);
-            onDraftChange({ name: e.target.value, path, description });
+            const nextName = e.target.value;
+            const nextPath = pathCustomized
+              ? path
+              : suggestWorkspacePath(nextName);
+            setName(nextName);
+            setPath(nextPath);
+            setInvalid((fields) =>
+              fields.filter(
+                (field) =>
+                  field !== "name" && (pathCustomized || field !== "path"),
+              ),
+            );
+            onDraftChange({ name: nextName, path: nextPath, description });
           }}
           required
           maxLength={200}
           autoComplete="off"
           disabled={pending}
           aria-invalid={invalid.includes("name")}
-          aria-describedby={
-            invalid.includes("name") ? "setup-name-error" : undefined
-          }
+          aria-describedby={`setup-name-hint${invalid.includes("name") ? " setup-name-error" : ""}`}
         />
+        <FieldDescription id="setup-name-hint">
+          {t("setupSpaceNameHint")}
+        </FieldDescription>
         {invalid.includes("name") && (
           <p
             id="setup-name-error"
@@ -91,7 +108,7 @@ export function SetupWorkspaceForm({
       </Field>
       <Field data-invalid={invalid.includes("path")}>
         <FieldLabel htmlFor="setup-space-path">
-          {t("spacePathLabel")}
+          {t("setupSpacePathLabel")}
         </FieldLabel>
         <Input
           id="setup-space-path"
@@ -99,6 +116,8 @@ export function SetupWorkspaceForm({
           value={path}
           onChange={(e) => {
             setPath(e.target.value);
+            onPathCustomized();
+            setInvalid((fields) => fields.filter((field) => field !== "path"));
             onDraftChange({ name, path: e.target.value, description });
           }}
           required
@@ -111,7 +130,7 @@ export function SetupWorkspaceForm({
           aria-describedby={`setup-path-hint${invalid.includes("path") ? " setup-path-error" : ""}`}
         />
         <FieldDescription id="setup-path-hint">
-          {t("spacePathHint")}
+          {t("setupSpacePathHint")}
         </FieldDescription>
         {invalid.includes("path") && (
           <p
@@ -119,7 +138,7 @@ export function SetupWorkspaceForm({
             className="settings-field-error"
             role="alert"
           >
-            {t("spacePathInvalid")}
+            {t("setupSpacePathInvalid")}
           </p>
         )}
       </Field>
@@ -132,6 +151,7 @@ export function SetupWorkspaceForm({
         </FieldLabel>
         <Textarea
           id="setup-space-description"
+          placeholder={t("setupSpaceDescriptionPlaceholder")}
           value={description}
           onChange={(e) => {
             setDescription(e.target.value);

@@ -31,6 +31,13 @@ public sealed class ContextDepotDbContextFactory : IDesignTimeDbContextFactory<C
 
         public bool HasUnrestrictedAccess => true;
 
+        public bool CanCreateRootWorkspaces => true;
+
+        public long AccessVersion => 0;
+
+        public void UpdateWorkspaceAccess(IReadOnlyCollection<Guid> workspaceIds, IReadOnlyCollection<Guid> navigableIds,
+            bool canCreateRootWorkspaces, long accessVersion) { }
+
         public IReadOnlyList<Guid> WorkspaceIds => [];
 
         public IReadOnlyList<Guid> NavigableWorkspaceIds => [];

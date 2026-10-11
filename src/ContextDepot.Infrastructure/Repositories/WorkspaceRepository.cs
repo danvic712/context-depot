@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ContextDepot.Infrastructure.Repositories;
 
-public sealed class WorkspaceRepository(
+public sealed partial class WorkspaceRepository(
     ContextDepotDbContext db,
     IIdGenerator idGenerator,
     IWorkspaceAccessContext workspaceAccess,
@@ -74,111 +74,23 @@ public sealed class WorkspaceRepository(
             .ToArray();
     }
 
+    // Compatibility for existing repository callers; all decisions live in Application.
     public async Task<WorkspaceUpsertPersistenceResult> UpsertPathAsync(
-        Guid depotId,
-        string normalizedPath,
-        string name,
-        string? description,
-        string metadataJson,
-        bool createMissingParents,
-        DateTimeOffset now,
-        CancellationToken cancellationToken)
+        Guid depotId, string normalizedPath, string name, string? description, string metadataJson,
+        bool createMissingParents, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
         try
         {
-            var workspaces = await db.Workspaces.Where(x => x.DepotId == depotId).ToListAsync(cancellationToken);
-            var paths = WorkspacePath.BuildPaths(workspaces);
-            var byId = workspaces.ToDictionary(x => x.Id);
-            var byPath = paths.ToDictionary(x => x.Value, x => byId[x.Key], StringComparer.Ordinal);
-            if (byPath.TryGetValue(normalizedPath, out var existing))
-            {
-                if (!workspaceAccess.CanAccess(existing.Id))
-                {
-                    return new WorkspaceUpsertPersistenceResult(null, WorkspaceUpsertPersistenceOutcome.ParentNotFound);
-                }
-
-                if (string.Equals(existing.Name, name, StringComparison.Ordinal) &&
-                    string.Equals(existing.Description, description, StringComparison.Ordinal) &&
-                    string.Equals(existing.MetadataJson, metadataJson, StringComparison.Ordinal))
-                {
-                    return new WorkspaceUpsertPersistenceResult(existing, WorkspaceUpsertPersistenceOutcome.ReusedExisting);
-                }
-
-                existing.Update(name, description, metadataJson, now);
-                await db.SaveChangesAsync(cancellationToken);
-                await transaction.CommitAsync(cancellationToken);
-                topologyProvider.Invalidate(depotId);
-                return new WorkspaceUpsertPersistenceResult(existing, WorkspaceUpsertPersistenceOutcome.Updated);
-            }
-
-            Guid? parentId = null;
-            var currentPath = string.Empty;
-            var segments = normalizedPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-            Workspace? result = null;
-            var createdWorkspaceIds = new HashSet<Guid>();
-            foreach (var segment in segments)
-            {
-                currentPath = currentPath.Length == 0 ? segment : currentPath + "/" + segment;
-                if (byPath.TryGetValue(currentPath, out var current))
-                {
-                    parentId = current.Id;
-                    result = current;
-                    continue;
-                }
-
-                var isLeaf = currentPath == normalizedPath;
-                if (!isLeaf && !createMissingParents)
-                {
-                    return new WorkspaceUpsertPersistenceResult(null, WorkspaceUpsertPersistenceOutcome.ParentNotFound);
-                }
-
-                if (!workspaceAccess.HasUnrestrictedAccess &&
-                    (parentId is null ||
-                     (!workspaceAccess.CanAccess(parentId.Value) && !createdWorkspaceIds.Contains(parentId.Value))))
-                {
-                    return new WorkspaceUpsertPersistenceResult(null, WorkspaceUpsertPersistenceOutcome.ParentNotFound);
-                }
-
-                var workspace = new Workspace(
-                    idGenerator.NewId(),
-                    depotId,
-                    parentId,
-                    isLeaf ? name : segment,
-                    segment,
-                    isLeaf ? description : null,
-                    now);
-                workspace.Update(isLeaf ? name : segment, isLeaf ? description : null, isLeaf ? metadataJson : "{}", now);
-                db.Workspaces.Add(workspace);
-                if (workspaceAccess.DepotAccessKeyId is Guid depotAccessKeyId)
-                {
-                    db.WorkspaceAccessGrants.Add(new WorkspaceAccessGrant(
-                        depotAccessKeyId,
-                        depotId,
-                        workspace.Id,
-                        now));
-                }
-
-                workspaces.Add(workspace);
-                createdWorkspaceIds.Add(workspace.Id);
-                byPath[currentPath] = workspace;
-                parentId = workspace.Id;
-                result = workspace;
-            }
-
-            await db.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-            if (workspaceAccess is ContextDepot.Infrastructure.CurrentDepot.CurrentDepotAccessContext currentAccess)
-                currentAccess.IncludeCreatedWorkspaces(createdWorkspaceIds);
-            topologyProvider.Invalidate(depotId);
-            return new WorkspaceUpsertPersistenceResult(result, WorkspaceUpsertPersistenceOutcome.Created);
+            var plan = await new WorkspaceWriter(this, idGenerator, workspaceAccess).UpsertAsync(depotId,
+                new UpsertWorkspaceCommand(normalizedPath, name, description, metadataJson, createMissingParents), now, cancellationToken);
+            return new(plan.Target.Workspace, plan.Outcome);
         }
-        catch (DbUpdateException)
+        catch (ContextDepot.Application.Shared.Exceptions.ContextDepotApplicationException error)
+            when (error.ErrorCode == ContextDepot.Application.Shared.Exceptions.ApplicationErrorCodes.WorkspaceParentNotFound ||
+                  error.ErrorCode == ContextDepot.Application.Shared.Exceptions.ApplicationErrorCodes.WorkspaceConcurrencyConflict)
         {
-            await transaction.RollbackAsync(CancellationToken.None);
-            db.ChangeTracker.Clear();
-            return new WorkspaceUpsertPersistenceResult(null, WorkspaceUpsertPersistenceOutcome.ConcurrencyConflict);
+            return new(null, error.ErrorCode == ContextDepot.Application.Shared.Exceptions.ApplicationErrorCodes.WorkspaceParentNotFound
+                ? WorkspaceUpsertPersistenceOutcome.ParentNotFound : WorkspaceUpsertPersistenceOutcome.ConcurrencyConflict);
         }
     }
-
 }

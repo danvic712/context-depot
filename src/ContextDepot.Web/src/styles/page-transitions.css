@@ -1,8 +1,12 @@
 .shell-ready {
   animation: app-reveal var(--motion-normal) ease-out;
 }
+.setup-ready .setup-layout {
+  animation: app-reveal var(--motion-normal) ease-out;
+}
 .startup-loading .frame,
-.startup-loading .rail {
+.startup-loading .rail,
+.startup-loading.setup-frame {
   animation: loading-reveal var(--motion-fast) ease-out var(--motion-fast) both;
 }
 .frame > .page > .route-content {
@@ -37,8 +41,10 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .shell-ready,
+  .setup-ready .setup-layout,
   .startup-loading .frame,
   .startup-loading .rail,
+  .startup-loading.setup-frame,
   .frame > .page > .route-content {
     animation: none;
   }

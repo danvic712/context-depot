@@ -31,6 +31,20 @@ import { SearchDialogFailure } from "./features/knowledge/SearchDialogFailure";
 import type { SetupGate } from "./features/setup/setup-loader";
 import type { SetupStatus } from "./features/setup/setup-api";
 import { SetupFrame } from "./features/setup/SetupFrame";
+import { rememberSetupAppearance } from "./features/settings/appearance-preferences";
+import { StartupError } from "./components/feedback/StartupError";
+import type { RequestFailureKind } from "./lib/request-failure";
+
+const startupFailureReasonKeys = {
+  network: "startupNetworkError",
+  timeout: "startupTimeoutError",
+  forbidden: "startupAccessError",
+  notFound: "startupStatusError",
+  unavailable: "startupServiceError",
+  invalidResponse: "startupResponseError",
+  invalidQuery: "startupStatusError",
+  unknown: "startupUnknownError",
+} as const satisfies Record<RequestFailureKind, string>;
 
 const KnowledgeSearchDialog = lazy(
   () => import("./features/knowledge/KnowledgeSearchDialog"),
@@ -68,7 +82,9 @@ export default function App() {
     refreshAppearance,
     onTheme: changeTheme,
     onLanguage: changeLang,
-  } = useAppearanceSettings();
+  } = useAppearanceSettings(
+    !!gate?.error || (!!setup && setup.state !== "completed"),
+  );
   const location = useLocation();
   const navigate = useNavigate();
   const [rawParams, setParams] = useSearchParams();
@@ -85,6 +101,9 @@ export default function App() {
   const page = handle.page;
   const itemId = matched?.params.knowledgeId ?? matched?.params.spaceId;
   const navigation = useNavigation();
+  const changingPage =
+    navigation.state === "loading" &&
+    navigation.location?.pathname !== location.pathname;
   const homeLayout =
     navigation.state === "loading"
       ? navigation.location?.pathname === "/"
@@ -141,40 +160,52 @@ export default function App() {
     onTheme: changeTheme,
     onLanguage: changeLang,
   };
-  const appearanceFeedback = appearanceError && (
-    <RequestFeedback
-      className="appearance-error"
-      title={t("requestAppearanceError")}
-      description={t("requestAppearanceWhy")}
-      onRetry={refreshAppearance}
-      pending={appearanceRefreshPending}
-      compact
-    />
-  );
+  const appearanceFeedback = appearanceError &&
+    !gate?.error &&
+    page !== "setup" && (
+      <RequestFeedback
+        className="appearance-error"
+        title={t("requestAppearanceError")}
+        description={t("requestAppearanceWhy")}
+        onRetry={refreshAppearance}
+        pending={appearanceRefreshPending}
+        compact
+      />
+    );
   if (gate?.error || page === "setup") {
     return (
       <>
         <ScrollRestoration />
         <SetupFrame preferences={context} feedback={appearanceFeedback}>
           {gate?.error ? (
-            <div className="setup-gate-error">
-              <h1>{t("setupCheckTitle")}</h1>
-              <RequestFeedback
-                title={t("setupCheckError")}
-                description={t("setupCheckWhy")}
-                failure={gate.error}
-                onRetry={() => revalidator.revalidate()}
-                pending={revalidator.state !== "idle"}
-              />
-            </div>
+            <StartupError
+              title={t("setupCheckError")}
+              description={t(startupFailureReasonKeys[gate.error.kind])}
+              action={t("retry")}
+              pendingLabel={t("requestRetrying")}
+              onRetry={
+                gate.error.retryable
+                  ? async () => {
+                      await Promise.all([
+                        revalidator.revalidate(),
+                        appearanceError && refreshAppearance(),
+                      ]);
+                    }
+                  : undefined
+              }
+              pending={revalidator.state !== "idle" || appearanceRefreshPending}
+            />
           ) : (
             setup && (
               <Outlet
                 context={{
                   ...context,
                   setup,
-                  onSetupChanged: (status: SetupStatus) =>
-                    setSetupOverride({ source: gate, status }),
+                  onSetupChanged: (status: SetupStatus) => {
+                    if (status.state === "completed")
+                      rememberSetupAppearance({ theme, language: lang });
+                    setSetupOverride({ source: gate, status });
+                  },
                 }}
               />
             )
@@ -228,11 +259,11 @@ export default function App() {
             ? "home"
             : searchLayout
               ? "search"
-              : navigation.state === "loading"
+              : changingPage
                 ? "loading"
                 : page
         }
-        pending={navigation.state === "loading"}
+        pending={changingPage}
         onSearch={() =>
           page === "search"
             ? document.getElementById("knowledge-search")?.focus()
@@ -240,7 +271,7 @@ export default function App() {
         }
         feedback={appearanceFeedback}
       >
-        {navigation.state === "loading" ? (
+        {changingPage ? (
           <RouteLoading
             pathname={navigation.location?.pathname ?? location.pathname}
           />

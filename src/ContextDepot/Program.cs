@@ -14,6 +14,7 @@ using ContextDepot.MCP.Tools;
 using ContextDepot.Middlewares;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.DataProtection;
+using ModelContextProtocol;
 using ModelContextProtocol.AspNetCore;
 using Serilog;
 
@@ -90,13 +91,17 @@ try
     builder.Services.AddHostedService<DatabaseApplicationSettingsReloadService>();
     builder.Services.AddHostedService<InferenceRuntimeReloadService>();
 
+    var mcpJsonOptions = new JsonSerializerOptions(McpJsonUtilities.DefaultOptions)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.Never
+    };
     builder.Services
         .AddMcpServer(options => options.ServerInstructions = ContextDepotMCPInstructions.Text)
         .WithHttpTransport(options => options.SessionMode = HttpServerSessionMode.Stateless)
-        .WithTools<ContextTools>()
-        .WithTools<DocumentTools>()
-        .WithTools<WorkspaceTools>()
-        .WithTools<DepotTools>();
+        .WithTools<ContextTools>(mcpJsonOptions)
+        .WithTools<DocumentTools>(mcpJsonOptions)
+        .WithTools<WorkspaceTools>(mcpJsonOptions)
+        .WithTools<DepotTools>(mcpJsonOptions);
 
     var app = builder.Build();
 

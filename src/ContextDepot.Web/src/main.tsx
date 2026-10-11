@@ -1,4 +1,5 @@
 import { AppLoading } from "./components/feedback/RouteFeedback";
+import { AppStartupError } from "./components/feedback/StartupError";
 import { StrictMode } from "react";
 import { ThemeProvider } from "next-themes";
 import { createBrowserRouter } from "react-router";
@@ -12,31 +13,41 @@ import { Toaster } from "./components/ui/sonner";
 import {
   getAppearance,
   getInitialAppearance,
-  toUiLanguage,
 } from "./features/settings/appearance-api";
-import {
-  load,
-  save,
-  type Theme,
-} from "./features/settings/browser-preferences";
+import { save } from "./features/settings/browser-preferences";
+import { resolveAppearancePreferences } from "./features/settings/appearance-preferences";
+import type { SetupGate } from "./features/setup/setup-loader";
 
 const router = createBrowserRouter(appRoutes);
+const setupMode = new Promise<boolean>((resolve) => {
+  const resolveMode = () => {
+    const gate = router.state.loaderData.app as SetupGate | undefined;
+    resolve(gate?.status?.state !== "completed");
+  };
+  if (router.state.initialized) resolveMode();
+  else {
+    const unsubscribe = router.subscribe((state) => {
+      if (!state.initialized) return;
+      unsubscribe();
+      resolveMode();
+    });
+  }
+});
 
 const root = createRoot(document.getElementById("root")!);
 root.render(<AppLoading pathname={router.state.location.pathname} />);
+let startupLanguage: Lang = document.documentElement.lang.startsWith("zh")
+  ? "zh"
+  : "en";
 
-getAppearance()
-  .catch(() => getInitialAppearance().settings)
-  .then((settings) =>
-    initializeI18n(
-      load<Lang>("contextdepot.language", ["en", "zh"]) ??
-        toUiLanguage(settings.language),
-    ),
-  )
-  .then(() => {
-    const theme =
-      load<Theme>("contextdepot.theme", ["system", "light", "dark"]) ??
-      getInitialAppearance().settings.theme;
+Promise.all([
+  getAppearance().catch(() => getInitialAppearance().settings),
+  setupMode,
+])
+  .then(async ([settings, setup]) => {
+    const { theme, language } = resolveAppearancePreferences(settings, setup);
+    startupLanguage = language;
+    await initializeI18n(language);
     save("contextdepot.theme-mode", theme);
     root.render(
       <StrictMode>
@@ -54,10 +65,5 @@ getAppearance()
     );
   })
   .catch(() => {
-    root.render(
-      <p role="alert">
-        Unable to load translations. Please reload. /
-        无法加载语言资源，请刷新页面。
-      </p>,
-    );
+    root.render(<AppStartupError language={startupLanguage} />);
   });

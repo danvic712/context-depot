@@ -41,6 +41,8 @@ public static class ApplicationErrorCodes
     public const string SecretContentRejected = "SecretContentRejected";
     public const string ContextTooLarge = "ContextTooLarge";
     public const string WorkspaceNotFound = "WorkspaceNotFound";
+    public const string WorkspaceUnavailable = "WorkspaceUnavailable";
+    public const string InvalidWorkspaceSubject = "InvalidWorkspaceSubject";
     public const string WorkspaceParentNotFound = "WorkspaceParentNotFound";
     public const string WorkspaceConcurrencyConflict = "WorkspaceConcurrencyConflict";
     public const string WorkspaceWriteFailed = "WorkspaceWriteFailed";

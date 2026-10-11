@@ -58,6 +58,7 @@ export function Search() {
           failure={page.spaces.error}
           description={t("dialogWorkspaceErrorWhy")}
           pending={page.spaces.pending}
+          stale={!!page.spaces.data}
           onRetry={page.retrySpaces}
           compact
         />

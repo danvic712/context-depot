@@ -6,6 +6,7 @@ import {
   type StatusTone,
 } from "@/components/feedback/StatusBadge";
 import { Button } from "@/components/ui/button";
+import copyToClipboard from "copy-to-clipboard";
 
 const states = {
   draft: "setupDraftState",
@@ -46,30 +47,37 @@ export function SettingsStatus({ state }: { state: string }) {
 export function CopySetting({
   value,
   label,
+  showLabel = false,
+  onCopyError,
 }: {
   value: string;
   label: string;
+  showLabel?: boolean;
+  onCopyError?: () => void;
 }) {
   const { t } = useTranslation();
   return (
     <Button
       variant="outline"
-      size="icon"
+      size={showLabel ? "default" : "icon"}
       type="button"
       aria-label={label}
       title={label}
       onClick={() => {
         void (async () => {
           try {
-            await navigator.clipboard.writeText(value);
+            if (!(await copyToClipboard(value)))
+              throw new Error("Clipboard unavailable");
             toast.success(t("settingsCopied"));
           } catch {
+            onCopyError?.();
             toast.error(t("settingsCopyError"));
           }
         })();
       }}
     >
       <CopyIcon aria-hidden="true" />
+      {showLabel && label}
     </Button>
   );
 }

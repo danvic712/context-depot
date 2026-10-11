@@ -82,6 +82,9 @@ export function Setup() {
       },
   );
   const [reached, setReached] = useState<SetupStep>("workspace");
+  const [workspacePathCustomized, setWorkspacePathCustomized] = useState(
+    !!setup.workspace?.path,
+  );
   const localStatus: SetupStatus = {
     ...setup,
     state: "inProgress",
@@ -134,13 +137,19 @@ export function Setup() {
     return () => window.removeEventListener("beforeunload", protect);
   }, [unsafe]);
   function go(next: SetupStep) {
-    if (pending || completion || uncertain) return;
+    if (pending || completion || uncertain || next === step) return;
     setFailure(undefined);
-    setParams({ step: next });
+    setParams(
+      { step: next },
+      {
+        viewTransition:
+          typeof document.startViewTransition === "function" &&
+          !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+      },
+    );
   }
-  function advance(next: SetupStep, skipKeyValidation = false) {
+  function advance(next: SetupStep) {
     if (
-      !skipKeyValidation &&
       next === "review" &&
       keyEnabled &&
       (!keyName.trim() || keyName.trim().length > 200)
@@ -322,7 +331,9 @@ export function Setup() {
             {step === "workspace" && (
               <SetupWorkspaceForm
                 workspace={workspace}
+                pathCustomized={workspacePathCustomized}
                 pending={pending}
+                onPathCustomized={() => setWorkspacePathCustomized(true)}
                 onDraftChange={(draft) =>
                   setWorkspace({ ...workspace, ...draft })
                 }
@@ -341,21 +352,17 @@ export function Setup() {
                 {inference.draft && (
                   <InferenceSettings
                     editor={inference.editor}
+                    draftSettings={inference.draft.settings}
                     onChanged={() => {}}
+                    note={
+                      <p className="setup-note">{t("setupInferenceNote")}</p>
+                    }
                   />
                 )}
-                <p className="setup-note">{t("setupInferenceNote")}</p>
                 <SetupStepFooter
                   onBack={() => go("workspace")}
                   disabled={pending}
                 >
-                  <Button
-                    variant="ghost"
-                    disabled={pending || !inference.draft}
-                    onClick={() => advance("accessKey")}
-                  >
-                    {t("setupLater")}
-                  </Button>
                   <SubmitButton
                     icon={ArrowRightIcon}
                     type="button"
@@ -386,15 +393,6 @@ export function Setup() {
                   onBack={() => go("inference")}
                   disabled={pending}
                 >
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      setKeyEnabled(false);
-                      advance("review", true);
-                    }}
-                  >
-                    {t("setupLater")}
-                  </Button>
                   <SubmitButton
                     icon={ArrowRightIcon}
                     type="button"

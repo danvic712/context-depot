@@ -17,6 +17,7 @@ import { Field, FieldLabel, FieldDescription } from "@/components/ui/field";
 import { FormDialog } from "@/components/content/FormDialog";
 import { SubmitButton } from "@/components/content/SubmitButton";
 import { createWorkspace } from "./home-api";
+import { suggestWorkspacePath } from "@/features/spaces/workspace-path";
 import "@/styles/create-workspace.css";
 
 type FieldErrors = Partial<Record<"name" | "path", string>>;
@@ -33,6 +34,7 @@ export function CreateWorkspaceDialog({
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [path, setPath] = useState("");
+  const [pathCustomized, setPathCustomized] = useState(false);
   const [description, setDescription] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
   const [failure, setFailure] = useState(false);
@@ -74,6 +76,7 @@ export function CreateWorkspaceDialog({
       setOpen(false);
       setName("");
       setPath("");
+      setPathCustomized(false);
       setDescription("");
       toast.success(t("spaceCreated"));
       void onCreated();
@@ -158,15 +161,28 @@ export function CreateWorkspaceDialog({
           <Input
             id="space-name"
             ref={nameInput}
+            placeholder={t("setupSpaceNamePlaceholder")}
             value={name}
-            onChange={(event) => setName(event.target.value)}
+            onChange={(event) => {
+              const nextName = event.target.value;
+              setName(nextName);
+              if (!pathCustomized) setPath(suggestWorkspacePath(nextName));
+              setErrors((current) => ({
+                ...current,
+                name: undefined,
+                ...(!pathCustomized && { path: undefined }),
+              }));
+            }}
             maxLength={200}
             required
             disabled={pending}
             aria-invalid={!!errors.name}
-            aria-describedby={errors.name ? "space-name-error" : undefined}
+            aria-describedby={`space-name-hint${errors.name ? " space-name-error" : ""}`}
             autoComplete="off"
           />
+          <FieldDescription id="space-name-hint">
+            {t("setupSpaceNameHint")}
+          </FieldDescription>
           {errors.name && (
             <p id="space-name-error" className="form-dialog-error" role="alert">
               {errors.name}
@@ -174,13 +190,19 @@ export function CreateWorkspaceDialog({
           )}
         </Field>
         <Field data-invalid={!!errors.path} data-disabled={pending}>
-          <FieldLabel htmlFor="space-path">{t("spacePathLabel")}</FieldLabel>
+          <FieldLabel htmlFor="space-path">
+            {t("setupSpacePathLabel")}
+          </FieldLabel>
           <Input
             id="space-path"
             ref={pathInput}
             value={path}
-            onChange={(event) => setPath(event.target.value)}
-            placeholder="research-notes"
+            onChange={(event) => {
+              setPath(event.target.value);
+              setPathCustomized(true);
+              setErrors((current) => ({ ...current, path: undefined }));
+            }}
+            placeholder={t("setupSpacePathPlaceholder")}
             maxLength={100}
             required
             disabled={pending}
@@ -195,7 +217,7 @@ export function CreateWorkspaceDialog({
             spellCheck={false}
           />
           <FieldDescription id="space-path-hint">
-            {t("spacePathHint")}
+            {t("setupSpacePathHint")}
           </FieldDescription>
           {errors.path && (
             <p id="space-path-error" className="form-dialog-error" role="alert">
@@ -209,6 +231,7 @@ export function CreateWorkspaceDialog({
           </FieldLabel>
           <Textarea
             id="space-description"
+            placeholder={t("setupSpaceDescriptionPlaceholder")}
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             disabled={pending}

@@ -60,7 +60,9 @@ public sealed class DepotAccessKeyAuthenticator(
             accessKey.DepotId,
             accessKey.Depot.DisplayName,
             workspaceIds,
-            navigableWorkspaceIds);
+            navigableWorkspaceIds,
+            accessKey.CanCreateRootWorkspaces,
+            accessKey.AccessVersion);
     }
 
 }

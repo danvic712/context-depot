@@ -133,7 +133,25 @@ docker run -d \
 
 将 `<SERVER_IP_OR_DOMAIN>` 替换为你的服务器 IP 或域名，将 `<YOUR_ACCESS_KEY>` 替换为你的密钥。请使用与网页相同的服务地址和端口，如果已配置 HTTPS，也需要使用 HTTPS 地址。不同客户端的配置格式可能有所区别，可以参考首次使用向导提供的连接示例进行调整。
 
-在**设置 → 访问密钥**中，为密钥授权客户端需要使用的空间。之后新建空间时，也需要为相关客户端添加授权。
+在**设置 → 访问密钥**中，选择客户端可以使用的空间。也可以开启独立空间创建能力：此密钥新建的空间会自动获得访问权限。由其他方式创建的空间，或由另一把密钥访问的空间，仍需单独授权。
+
+#### 使用 ContextDepot Skill
+
+[ContextDepot Skill](skills/context-depot/SKILL.md) 帮助 Agent 在个人任务、研究和项目中检索及保存有用知识。先配置 MCP 连接，再使用 Node.js 和 [skills 安装工具](https://github.com/vercel-labs/skills)：
+
+```sh
+npx skills add danvic712/context-depot --skill context-depot --global
+```
+
+安装时选择当前 Agent。`--global` 会安装到它的全局技能目录，供不同项目使用；兼容客户端可按需选择该 Skill。在本地仓库中安装时，将 `danvic712/context-depot` 替换为 `./skills/context-depot`。
+
+将这段安装说明发给 Agent：
+
+```text
+请运行 npx skills add danvic712/context-depot --skill context-depot --global 安装 context-depot Skill，安装目标仅选择当前 Agent。安装后读取 SKILL.md，确认 Skill 可用，保留已有 MCP 配置。如果无法完成安装，请说明问题，不要猜测路径或自行生成替代 Skill。
+```
+
+安装后，可按下面的示例要求检索或保存。自动保存和空间准备需由你明确启用，安装 Skill 不会增加写入权限。文档更新会检查当前版本，保存后读回确认正文。
 
 ### 4. 保存和读取知识
 

@@ -14,6 +14,17 @@ export interface RequestFailure {
   retryable: boolean;
 }
 
+export const requestFailureReasonKeys = {
+  network: "requestNetworkWhy",
+  timeout: "requestTimeoutWhy",
+  forbidden: "requestForbiddenWhy",
+  notFound: "requestNotFoundWhy",
+  unavailable: "requestUnavailableWhy",
+  invalidResponse: "requestInvalidResponseWhy",
+  invalidQuery: "requestInvalidQueryWhy",
+  unknown: "requestUnknownWhy",
+} as const satisfies Record<RequestFailureKind, string>;
+
 // Never display transport exceptions or unlocalized server text in the UI.
 export function requestFailure(error: unknown): RequestFailure {
   if (!isAxiosError(error))

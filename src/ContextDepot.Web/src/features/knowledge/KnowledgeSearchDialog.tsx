@@ -192,6 +192,7 @@ export default function KnowledgeSearchDialog({
                   : undefined
               }
               pending={workspaces.pending}
+              stale={!!workspaces.data}
               onRetry={() => setWorkspaceRetry((value) => value + 1)}
               compact
             />
@@ -231,7 +232,7 @@ export default function KnowledgeSearchDialog({
                 className="search-result-list"
                 label={t("dialogResults")}
               >
-                {resource.error ? (
+                {resource.error && (
                   <RequestFeedback
                     className="search-feedback-panel"
                     title={t("dialogSearchError")}
@@ -243,40 +244,45 @@ export default function KnowledgeSearchDialog({
                     }
                     onRetry={retrySearch}
                     pending={pending}
+                    stale={!!resource.data}
                   />
-                ) : pending ? (
+                )}
+                {pending && !resource.data && !resource.error ? (
                   <>
                     <SearchSkeleton />
                     <SearchSkeleton />
                     <SearchSkeleton />
                   </>
-                ) : !query.trim() ? (
-                  <SearchEmpty
-                    title={t("dialogStart")}
-                    description={t("dialogStartWhy")}
-                  />
-                ) : visible.length === 0 ? (
-                  <SearchEmpty
-                    title={t("dialogNoResults")}
-                    description={t("dialogNoResultsWhy")}
-                  />
                 ) : (
-                  <CommandGroup>
-                    {visible.map((hit) => (
-                      <CommandItem
-                        key={hitKey(hit)}
-                        value={hitKey(hit)}
-                        onSelect={() => {
-                          setSelected(hitKey(hit));
-                          setMobilePreview(true);
-                        }}
-                        className="search-result-item"
-                      >
-                        <KnowledgeTypeIcon type={hit.type} />
-                        <SearchResultText hit={hit} query={query} />
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
+                  (!resource.error || resource.data) &&
+                  (!query.trim() ? (
+                    <SearchEmpty
+                      title={t("dialogStart")}
+                      description={t("dialogStartWhy")}
+                    />
+                  ) : visible.length === 0 ? (
+                    <SearchEmpty
+                      title={t("dialogNoResults")}
+                      description={t("dialogNoResultsWhy")}
+                    />
+                  ) : (
+                    <CommandGroup>
+                      {visible.map((hit) => (
+                        <CommandItem
+                          key={hitKey(hit)}
+                          value={hitKey(hit)}
+                          onSelect={() => {
+                            setSelected(hitKey(hit));
+                            setMobilePreview(true);
+                          }}
+                          className="search-result-item"
+                        >
+                          <KnowledgeTypeIcon type={hit.type} />
+                          <SearchResultText hit={hit} query={query} />
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  ))
                 )}
               </CommandList>
               {resource.data && (
@@ -314,6 +320,10 @@ export default function KnowledgeSearchDialog({
                     failure={detail.error}
                     pending={detail.pending}
                     onRetry={() => setPreviewRetry((value) => value + 1)}
+                    recoveryAction={{
+                      label: t("dialogBack"),
+                      onClick: () => setMobilePreview(false),
+                    }}
                   />
                 ) : !detail.data ? (
                   <SearchSkeleton />

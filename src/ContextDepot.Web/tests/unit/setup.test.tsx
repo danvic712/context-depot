@@ -314,7 +314,7 @@ describe("First-run route gate", () => {
       }
     });
   });
-  test("a failed status read keeps appearance controls and retry, with no business page or internal diagnostics", async () => {
+  test("a failed status read shows one initialization error with appearance controls and retry", async () => {
     await english();
     await withServer(async ({ fail }) => {
       fail();
@@ -324,10 +324,17 @@ describe("First-run route gate", () => {
       try {
         await ready(router);
         const html = renderToStaticMarkup(<RouterProvider router={router} />);
-        expect(html).toContain("Unable to check setup status");
+        expect(html).toContain("Could not load your settings");
         expect(html).toContain('aria-label="Theme: System"');
         expect(html).toContain('aria-label="Language: English"');
-        expect(html).toContain("Retry");
+        expect(html).toContain(">Retry</span>");
+        expect(html.match(/role="alert"/g)?.length).toBe(1);
+        expect(html.match(/Try again in a moment/g)?.length).toBe(1);
+        expect(html).not.toContain("Open your knowledge space");
+        expect(html).not.toContain("Unable to check setup status");
+        expect(html).not.toContain("Display settings could not be loaded");
+        expect(html).not.toContain("Preparing your knowledge space");
+        expect(html).not.toContain("Any settings already saved");
         expect(html).not.toContain('aria-label="Primary navigation"');
         expect(html).not.toContain("internal-secret-diagnostic");
         expect(html).not.toContain('class="space-card');

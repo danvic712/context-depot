@@ -1,4 +1,5 @@
 using ContextDepot.Application.Settings;
+using ContextDepot.Application.Settings.Contracts;
 using ContextDepot.Application.Settings.Dtos;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,7 +8,7 @@ namespace ContextDepot.Controllers;
 [ApiController]
 [Route("api/settings")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
-public sealed class SettingsController(AccessKeyAppService accessKeys, InferenceSettingsAppService inference, SettingsOverviewAppService overview) : ControllerBase
+public sealed class SettingsController(IAccessKeyAppService accessKeys, InferenceSettingsAppService inference, SettingsOverviewAppService overview) : ControllerBase
 {
     [HttpGet("overview")]
     public async Task<ActionResult<SettingsOverviewDto>> GetOverviewAsync(CancellationToken cancellationToken) =>
