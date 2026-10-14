@@ -43,5 +43,13 @@
   "startupResponseError": "We couldn’t read all your settings this time. Try again in a moment.",
   "startupUnknownError": "Your settings could not be loaded. Try again in a moment.",
   "requestRefreshError": "Could not update just yet",
-  "requestActionError": "Could not finish this time"
+  "requestActionError": "Could not finish this time",
+  "paginationLabel": "Pagination",
+  "paginationPrevious": "Previous",
+  "paginationNext": "Next",
+  "paginationGoToPage": "Page {{page}}",
+  "paginationPage": "{{page}} / {{pages}}",
+  "paginationPageSize": "Per page",
+  "paginationRange": "Showing {{from}}–{{to}} of {{total}}",
+  "paginationTotal": "{{total}} items"
 }

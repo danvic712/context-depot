@@ -274,6 +274,7 @@ export default function App() {
         {changingPage ? (
           <RouteLoading
             pathname={navigation.location?.pathname ?? location.pathname}
+            search={navigation.location?.search ?? location.search}
           />
         ) : (
           <div className="route-content" key={location.pathname}>

@@ -12,25 +12,31 @@ type Workspace = Pick<
 
 export function WorkspaceCounts({
   space,
+  hideEmpty = false,
 }: {
   space: Pick<Workspace, "contextCount" | "documentCount">;
+  hideEmpty?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const number = new Intl.NumberFormat(i18n.resolvedLanguage);
   return (
     <div className="space-counts" title={t("spaceCountsHint")}>
-      <span>
-        {t("spacesContextCount", {
-          count: space.contextCount,
-          value: number.format(space.contextCount),
-        })}
-      </span>
-      <span>
-        {t("spacesDocumentCount", {
-          count: space.documentCount,
-          value: number.format(space.documentCount),
-        })}
-      </span>
+      {(!hideEmpty || space.contextCount > 0) && (
+        <span>
+          {t("spacesContextCount", {
+            count: space.contextCount,
+            value: number.format(space.contextCount),
+          })}
+        </span>
+      )}
+      {(!hideEmpty || space.documentCount > 0) && (
+        <span>
+          {t("spacesDocumentCount", {
+            count: space.documentCount,
+            value: number.format(space.documentCount),
+          })}
+        </span>
+      )}
     </div>
   );
 }

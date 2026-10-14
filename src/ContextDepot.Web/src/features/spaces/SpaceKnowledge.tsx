@@ -1,13 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  FileTextIcon,
-  LayoutGridIcon,
-  ListIcon,
-} from "lucide-react";
+import { FileTextIcon, LayoutGridIcon, ListIcon } from "lucide-react";
 import { getSpaceKnowledge, selectedSpaceKnowledge } from "./spaces-api";
 import { useRequestResource } from "@/hooks/use-request-resource";
 import {
@@ -17,6 +11,8 @@ import {
 import { SpaceReader } from "./SpaceReader";
 import { hitKey } from "@/features/knowledge/search-api";
 import { RequestFeedback } from "@/components/feedback/RequestFeedback";
+import { PaginationBar } from "@/components/content/PaginationBar";
+import { paginationDefaults, readPageSize } from "@/lib/pagination";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
@@ -36,18 +32,19 @@ export function SpaceKnowledge({ spaceId }: { spaceId: string }) {
     Number.isSafeInteger(requested) && requested > 0 && requested <= 100000
       ? requested
       : 1;
+  const pageSize = readPageSize(params.get("knowledgePageSize"));
   const [attempt, setAttempt] = useState(0);
   const load = useCallback(
-    (signal: AbortSignal) => getSpaceKnowledge(spaceId, page, signal),
-    [spaceId, page],
+    (signal: AbortSignal) => getSpaceKnowledge(spaceId, page, signal, pageSize),
+    [spaceId, page, pageSize],
   );
-  const resource = useRequestResource(`${spaceId}:${page}`, attempt, load);
+  const resource = useRequestResource(
+    `${spaceId}:${page}:${pageSize}`,
+    attempt,
+    load,
+  );
   const data =
     resource.error && !resource.error.retryable ? undefined : resource.data;
-  const pages = Math.max(
-    1,
-    Math.ceil((data?.totalCount ?? 0) / (data?.pageSize ?? 12)),
-  );
   const selected = params.get("selected");
   const item = selectedSpaceKnowledge(data?.items ?? [], selected, spaceId);
   const list = useRef<HTMLDivElement>(null);
@@ -74,6 +71,21 @@ export function SpaceKnowledge({ spaceId }: { spaceId: string }) {
     next.delete("selected");
     if (value === 1) next.delete("knowledgePage");
     else next.set("knowledgePage", String(value));
+    setParams(next, { preventScrollReset: true });
+  }
+  function changePageSize(value: number) {
+    if (
+      !Number.isSafeInteger(value) ||
+      value < 1 ||
+      value > paginationDefaults.maximumPageSize ||
+      value === pageSize
+    )
+      return;
+    const next = new URLSearchParams(params);
+    next.delete("selected");
+    next.delete("knowledgePage");
+    if (value === paginationDefaults.pageSize) next.delete("knowledgePageSize");
+    else next.set("knowledgePageSize", String(value));
     setParams(next, { preventScrollReset: true });
   }
   return (
@@ -200,33 +212,17 @@ export function SpaceKnowledge({ spaceId }: { spaceId: string }) {
               )}
             </Empty>
           )}
-          {data && pages > 1 && (
-            <nav
-              className="spaces-pagination"
-              aria-label={t("spacesKnowledgePagination")}
-            >
-              <span role="status">{t("spacesPage", { page, pages })}</span>
-              <div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1 || resource.pending}
-                  onClick={() => changePage(page - 1)}
-                >
-                  <ChevronLeftIcon aria-hidden="true" />
-                  {t("spacesPrevious")}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= pages || resource.pending}
-                  onClick={() => changePage(page + 1)}
-                >
-                  {t("spacesNext")}
-                  <ChevronRightIcon aria-hidden="true" />
-                </Button>
-              </div>
-            </nav>
+          {(data || resource.pending) && (
+            <PaginationBar
+              page={page}
+              pageSize={pageSize}
+              totalCount={data?.totalCount}
+              itemCount={data?.items.length ?? 0}
+              loading={resource.pending && !data}
+              ariaLabel={t("spacesKnowledgePagination")}
+              onPageChange={changePage}
+              onPageSizeChange={changePageSize}
+            />
           )}
         </div>
         {item && (

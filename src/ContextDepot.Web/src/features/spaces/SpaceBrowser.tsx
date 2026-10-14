@@ -1,13 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  FolderIcon,
-  LayoutListIcon,
-} from "lucide-react";
+import { FolderIcon, LayoutListIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PaginationBar } from "@/components/content/PaginationBar";
 import {
   Dialog,
   DialogContent,
@@ -18,6 +14,11 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { RequestFeedback } from "@/components/feedback/RequestFeedback";
 import type { useSpaceDirectory } from "./use-space-directory";
+import {
+  workspaceDirectoryParams,
+  workspaceDetailTarget,
+} from "./directory-query";
+import { DirectoryParameter } from "./directory-enums";
 
 type Directory = ReturnType<typeof useSpaceDirectory>;
 
@@ -31,6 +32,7 @@ function SpaceNavigation({
   onNavigate?: () => void;
 }) {
   const { t, i18n } = useTranslation();
+  const [params] = useSearchParams();
   const data = roots.error && !roots.error.retryable ? undefined : roots.data;
   const pages = Math.max(
     1,
@@ -51,9 +53,13 @@ function SpaceNavigation({
     previousPage.current = loadedPage;
   }, [loadedPage]);
   function target(id?: string) {
-    const query =
-      roots.page > 1 ? `?${id ? "directoryPage" : "page"}=${roots.page}` : "";
-    return `${id ? `/spaces/${id}` : "/spaces"}${query}`;
+    const directory = workspaceDirectoryParams(params, true);
+    if (roots.page > 1)
+      directory.set(DirectoryParameter.Page, String(roots.page));
+    else directory.delete(DirectoryParameter.Page);
+    return id
+      ? workspaceDetailTarget(id, directory)
+      : `/spaces${directory.size ? `?${directory}` : ""}`;
   }
   return (
     <nav className="space-navigation" aria-label={t("spacesExplorer")}>
@@ -120,29 +126,15 @@ function SpaceNavigation({
           <p className="space-navigation-note">{t("spacesExplorerEmpty")}</p>
         )}
         {data && pages > 1 && (
-          <div className="space-navigation-pagination">
-            <span role="status">
-              {t("spacesPage", { page: roots.page, pages })}
-            </span>
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label={t("spacesPrevious")}
-              disabled={roots.page <= 1 || roots.pending}
-              onClick={() => roots.changePage(roots.page - 1)}
-            >
-              <ChevronLeftIcon aria-hidden="true" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label={t("spacesNext")}
-              disabled={roots.page >= pages || roots.pending}
-              onClick={() => roots.changePage(roots.page + 1)}
-            >
-              <ChevronRightIcon aria-hidden="true" />
-            </Button>
-          </div>
+          <PaginationBar
+            compact
+            page={roots.page}
+            pageSize={data.pageSize}
+            totalCount={data.totalCount}
+            ariaLabel={t("spacesPagination")}
+            onPageChange={roots.changePage}
+            disabled={roots.pending}
+          />
         )}
       </div>
     </nav>

@@ -43,5 +43,13 @@
   "startupResponseError": "这次没能完整读取设置，请稍后重试。",
   "startupUnknownError": "设置暂时无法加载，请稍后重试。",
   "requestRefreshError": "这次还没能更新",
-  "requestActionError": "这次操作未能完成"
+  "requestActionError": "这次操作未能完成",
+  "paginationLabel": "翻页",
+  "paginationPrevious": "上一页",
+  "paginationNext": "下一页",
+  "paginationGoToPage": "第 {{page}} 页",
+  "paginationPage": "{{page}} / {{pages}}",
+  "paginationPageSize": "每页显示",
+  "paginationRange": "显示 {{from}}–{{to}}，共 {{total}} 条",
+  "paginationTotal": "共 {{total}} 条"
 }

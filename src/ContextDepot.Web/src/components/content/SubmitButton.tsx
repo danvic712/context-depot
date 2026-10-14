@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
-import { LoaderCircleIcon, type LucideIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 export function SubmitButton({
@@ -16,14 +17,22 @@ export function SubmitButton({
   pendingLabel: string;
   icon?: LucideIcon;
 }) {
-  const StatusIcon = pending || !Icon ? LoaderCircleIcon : Icon;
   return (
-    <Button type="submit" {...props} disabled={pending || disabled}>
-      <StatusIcon
-        data-icon="inline-start"
-        aria-hidden="true"
-        className={cn(pending ? "animate-spin" : !Icon && "invisible")}
-      />
+    <Button
+      type="submit"
+      {...props}
+      disabled={pending || disabled}
+      aria-busy={pending}
+    >
+      {pending || !Icon ? (
+        <Spinner
+          data-icon="inline-start"
+          aria-hidden="true"
+          className={cn(!pending && "invisible")}
+        />
+      ) : (
+        <Icon data-icon="inline-start" aria-hidden="true" />
+      )}
       <span className="action-label">
         <span aria-hidden="true" className="invisible">
           {label}

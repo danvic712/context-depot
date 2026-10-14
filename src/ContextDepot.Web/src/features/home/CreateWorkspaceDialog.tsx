@@ -9,7 +9,7 @@ import axios from "axios";
 import { PlusIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
@@ -40,9 +40,14 @@ export function CreateWorkspaceDialog({
   const [failure, setFailure] = useState(false);
   const [pending, setPending] = useState(false);
   const request = useRef<AbortController | null>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
   const nameInput = useRef<HTMLInputElement>(null);
   const pathInput = useRef<HTMLInputElement>(null);
+  const triggerContent = children ?? (
+    <>
+      <PlusIcon data-icon="inline-start" aria-hidden="true" />
+      <span>{t("newSpace")}</span>
+    </>
+  );
   useEffect(() => () => request.current?.abort(), []);
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -112,20 +117,15 @@ export function CreateWorkspaceDialog({
       }}
     >
       <DialogTrigger asChild>
-        <button
-          type="button"
-          ref={trigger}
-          className={
-            triggerClassName ?? `${buttonVariants()} home-create-action`
-          }
-        >
-          {children ?? (
-            <>
-              <PlusIcon aria-hidden="true" />
-              <span>{t("newSpace")}</span>
-            </>
-          )}
-        </button>
+        {triggerClassName ? (
+          <button type="button" className={triggerClassName}>
+            {triggerContent}
+          </button>
+        ) : (
+          <Button type="button" className="home-create-action">
+            {triggerContent}
+          </Button>
+        )}
       </DialogTrigger>
       <FormDialog
         title={t("newSpace")}
@@ -134,10 +134,6 @@ export function CreateWorkspaceDialog({
         pending={pending}
         error={failure ? t("spaceCreateError") : undefined}
         onSubmit={(event) => void submit(event)}
-        onCloseAutoFocus={(event) => {
-          event.preventDefault();
-          requestAnimationFrame(() => trigger.current?.focus());
-        }}
         footer={
           <>
             <Button
@@ -149,6 +145,7 @@ export function CreateWorkspaceDialog({
               {t("cancel")}
             </Button>
             <SubmitButton
+              icon={PlusIcon}
               pending={pending}
               label={t("newSpace")}
               pendingLabel={t("spaceCreating")}

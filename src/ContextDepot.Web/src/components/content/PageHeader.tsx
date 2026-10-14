@@ -36,7 +36,13 @@ export function PageHeader({
   );
 }
 
-export function PageHeaderSkeleton({ welcome = false }: { welcome?: boolean }) {
+export function PageHeaderSkeleton({
+  welcome = false,
+  actions,
+}: {
+  welcome?: boolean;
+  actions?: ReactNode;
+}) {
   return (
     <div
       className={cn("page-heading", welcome && "page-heading-welcome")}
@@ -47,6 +53,7 @@ export function PageHeaderSkeleton({ welcome = false }: { welcome?: boolean }) {
         <Skeleton className="page-title-skeleton" />
         <Skeleton className="h-4 w-3/4" />
       </div>
+      {actions && <div className="page-heading-actions">{actions}</div>}
     </div>
   );
 }

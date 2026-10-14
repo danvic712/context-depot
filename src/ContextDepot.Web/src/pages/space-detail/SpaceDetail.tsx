@@ -16,6 +16,8 @@ import { SpaceKnowledgeSkeleton } from "@/features/spaces/SpaceKnowledgeList";
 import { SpaceBrowser } from "@/features/spaces/SpaceBrowser";
 import { useSpaceDirectory } from "@/features/spaces/use-space-directory";
 import "@/styles/spaces.css";
+import { workspaceDirectoryParams } from "@/features/spaces/directory-query";
+import { DirectoryParameter } from "@/features/spaces/directory-enums";
 
 export function SpaceDetail() {
   const { t } = useTranslation();
@@ -35,8 +37,9 @@ export function SpaceDetail() {
     [spaceId],
   );
   const detail = useRequestResource(spaceId, attempt, load);
-  const roots = useSpaceDirectory(undefined, "directoryPage");
-  const rootQuery = roots.page > 1 ? `?page=${roots.page}` : "";
+  const roots = useSpaceDirectory(undefined, DirectoryParameter.ReturnPage);
+  const directory = workspaceDirectoryParams(params, true);
+  const rootQuery = directory.size ? `?${directory}` : "";
   const data =
     detail.error && !detail.error.retryable ? undefined : detail.data;
   const space = data?.workspace;

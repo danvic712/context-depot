@@ -11,14 +11,20 @@ import { KnowledgeReaderSkeleton } from "@/features/knowledge/KnowledgeReaderSke
 import "@/styles/header.css";
 import { SetupSkeleton } from "@/features/setup/SetupSkeleton";
 
-function RouteSkeleton({ pathname }: { pathname: string }) {
+function RouteSkeleton({
+  pathname,
+  search = "",
+}: {
+  pathname: string;
+  search?: string;
+}) {
   if (/^\/(contexts|documents)\/[^/]+$/.test(pathname))
     return <KnowledgeReaderSkeleton />;
   if (pathname === "/") return <HomeSkeleton />;
   if (pathname === "/search") return <SearchPageSkeleton />;
   if (pathname === "/settings") return <SettingsSkeleton />;
   if (/^\/spaces(?:\/[^/]+)?$/.test(pathname))
-    return <SpacesSkeleton detail={pathname !== "/spaces"} />;
+    return <SpacesSkeleton detail={pathname !== "/spaces"} search={search} />;
   return (
     <div aria-hidden="true">
       <Skeleton className="h-16 w-2/3" />
@@ -27,25 +33,34 @@ function RouteSkeleton({ pathname }: { pathname: string }) {
   );
 }
 
-export function RouteLoading({ pathname }: { pathname: string }) {
+export function RouteLoading({
+  pathname,
+  search,
+}: {
+  pathname: string;
+  search?: string;
+}) {
   const { t } = useTranslation();
   if (/^\/(contexts|documents)\/[^/]+$/.test(pathname))
     return <KnowledgeReaderSkeleton label={t("loading")} />;
   return (
     <div role="status" aria-label={t("loading")}>
-      <RouteSkeleton pathname={pathname} />
+      <RouteSkeleton pathname={pathname} search={search} />
     </div>
   );
 }
 
 export function AppLoading({
   pathname = typeof window === "undefined" ? "/" : window.location.pathname,
+  search = typeof window === "undefined" ? "" : window.location.search,
 }: {
   pathname?: string;
+  search?: string;
 }) {
   if (pathname === "/setup") return <SetupSkeleton />;
   const home = pathname === "/";
-  const search = pathname === "/search";
+  const searchPage = pathname === "/search";
+  const spaces = pathname === "/spaces";
   return (
     <div className="shell startup-loading" aria-busy="true">
       <SidebarSkeleton />
@@ -63,18 +78,20 @@ export function AppLoading({
           </div>
         </div>
         <main
-          className={`page${home ? " home" : search ? " search" : ""}`}
+          className={`page${home ? " home" : searchPage ? " search" : spaces ? " spaces" : ""}`}
           role="status"
           aria-label="Loading / 加载中"
         >
-          <RouteSkeleton pathname={pathname} />
+          <RouteSkeleton pathname={pathname} search={search} />
         </main>
-        <footer aria-hidden="true">
-          <Skeleton className="h-3 w-24" />
-          <span>
-            <Skeleton className="h-3 w-44" />
-          </span>
-        </footer>
+        {!spaces && (
+          <footer aria-hidden="true">
+            <Skeleton className="h-3 w-24" />
+            <span>
+              <Skeleton className="h-3 w-44" />
+            </span>
+          </footer>
+        )}
       </div>
     </div>
   );
