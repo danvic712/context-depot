@@ -11,13 +11,16 @@ public sealed class WebDepotContextMiddleware(RequestDelegate next, IConfigurati
     {
         if (!context.Request.Path.StartsWithSegments("/api/workspaces") &&
             !context.Request.Path.StartsWithSegments("/api/knowledge") &&
+            !context.Request.Path.StartsWithSegments("/api/documents") &&
+            !context.Request.Path.StartsWithSegments("/api/contexts") &&
             !context.Request.Path.StartsWithSegments("/api/settings"))
         {
             await next(context);
             return;
         }
 
-        if (context.Request.Path.StartsWithSegments("/api/settings"))
+        if (context.Request.Path.StartsWithSegments("/api/settings") ||
+            context.Request.Path.StartsWithSegments("/api/documents") || context.Request.Path.StartsWithSegments("/api/contexts"))
             WebManagementRequestGuard.RequireManagementRequest(context);
 
         // Appearance is a deployment default and does not depend on selecting a Depot.

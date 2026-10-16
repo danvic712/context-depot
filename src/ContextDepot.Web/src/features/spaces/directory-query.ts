@@ -5,7 +5,7 @@ import {
   WorkspaceSortOrder,
   WorkspaceUpdateWindow,
 } from "./directory-enums";
-import { paginationDefaults, readPageSize } from "@/lib/pagination";
+import { paginationDefaults } from "@/lib/pagination";
 
 export interface DirectoryFilters {
   query: string;
@@ -91,11 +91,7 @@ export function hasDirectoryFilters(filters: DirectoryFilters) {
     filters.updated !== WorkspaceUpdateWindow.All
   );
 }
-export function directoryParams(
-  filters: DirectoryFilters,
-  page = 1,
-  pageSize: number = paginationDefaults.pageSize,
-) {
+export function directoryParams(filters: DirectoryFilters, page = 1) {
   const params = new URLSearchParams();
   if (filters.query.trim())
     params.set(DirectoryParameter.Keyword, filters.query.trim());
@@ -115,8 +111,6 @@ export function directoryParams(
   if (filters.sort !== WorkspaceSortOrder.Activity)
     params.set(DirectoryParameter.Sort, filters.sort);
   if (page > 1) params.set(DirectoryParameter.Page, String(page));
-  if (pageSize !== paginationDefaults.pageSize)
-    params.set(DirectoryParameter.PageSize, String(pageSize));
   return params;
 }
 export function directoryRequest(filters: DirectoryFilters) {
@@ -175,11 +169,7 @@ export function workspaceDirectoryParams(
       DirectoryParameter.Page,
       params.get(DirectoryParameter.ReturnPage)!,
     );
-  return directoryParams(
-    readDirectoryFilters(source),
-    directoryPage(source),
-    readPageSize(source.get(DirectoryParameter.PageSize)),
-  );
+  return directoryParams(readDirectoryFilters(source), directoryPage(source));
 }
 export function workspaceDetailTarget(id: string, directory: URLSearchParams) {
   const params = new URLSearchParams();

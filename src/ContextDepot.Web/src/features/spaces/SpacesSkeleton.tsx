@@ -1,3 +1,4 @@
+import { useDisplayPreference } from "@/lib/display-preferences";
 import { PageHeaderSkeleton } from "@/components/content/PageHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SpaceKnowledgeSkeleton } from "./SpaceKnowledgeList";
@@ -7,8 +8,6 @@ import {
 } from "./SpaceDirectoryLayout";
 import { SpaceListSkeleton } from "./SpaceDirectory";
 import { SpaceDirectoryFiltersSkeleton } from "./SpaceDirectoryFilters";
-import { readPageSize } from "@/lib/pagination";
-import { DirectoryParameter } from "./directory-enums";
 import { readDirectoryFilters } from "./directory-query";
 import "@/styles/spaces.css";
 
@@ -19,10 +18,10 @@ export function SpacesSkeleton({
   detail?: boolean;
   search?: string;
 }) {
+  const [pageSize] = useDisplayPreference("directoryPageSize");
   if (!detail) {
     const params = new URLSearchParams(search);
     const filters = readDirectoryFilters(params);
-    const pageSize = readPageSize(params.get(DirectoryParameter.PageSize));
     return (
       <div
         className="spaces-workbench spaces-directory-page spaces-page-skeleton"
@@ -42,30 +41,24 @@ export function SpacesSkeleton({
     );
   }
   return (
-    <div
-      className={`spaces-workbench spaces-page-skeleton ${detail ? "" : "spaces-directory-page"}`}
-      aria-hidden="true"
-    >
+    <div className="spaces-workbench spaces-page-skeleton" aria-hidden="true">
       <div className="space-browser">
-        {detail && (
-          <aside className="space-browser-sidebar">
-            <div className="space-navigation">
-              <Skeleton className="h-11 w-full" />
-              {Array.from({ length: 4 }, (_, index) => (
-                <Skeleton key={index} className="space-navigation-skeleton" />
-              ))}
-            </div>
-          </aside>
-        )}
         <div className="space-browser-main">
-          {detail && (
-            <Skeleton className="space-browser-mobile-trigger h-11 w-32" />
-          )}
-          {detail && <Skeleton className="h-4 w-48" />}
-          <PageHeaderSkeleton />
-          <div className="spaces-section-heading" aria-hidden="true">
-            <Skeleton className="h-5 w-28" />
-            <Skeleton className="h-4 w-24" />
+          <div className="space-detail-navigation">
+            <Skeleton className="h-11 w-24" />
+          </div>
+          <div className="space-detail-heading">
+            <PageHeaderSkeleton eyebrow={false} />
+          </div>
+          <div className="space-content-toolbar" aria-hidden="true">
+            <Skeleton className="h-12 w-44" />
+            <div className="space-content-actions">
+              <Skeleton className="space-layout-switch h-11 w-24" />
+              <div className="space-toolbar-commands">
+                <Skeleton className="h-11 w-28" />
+                <Skeleton className="h-11 w-24" />
+              </div>
+            </div>
           </div>
           <SpaceKnowledgeSkeleton />
         </div>

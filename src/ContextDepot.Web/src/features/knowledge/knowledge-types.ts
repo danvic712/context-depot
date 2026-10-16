@@ -1,5 +1,5 @@
 import { FileTextIcon, MessageSquareTextIcon } from "lucide-react";
-import type { ContextKind } from "@/features/home/home-api";
+import { type ContextKind } from "@/features/knowledge/knowledge-models";
 import type { Messages } from "@/lib/i18n";
 
 export const knowledgeKindLabels = {

@@ -1,4 +1,6 @@
 using ContextDepot.Application.Overview;
+using ContextDepot.Application.Documents;
+using ContextDepot.Application.Documents.Dtos;
 using ContextDepot.Application.Workspaces;
 using ContextDepot.Application.Workspaces.Dtos;
 using ContextDepot.Application.Shared.Dtos;
@@ -9,10 +11,20 @@ namespace ContextDepot.Controllers;
 /// <summary>
 /// Provides authorized workspace browsing, knowledge listings and workspace creation.
 /// </summary>
+/// <param name="service">
+/// The application service used for recent collections and workspace creation.
+/// </param>
+/// <param name="browser">
+/// The application service used for authorized workspace browsing.
+/// </param>
+/// <param name="documents">
+/// The application service used for trusted archive management.
+/// </param>
 [ApiController]
 [Route("api/workspaces")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
-public sealed class WorkspacesController(OverviewAppService service, WorkspaceBrowserAppService browser) : ControllerBase
+public sealed class WorkspacesController(OverviewAppService service, WorkspaceBrowserAppService browser,
+    DocumentManagementAppService documents) : ControllerBase
 {
     /// <summary>
     /// Finds spaces matching the requested conditions within the current authorization scope.
@@ -67,6 +79,47 @@ public sealed class WorkspacesController(OverviewAppService service, WorkspaceBr
     [HttpGet("{id:guid}/knowledge")]
     public async Task<ActionResult<WorkspaceKnowledge>> ListKnowledgeAsync(Guid id, [FromQuery] PaginationQuery request,
         CancellationToken cancellationToken) => Ok(await browser.ListKnowledgeAsync(id, request, cancellationToken));
+
+    /// <summary>
+    /// Lists archived canonical documents in the selected workspace.
+    /// </summary>
+    /// <param name="id">
+    /// The workspace identifier in the selected depot.
+    /// </param>
+    /// <param name="request">
+    /// The one-based pagination request supplied in the query string.
+    /// </param>
+    /// <param name="cancellationToken">
+    /// Cancels the asynchronous operation.
+    /// </param>
+    /// <returns>
+    /// A task whose result contains a consistent archive page and its total count.
+    /// </returns>
+    /// <remarks>
+    /// Requires trusted Web management access; archived documents are excluded from ordinary retrieval.
+    /// </remarks>
+    /// <response code="200">
+    /// The archive page was loaded.
+    /// </response>
+    /// <response code="400">
+    /// The pagination request is invalid.
+    /// </response>
+    /// <response code="403">
+    /// Trusted Web management access is required.
+    /// </response>
+    /// <response code="404">
+    /// The workspace does not exist in the current scope.
+    /// </response>
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [HttpGet("{id:guid}/archived-documents")]
+    public async Task<ActionResult<ArchivedDocumentPage>> ListArchivedDocumentsAsync(Guid id, [FromQuery] PaginationQuery request,
+        CancellationToken cancellationToken)
+    {
+        Middlewares.WebManagementRequestGuard.RequireManagementRequest(HttpContext);
+        return Ok(await documents.ListArchivedAsync(id, request, cancellationToken));
+    }
 
     /// <summary>
     /// Lists recently active workspaces for the home overview.

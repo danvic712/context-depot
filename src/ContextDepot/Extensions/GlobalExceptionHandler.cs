@@ -94,12 +94,13 @@ public sealed class GlobalExceptionHandler(
             ApplicationErrorCodes.WorkspaceUnavailable => StatusCodes.Status404NotFound,
         ApplicationErrorCodes.WorkspacePathConflict or ApplicationErrorCodes.WorkspaceConcurrencyConflict or
             ApplicationErrorCodes.ContextConcurrencyConflict or ApplicationErrorCodes.ContextKindConflict or
-            ApplicationErrorCodes.DocumentConflict => StatusCodes.Status409Conflict,
+            ApplicationErrorCodes.DocumentConflict or ApplicationErrorCodes.KnowledgeDeleteConflict => StatusCodes.Status409Conflict,
         ApplicationErrorCodes.WebDepotUnavailable or ApplicationErrorCodes.SetupRequired or
             ApplicationErrorCodes.SetupUnavailable or ApplicationErrorCodes.DatabaseUnavailable or
             ApplicationErrorCodes.MarkdownRootUnavailable or ApplicationErrorCodes.EmbeddingGeneratorUnavailable => StatusCodes.Status503ServiceUnavailable,
         ApplicationErrorCodes.InternalError or ApplicationErrorCodes.ContextWriteFailed or
             ApplicationErrorCodes.WorkspaceWriteFailed or ApplicationErrorCodes.DocumentWriteFailed or
+            ApplicationErrorCodes.DocumentDeleteFailed or
             ApplicationErrorCodes.VectorSearchFailed => StatusCodes.Status500InternalServerError,
         _ => StatusCodes.Status400BadRequest
     };

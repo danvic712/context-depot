@@ -2,7 +2,7 @@ import { ChevronRightIcon, FolderIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { WorkspaceSummary } from "@/features/home/home-api";
+import { type WorkspaceSummary } from "@/features/spaces/workspace-summary";
 import "@/styles/workspace-card.css";
 
 type Workspace = Pick<
@@ -18,6 +18,8 @@ export function WorkspaceCounts({
   hideEmpty?: boolean;
 }) {
   const { t, i18n } = useTranslation();
+  if (hideEmpty && space.contextCount === 0 && space.documentCount === 0)
+    return null;
   const number = new Intl.NumberFormat(i18n.resolvedLanguage);
   return (
     <div className="space-counts" title={t("spaceCountsHint")}>

@@ -1,3 +1,4 @@
+import { KnowledgeCopyButton } from "./KnowledgeCopyButton";
 import { KnowledgeTypeIcon } from "./KnowledgeTypeIcon";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -27,9 +28,9 @@ import {
   SearchSkeleton,
   SearchResultText,
   SearchPreviewContent,
-  SearchCopyButton,
 } from "./SearchContent";
-import { hitKey, type KnowledgeType } from "./search-api";
+import { knowledgeKey } from "@/features/knowledge/knowledge-models";
+import { type KnowledgeType } from "@/features/knowledge/knowledge-models";
 import {
   useKnowledgeSearch,
   useKnowledgePreview,
@@ -67,7 +68,8 @@ export default function KnowledgeSearchDialog({
   const workspaces = useSearchWorkspaces(workspaceRetry);
   const hits = resource.data?.items ?? [];
   const visible = hits.filter((item) => type === "all" || item.type === type);
-  const item = visible.find((hit) => hitKey(hit) === selected) ?? visible[0];
+  const item =
+    visible.find((hit) => knowledgeKey(hit) === selected) ?? visible[0];
   const detail = useKnowledgePreview(item, previewRetry);
   const pending = resource.pending;
   const counts = {
@@ -98,7 +100,7 @@ export default function KnowledgeSearchDialog({
       >
         <Command
           shouldFilter={false}
-          value={item ? hitKey(item) : ""}
+          value={item ? knowledgeKey(item) : ""}
           onValueChange={(value) => {
             setSelected(value);
           }}
@@ -269,10 +271,10 @@ export default function KnowledgeSearchDialog({
                     <CommandGroup>
                       {visible.map((hit) => (
                         <CommandItem
-                          key={hitKey(hit)}
-                          value={hitKey(hit)}
+                          key={knowledgeKey(hit)}
+                          value={knowledgeKey(hit)}
                           onSelect={() => {
-                            setSelected(hitKey(hit));
+                            setSelected(knowledgeKey(hit));
                             setMobilePreview(true);
                           }}
                           className="search-result-item"
@@ -359,7 +361,7 @@ export default function KnowledgeSearchDialog({
               {t("searchOpenPage")}
               <ArrowUpRightIcon data-icon="inline-end" />
             </Button>
-            <SearchCopyButton
+            <KnowledgeCopyButton
               detail={detail.error ? undefined : detail.data}
               pending={detail.pending || pending}
             />

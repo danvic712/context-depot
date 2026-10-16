@@ -1,13 +1,25 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import "@/styles/knowledge-reader.css";
 
-export function KnowledgeContentSkeleton() {
+export function KnowledgeContentSkeleton({
+  showHeading = true,
+}: {
+  showHeading?: boolean;
+}) {
   return (
     <div className="knowledge-content-skeleton" aria-hidden="true">
-      <Skeleton className="h-5 w-16" />
-      <Skeleton className="reader-title-skeleton" />
-      <Skeleton className="h-4 w-2/3" />
-      <div className="reader-body-skeleton">
+      {showHeading && (
+        <>
+          <Skeleton className="h-5 w-16" />
+          <Skeleton className="reader-title-skeleton" />
+          <Skeleton className="h-4 w-2/3" />
+        </>
+      )}
+      <div
+        className={
+          showHeading ? "reader-body-skeleton" : "reader-body-placeholder"
+        }
+      >
         <Skeleton className="h-6 w-1/2" />
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-full" />

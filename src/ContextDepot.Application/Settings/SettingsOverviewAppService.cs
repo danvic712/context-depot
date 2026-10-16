@@ -1,3 +1,4 @@
+using ContextDepot.Application.Shared.Runtime;
 using ContextDepot.Application.Settings.Contracts;
 using ContextDepot.Application.Settings.Dtos;
 using ContextDepot.Application.Shared.Runtime.Contracts;
@@ -9,7 +10,7 @@ public sealed class SettingsOverviewAppService(ISettingsOverviewRepository repos
 {
     public Task<SettingsOverviewDto> GetAsync(CancellationToken cancellationToken)
     {
-        SettingsAccess.RequireManagement(depot, access);
+        ManagementAccess.RequireManagement(depot, access);
         return repository.GetAsync(depot.DepotId, depot.DisplayName, cancellationToken);
     }
 }

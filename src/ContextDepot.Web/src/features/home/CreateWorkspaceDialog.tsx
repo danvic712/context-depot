@@ -6,7 +6,7 @@ import {
   type ReactNode,
 } from "react";
 import axios from "axios";
-import { PlusIcon } from "lucide-react";
+import { FolderPlusIcon, PlusIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Field, FieldLabel, FieldDescription } from "@/components/ui/field";
 import { FormDialog } from "@/components/content/FormDialog";
 import { SubmitButton } from "@/components/content/SubmitButton";
-import { createWorkspace } from "./home-api";
+import { createWorkspace } from "@/features/spaces/workspace-management-api";
 import { suggestWorkspacePath } from "@/features/spaces/workspace-path";
 import "@/styles/create-workspace.css";
 
@@ -128,6 +128,9 @@ export function CreateWorkspaceDialog({
         )}
       </DialogTrigger>
       <FormDialog
+        className="create-space-dialog"
+        overlayClassName="space-dialog-overlay"
+        titleIcon={FolderPlusIcon}
         title={t("newSpace")}
         description={t("createSpaceDescription")}
         closeLabel={t("cancel")}
@@ -187,9 +190,7 @@ export function CreateWorkspaceDialog({
           )}
         </Field>
         <Field data-invalid={!!errors.path} data-disabled={pending}>
-          <FieldLabel htmlFor="space-path">
-            {t("setupSpacePathLabel")}
-          </FieldLabel>
+          <FieldLabel htmlFor="space-path">{t("spacesAddress")}</FieldLabel>
           <Input
             id="space-path"
             ref={pathInput}
@@ -214,7 +215,7 @@ export function CreateWorkspaceDialog({
             spellCheck={false}
           />
           <FieldDescription id="space-path-hint">
-            {t("setupSpacePathHint")}
+            {t("spaceCreatePathHint")}
           </FieldDescription>
           {errors.path && (
             <p id="space-path-error" className="form-dialog-error" role="alert">
@@ -233,7 +234,11 @@ export function CreateWorkspaceDialog({
             onChange={(event) => setDescription(event.target.value)}
             disabled={pending}
             rows={3}
+            aria-describedby="space-description-hint"
           />
+          <FieldDescription id="space-description-hint">
+            {t("spaceCreateDescriptionHint")}
+          </FieldDescription>
         </Field>
       </FormDialog>
     </Dialog>

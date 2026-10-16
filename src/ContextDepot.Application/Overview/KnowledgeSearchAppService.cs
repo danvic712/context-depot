@@ -9,18 +9,51 @@ using ContextDepot.Domain.Contexts.Enums;
 
 namespace ContextDepot.Application.Overview;
 
-public sealed record KnowledgePreview(Guid Id, string Type, string Title, string Workspace,
-    string Content, DateTimeOffset UpdatedAt);
-
-public sealed record KnowledgeSearchHit(Guid Id, string Type, string Title, string Workspace, string Excerpt, string Kind);
-public sealed record KnowledgeSearchResponse(IReadOnlyList<KnowledgeSearchHit> Items, bool Degraded, int Limit);
-
+/// <summary>
+/// Searches authorized knowledge and reads canonical content for search and workspace readers.
+/// </summary>
+/// <param name="contexts">
+/// The context service that enforces retrieval authorization and relevance ordering.
+/// </param>
+/// <param name="documents">
+/// The document service used to load authorized canonical Markdown.
+/// </param>
+/// <param name="workspaces">
+/// The workspace service used to resolve visible search scopes.
+/// </param>
+/// <param name="options">
+/// The current retrieval limits.
+/// </param>
 public sealed class KnowledgeSearchAppService(
     IContextQueryAppService contexts,
     IDocumentAppService documents,
     IWorkspaceAppService workspaces,
     IOptionsMonitor<RetrievalOptions> options)
 {
+    /// <summary>
+    /// Finds distinct contexts and documents in retrieval relevance order within the caller's workspace grants.
+    /// </summary>
+    /// <param name="query">
+    /// The search text passed to authorized retrieval.
+    /// </param>
+    /// <param name="workspace">
+    /// An optional workspace path; blank values do not restrict the search scope.
+    /// </param>
+    /// <param name="cancellationToken">
+    /// Cancels the asynchronous operation.
+    /// </param>
+    /// <param name="kind">
+    /// An optional context kind name, matched without case sensitivity; selecting a kind excludes documents.
+    /// </param>
+    /// <returns>
+    /// A task whose result contains distinct ranked hits, the effective limit and the retrieval degradation indicator.
+    /// </returns>
+    /// <exception cref="ContextDepotApplicationException">
+    /// The context kind or retrieval request is invalid, or the requested scope is not authorized.
+    /// </exception>
+    /// <exception cref="OperationCanceledException">
+    /// The operation was canceled before completion.
+    /// </exception>
     public async Task<KnowledgeSearchResponse> SearchAsync(string query, string? workspace, CancellationToken cancellationToken,
         string? kind = null)
     {
@@ -51,6 +84,18 @@ public sealed class KnowledgeSearchAppService(
         return new(hits, result.Retrieval.RetrievalDegraded, limit);
     }
 
+    /// <summary>
+    /// Lists only workspaces visible to the current caller for search scope selection.
+    /// </summary>
+    /// <param name="cancellationToken">
+    /// Cancels the asynchronous operation.
+    /// </param>
+    /// <returns>
+    /// A task whose result contains visible workspace identifiers and full paths, ordered by path.
+    /// </returns>
+    /// <exception cref="OperationCanceledException">
+    /// The operation was canceled before completion.
+    /// </exception>
     public async Task<IReadOnlyList<KnowledgeWorkspace>> ListWorkspacesAsync(CancellationToken cancellationToken)
     {
         var topology = await workspaces.LoadTopologyAsync(cancellationToken);
@@ -58,12 +103,42 @@ public sealed class KnowledgeSearchAppService(
             .Select(pair => new KnowledgeWorkspace(pair.Key, pair.Value)).ToArray();
     }
 
-    public async Task<KnowledgePreview> GetAsync(string type, Guid id, CancellationToken cancellationToken)
+    /// <summary>
+    /// Reads canonical knowledge content and optionally restricts it to the requested workspace.
+    /// </summary>
+    /// <param name="type">
+    /// The resource type: context or document.
+    /// </param>
+    /// <param name="id">
+    /// The resource identifier.
+    /// </param>
+    /// <param name="cancellationToken">
+    /// Cancels the asynchronous operation.
+    /// </param>
+    /// <param name="workspaceId">
+    /// An optional owning-workspace constraint; mismatches are reported as not found.
+    /// </param>
+    /// <returns>
+    /// A task whose result contains canonical content and its precise observed revision.
+    /// </returns>
+    /// <remarks>
+    /// Resources outside the requested workspace are reported as not found using the same error as a missing resource.
+    /// </remarks>
+    /// <exception cref="ContextDepotApplicationException">
+    /// The resource type is unsupported, the resource is missing, access is denied,
+    /// or the owning workspace does not match the requested workspace.
+    /// </exception>
+    /// <exception cref="OperationCanceledException">
+    /// The operation was canceled before completion.
+    /// </exception>
+    public async Task<KnowledgePreview> GetAsync(string type, Guid id, CancellationToken cancellationToken, Guid? workspaceId = null)
     {
         if (type == "context")
         {
             var context = await contexts.GetAsync(id, cancellationToken)
                 ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.ContextNotFound);
+            if (workspaceId is not null && context.WorkspaceId != workspaceId)
+                throw new ContextDepotApplicationException(ApplicationErrorCodes.ContextNotFound);
             return new(context.Id, type, context.Title ?? context.Key ?? context.Kind.ToString(),
                 context.Workspace, context.Content, context.UpdatedAt);
         }
@@ -72,6 +147,8 @@ public sealed class KnowledgeSearchAppService(
         {
             var document = await documents.GetAsync(id, cancellationToken)
                 ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.DocumentNotFound);
+            if (workspaceId is not null && document.Metadata.WorkspaceId != workspaceId)
+                throw new ContextDepotApplicationException(ApplicationErrorCodes.DocumentNotFound);
             return new(document.Metadata.Id, type,
                 string.IsNullOrWhiteSpace(document.Metadata.Title) ? document.Metadata.Path : document.Metadata.Title,
                 document.Metadata.Workspace, document.Content, document.Metadata.UpdatedAt);

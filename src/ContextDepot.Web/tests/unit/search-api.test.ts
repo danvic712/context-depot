@@ -6,8 +6,8 @@ import {
   searchKnowledge,
   getKnowledgePreview,
   getSearchWorkspaces,
-  hitKey,
 } from "../../src/features/knowledge/search-api";
+import { knowledgeKey } from "../../src/features/knowledge/knowledge-models";
 
 const response = {
   items: [
@@ -55,7 +55,9 @@ describe("Knowledge search API", () => {
     expect(result.items[1]!.title).toBe("choice");
     expect(result.items[0]!.excerpt).toBe("First matching chunk");
     expect(result.limit).toBe(15);
-    expect(hitKey(result.items[0]!)).not.toBe(hitKey(result.items[1]!));
+    expect(knowledgeKey(result.items[0]!)).not.toBe(
+      knowledgeKey(result.items[1]!),
+    );
     expect(result.degraded).toBe(true);
   });
   test("rejects malformed collections and preview timestamps instead of showing empty success", () => {

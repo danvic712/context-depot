@@ -97,6 +97,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IContextRepository, ContextRepository>();
         services.AddScoped<IContextQueryRepository, ContextQueryRepository>();
         services.AddScoped<IDocumentRepository, DocumentRepository>();
+        services.AddScoped<IDocumentManagementRepository, DocumentManagementRepository>();
+        services.AddScoped<IContextManagementRepository, ContextManagementRepository>();
         services.AddScoped<IIndexRepairRepository, PostgreSqlIndexRepairRepository>();
         services.AddScoped<ISemanticRetrievalRepository, VectorDataSemanticRetrievalRepository>();
         services.AddScoped<IBootstrapRepository, BootstrapRepository>();

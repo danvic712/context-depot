@@ -1,12 +1,17 @@
+import {
+  responseRecord as record,
+  responseText as text,
+  responseCount as count,
+} from "@/lib/response-values";
 import { httpRequest } from "@/lib/http-client";
 import { directoryRequest, type DirectoryFilters } from "./directory-query";
 import { paginationDefaults, type PaginatedResult } from "@/lib/pagination";
 import {
   parseWorkspace,
-  parseKnowledge,
-  type KnowledgeSummary,
   type WorkspaceSummary,
-} from "@/features/home/home-api";
+} from "@/features/spaces/workspace-summary";
+import { parseKnowledge } from "@/features/knowledge/knowledge-summary";
+import { type KnowledgeSummary } from "@/features/knowledge/knowledge-models";
 
 export interface Space extends WorkspaceSummary {
   subspaceCount: number;
@@ -26,24 +31,6 @@ export interface SpaceKnowledge {
   pageSize: number;
 }
 
-function record(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    throw new Error("Invalid workspace response");
-  return value as Record<string, unknown>;
-}
-function text(value: unknown): string {
-  if (typeof value !== "string") throw new Error("Invalid workspace response");
-  return value;
-}
-function count(value: unknown, minimum = 0): number {
-  if (
-    typeof value !== "number" ||
-    !Number.isSafeInteger(value) ||
-    value < minimum
-  )
-    throw new Error("Invalid workspace count");
-  return value;
-}
 function parseSpace(data: unknown): Space {
   return {
     ...parseWorkspace(data),
@@ -148,15 +135,4 @@ export function getSpaceKnowledge(
       };
     },
   });
-}
-
-export function selectedSpaceKnowledge(
-  items: KnowledgeSummary[],
-  selected: string | null,
-  spaceId: string,
-) {
-  return items.find(
-    (item) =>
-      `${item.type}:${item.id}` === selected && item.workspace.id === spaceId,
-  );
 }

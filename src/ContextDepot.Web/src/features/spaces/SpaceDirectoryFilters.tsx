@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/popover";
 import { Spinner } from "@/components/ui/spinner";
 import { Separator } from "@/components/ui/separator";
+import { SpaceSortMenu } from "./SpaceSortMenu";
 import {
   defaultDirectoryFilters,
   directoryParams,
@@ -287,30 +288,18 @@ export function SpaceDirectoryFilters({
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
-          <AppSelect
-            label={t("spacesSortLabel")}
+          <SpaceSortMenu
             value={filters.sort}
             disabled={pending}
-            onChange={(value) => applyDraft(draft, value as WorkspaceSortOrder)}
-            options={[
-              {
-                value: WorkspaceSortOrder.Activity,
-                label: t("spacesSortUpdated"),
-              },
-              { value: WorkspaceSortOrder.Name, label: t("spacesSortName") },
-              {
-                value: WorkspaceSortOrder.Knowledge,
-                label: t("spacesSortKnowledge"),
-              },
-            ]}
+            onValueChange={(value) => applyDraft(draft, value)}
           />
         </Field>
         <Popover open={expanded} onOpenChange={setExpanded}>
           <PopoverTrigger asChild>
             <Button
-              className="space-filter-trigger"
+              className="space-directory-menu-trigger space-filter-trigger"
               type="button"
-              variant="ghost"
+              variant="outline"
               aria-expanded={expanded}
               aria-controls="space-directory-conditions"
             >
@@ -546,11 +535,11 @@ export function SpaceDirectoryFiltersSkeleton({
               <Skeleton className="space-status-item-skeleton" key={index} />
             ))}
           </div>
-          <div data-slot="select-trigger">
+          <div className="space-sort-trigger space-directory-menu-trigger">
             <Skeleton className="h-4 w-28" />
           </div>
         </div>
-        <Skeleton className="space-filter-trigger space-filter-trigger-skeleton" />
+        <Skeleton className="space-directory-menu-trigger space-filter-trigger space-filter-trigger-skeleton" />
         <div className="space-directory-actions">
           <Skeleton className="spaces-create-skeleton" />
         </div>

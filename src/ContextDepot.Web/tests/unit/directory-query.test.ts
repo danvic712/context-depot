@@ -63,7 +63,6 @@ describe("Workspace directory filters", () => {
     const original = directoryParams(
       { ...defaultDirectoryFilters, query: "work" },
       2,
-      6,
     );
     const target = new URL(
       workspaceDetailTarget("research", original),
@@ -72,10 +71,10 @@ describe("Workspace directory filters", () => {
     expect(workspaceDirectoryParams(target.searchParams, true).toString()).toBe(
       original.toString(),
     );
-    expect(original.get("pageSize")).toBe("6");
-    expect(
-      directoryParams(defaultDirectoryFilters, 1, 12).has("pageSize"),
-    ).toBe(false);
+    expect(original.has("pageSize")).toBe(false);
+    expect(directoryParams(defaultDirectoryFilters, 1).has("pageSize")).toBe(
+      false,
+    );
     const invalid = workspaceDirectoryParams(
       new URLSearchParams("pageSize=1000&page=2"),
     );

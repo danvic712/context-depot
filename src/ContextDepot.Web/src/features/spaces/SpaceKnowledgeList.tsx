@@ -1,120 +1,97 @@
+import { Link } from "react-router";
+import {
+  RovingFocusGroup,
+  RovingFocusGroupItem,
+} from "@radix-ui/react-roving-focus";
 import { ChevronRightIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { KnowledgeSummary } from "@/features/home/home-api";
+import { type KnowledgeSummary } from "@/features/knowledge/knowledge-models";
 import {
   knowledgeTypes,
   knowledgeKindLabels,
 } from "@/features/knowledge/knowledge-types";
-import { hitKey } from "@/features/knowledge/search-api";
+import { knowledgeKey } from "@/features/knowledge/knowledge-models";
 
 export function SpaceKnowledgeList({
   items,
-  selected,
   layout = "list",
-  onSelect,
+  getHref,
+  getState,
 }: {
   items: KnowledgeSummary[];
-  selected?: string;
   layout?: "list" | "cards";
-  onSelect: (item: KnowledgeSummary) => void;
+  getHref: (item: KnowledgeSummary) => string;
+  getState: (item: KnowledgeSummary) => unknown;
 }) {
   const { t, i18n } = useTranslation();
+  const displayDate = new Intl.DateTimeFormat(i18n.resolvedLanguage, {
+    dateStyle: "medium",
+  });
+  const fullDate = new Intl.DateTimeFormat(i18n.resolvedLanguage, {
+    dateStyle: "full",
+    timeStyle: "short",
+  });
   return (
-    <ul
-      className="space-knowledge-list"
-      data-layout={layout}
-      onKeyDown={(event) => {
-        const rows = Array.from(
-          event.currentTarget.querySelectorAll<HTMLButtonElement>(
-            ".space-knowledge-row",
-          ),
-        );
-        const index = rows.indexOf(document.activeElement as HTMLButtonElement);
-        if (index < 0) return;
-        const columns =
-          layout === "cards"
-            ? getComputedStyle(event.currentTarget).gridTemplateColumns.split(
-                /\s+/,
-              ).length
-            : 1;
-        const offset =
-          event.key === "ArrowDown"
-            ? columns
-            : event.key === "ArrowUp"
-              ? -columns
-              : layout === "cards" && event.key === "ArrowRight"
-                ? 1
-                : layout === "cards" && event.key === "ArrowLeft"
-                  ? -1
-                  : undefined;
-        const next =
-          offset !== undefined
-            ? Math.max(0, Math.min(index + offset, rows.length - 1))
-            : event.key === "Home"
-              ? 0
-              : event.key === "End"
-                ? rows.length - 1
-                : undefined;
-        if (next !== undefined) {
-          event.preventDefault();
-          rows[next]?.focus();
-        }
-      }}
+    <RovingFocusGroup
+      asChild
+      orientation={layout === "list" ? "vertical" : undefined}
+      preventScrollOnEntryFocus
     >
-      {items.map((item) => {
-        const key = hitKey(item);
-        const Icon = knowledgeTypes[item.type].icon;
-        const date = new Date(item.updatedAt);
-        return (
-          <li key={key}>
-            <button
-              className="space-knowledge-row"
-              type="button"
-              data-key={key}
-              aria-pressed={key === selected}
-              onClick={() => onSelect(item)}
-            >
-              <span className="space-knowledge-icon">
-                <Icon aria-hidden="true" />
-              </span>
-              <span className="space-knowledge-title" title={item.title}>
-                {item.title}
-              </span>
-              <span className="space-knowledge-type">
-                <span>{t(knowledgeTypes[item.type].label)}</span>
-                {item.kind && <span>{t(knowledgeKindLabels[item.kind])}</span>}
-                {item.indexStatus && item.indexStatus !== "indexed" && (
-                  <span className="space-knowledge-state">
-                    {t(
-                      item.indexStatus === "pending"
-                        ? "homeIndexPending"
-                        : "homeIndexFailed",
+      <ul className="space-knowledge-list" data-layout={layout}>
+        {items.map((item) => {
+          const key = knowledgeKey(item);
+          const Icon = knowledgeTypes[item.type].icon;
+          const date = new Date(item.updatedAt);
+          return (
+            <li key={key}>
+              <RovingFocusGroupItem asChild tabStopId={key}>
+                <Link
+                  className="space-knowledge-row"
+                  data-key={key}
+                  to={getHref(item)}
+                  state={getState(item)}
+                  preventScrollReset
+                >
+                  <span className="space-knowledge-icon">
+                    <Icon aria-hidden="true" />
+                  </span>
+                  <span className="space-knowledge-title" title={item.title}>
+                    {item.title}
+                  </span>
+                  <span className="space-knowledge-type">
+                    <span>{t(knowledgeTypes[item.type].label)}</span>
+                    {item.kind && (
+                      <span>{t(knowledgeKindLabels[item.kind])}</span>
+                    )}
+                    {item.indexStatus && item.indexStatus !== "indexed" && (
+                      <span className="space-knowledge-state">
+                        {t(
+                          item.indexStatus === "pending"
+                            ? "homeIndexPending"
+                            : "homeIndexFailed",
+                        )}
+                      </span>
                     )}
                   </span>
-                )}
-              </span>
-              <time
-                className="space-knowledge-date"
-                dateTime={item.updatedAt}
-                title={new Intl.DateTimeFormat(i18n.resolvedLanguage, {
-                  dateStyle: "full",
-                  timeStyle: "short",
-                }).format(date)}
-              >
-                {new Intl.DateTimeFormat(i18n.resolvedLanguage, {
-                  dateStyle: "medium",
-                }).format(date)}
-              </time>
-              <ChevronRightIcon
-                className="space-knowledge-arrow"
-                aria-hidden="true"
-              />
-            </button>
-          </li>
-        );
-      })}
-    </ul>
+                  <time
+                    className="space-knowledge-date"
+                    dateTime={item.updatedAt}
+                    title={fullDate.format(date)}
+                  >
+                    {displayDate.format(date)}
+                  </time>
+                  <ChevronRightIcon
+                    className="space-knowledge-arrow"
+                    aria-hidden="true"
+                  />
+                </Link>
+              </RovingFocusGroupItem>
+            </li>
+          );
+        })}
+      </ul>
+    </RovingFocusGroup>
   );
 }
 

@@ -97,6 +97,48 @@
   border: 1px solid var(--border);
   text-align: left;
 }
+.markdown-body :is(strong, b) {
+  font-weight: 650;
+}
+.markdown-body img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin-block: 1.5rem;
+  border-radius: 0.625rem;
+}
+.markdown-body .task-list-item {
+  list-style: none;
+}
+.markdown-body input[type="checkbox"] {
+  accent-color: var(--primary);
+  vertical-align: middle;
+}
+.markdown-code-block {
+  min-width: 0;
+  margin-block: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--subtle);
+  overflow: hidden;
+}
+.markdown-code-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+.markdown-body .markdown-code-block pre {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 1rem;
+}
 .markdown-body input[type="checkbox"] {
   margin-right: 8px;
 }

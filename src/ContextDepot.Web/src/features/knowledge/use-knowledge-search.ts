@@ -5,8 +5,8 @@ import {
   searchKnowledge,
   getKnowledgePreview,
   type SearchHit,
-  type ContextKind,
 } from "./search-api";
+import { type ContextKind } from "@/features/knowledge/knowledge-models";
 
 export function useKnowledgeSearch(
   query: string,

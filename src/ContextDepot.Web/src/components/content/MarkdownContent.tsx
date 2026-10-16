@@ -5,6 +5,7 @@ import { useId, useRef, type MouseEvent } from "react";
 import "@/styles/markdown-body.css";
 
 import { safeMarkdownUrl } from "@/lib/markdown-url";
+import { MarkdownCodeBlock } from "./MarkdownCodeBlock";
 
 const nestedHeadings: Components = {
   h1: ({ children, id }) => <h2 id={id}>{children}</h2>,
@@ -93,7 +94,21 @@ export function MarkdownContent({
               <span>{children}</span>
             );
           },
-          img: ({ alt }) => <span>{alt}</span>,
+          img: ({ src, alt }) =>
+            src ? (
+              <img
+                src={src}
+                alt={alt ?? ""}
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <span>{alt}</span>
+            ),
+          pre: ({ children }) => (
+            <MarkdownCodeBlock>{children}</MarkdownCodeBlock>
+          ),
           table: ({ children }) => (
             <div className="markdown-table">
               <table>{children}</table>

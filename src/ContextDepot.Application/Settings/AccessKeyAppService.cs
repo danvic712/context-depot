@@ -1,3 +1,4 @@
+using ContextDepot.Application.Shared.Runtime;
 using System.Globalization;
 using ContextDepot.Application.Settings.Contracts;
 using ContextDepot.Application.Settings.Dtos;
@@ -13,13 +14,13 @@ public sealed class AccessKeyAppService(IAccessKeyRepository repository, IAccess
 {
     public Task<AccessKeyListDto> ListAsync(CancellationToken cancellationToken)
     {
-        SettingsAccess.RequireManagement(depot, access);
+        ManagementAccess.RequireManagement(depot, access);
         return repository.ListAsync(depot.DepotId, cancellationToken);
     }
 
     public async Task<IssuedAccessKeyDto> CreateAsync(CreateAccessKeyRequest request, CancellationToken cancellationToken)
     {
-        SettingsAccess.RequireManagement(depot, access);
+        ManagementAccess.RequireManagement(depot, access);
         if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 200)
             throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidRequest);
         var grants = await ValidateGrantsAsync(request.WorkspaceIds, request.CanCreateRootWorkspaces, cancellationToken);
@@ -34,14 +35,14 @@ public sealed class AccessKeyAppService(IAccessKeyRepository repository, IAccess
 
     public async Task<AccessKeyDto> RevokeAsync(Guid id, CancellationToken cancellationToken)
     {
-        SettingsAccess.RequireManagement(depot, access);
+        ManagementAccess.RequireManagement(depot, access);
         return await repository.RevokeAsync(depot.DepotId, id, clock.GetUtcNow(), cancellationToken)
             ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.AccessKeyNotFound);
     }
 
     public async Task<IssuedAccessKeyDto> RotateAsync(Guid id, CancellationToken cancellationToken)
     {
-        SettingsAccess.RequireManagement(depot, access);
+        ManagementAccess.RequireManagement(depot, access);
         var secret = secrets.Generate();
         var key = await repository.RotateAsync(depot.DepotId, id, secret, ids.NewId(), clock.GetUtcNow(), cancellationToken)
             ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.AccessKeyNotFound);
@@ -50,7 +51,7 @@ public sealed class AccessKeyAppService(IAccessKeyRepository repository, IAccess
 
     public async Task<AccessKeyDto> SetGrantsAsync(Guid id, UpdateAccessKeyGrantsRequest request, CancellationToken cancellationToken)
     {
-        SettingsAccess.RequireManagement(depot, access);
+        ManagementAccess.RequireManagement(depot, access);
         long? version = null;
         if (request.ExpectedAccessVersion is not null)
         {

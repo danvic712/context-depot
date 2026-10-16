@@ -1,3 +1,4 @@
+import { useDisplayPreference } from "@/lib/display-preferences";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigation, useSearchParams } from "react-router";
 import { useRequestResource } from "@/hooks/use-request-resource";
@@ -11,7 +12,7 @@ import {
   type DirectoryFilters,
 } from "./directory-query";
 import { DirectoryParameter, WorkspaceSortOrder } from "./directory-enums";
-import { paginationDefaults, readPageSize } from "@/lib/pagination";
+import { paginationDefaults } from "@/lib/pagination";
 
 export function useSpaceDirectory(
   parentId?: string,
@@ -34,9 +35,7 @@ export function useSpaceDirectory(
     requestedPage <= paginationDefaults.maximumPage
       ? requestedPage
       : 1;
-  const requestedPageSize = readPageSize(
-    directory.get(DirectoryParameter.PageSize),
-  );
+  const [requestedPageSize] = useDisplayPreference("directoryPageSize");
   const [attempt, setAttempt] = useState(0);
   const load = useCallback(
     (signal: AbortSignal) =>
@@ -89,9 +88,8 @@ export function useDirectoryPage() {
   const filters = readDirectoryFilters(params);
   const signature = directoryParams(filters).toString();
   const page = directoryPage(params);
-  const requestedPageSize = readPageSize(
-    params.get(DirectoryParameter.PageSize),
-  );
+  const [requestedPageSize, setPageSize] =
+    useDisplayPreference("directoryPageSize");
   const [attempt, setAttempt] = useState(0);
   const [metadata, setMetadata] = useState<{
     signature: string;
@@ -140,7 +138,6 @@ export function useDirectoryPage() {
     const target = directoryParams(
       readDirectoryFilters(new URLSearchParams(signature)),
       Math.min(page, lastPage),
-      requestedPageSize,
     );
     if (target.toString() !== params.toString())
       setParams(target, { replace: true, preventScrollReset: true });
@@ -161,7 +158,7 @@ export function useDirectoryPage() {
     : undefined;
   const pageSize = requestedPageSize;
   function apply(next: DirectoryFilters) {
-    const target = directoryParams(next, 1, requestedPageSize);
+    const target = directoryParams(next, 1);
     if (target.toString() === params.toString())
       setAttempt((value) => value + 1);
     else setParams(target, { preventScrollReset: true });
@@ -175,7 +172,7 @@ export function useDirectoryPage() {
       value === page
     )
       return;
-    setParams(directoryParams(filters, value, requestedPageSize), {
+    setParams(directoryParams(filters, value), {
       preventScrollReset: true,
     });
   }
@@ -187,7 +184,8 @@ export function useDirectoryPage() {
       value === requestedPageSize
     )
       return;
-    setParams(directoryParams(filters, 1, value), { preventScrollReset: true });
+    setPageSize(value);
+    setParams(directoryParams(filters, 1), { preventScrollReset: true });
   }
   return {
     resource: {
@@ -202,20 +200,13 @@ export function useDirectoryPage() {
       onCreated: () => {
         if (
           params.toString() ===
-          directoryParams(
-            defaultDirectoryFilters,
-            1,
-            requestedPageSize,
-          ).toString()
+          directoryParams(defaultDirectoryFilters, 1).toString()
         )
           setAttempt((value) => value + 1);
         else
-          setParams(
-            directoryParams(defaultDirectoryFilters, 1, requestedPageSize),
-            {
-              preventScrollReset: true,
-            },
-          );
+          setParams(directoryParams(defaultDirectoryFilters, 1), {
+            preventScrollReset: true,
+          });
       },
     },
     filters,

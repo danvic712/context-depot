@@ -6,9 +6,7 @@ import { createMemoryRouter, RouterProvider } from "react-router";
 import { initializeI18n } from "../../src/lib/i18n";
 import { normalizeKnowledgeParams } from "../../src/features/knowledge/query-params";
 import { WorkspaceRow } from "../../src/features/spaces/WorkspaceRow";
-import { SpaceBrowser } from "../../src/features/spaces/SpaceBrowser";
-import { selectedSpaceKnowledge } from "../../src/features/spaces/spaces-api";
-import type { KnowledgeSummary } from "../../src/features/home/home-api";
+import { SpaceNavigation } from "../../src/features/spaces/SpaceBrowser";
 import type { useSpaceDirectory } from "../../src/features/spaces/use-space-directory";
 import type { Space } from "../../src/features/spaces/spaces-api";
 
@@ -73,15 +71,13 @@ describe("Space browser navigation", () => {
     expect(html).toContain('href="/spaces/research?directoryPage=3"');
     expect(html).not.toContain("subspace");
   });
-  test("sidebar links preserve the directory page and omit the previous knowledge selection", async () => {
+  test("space switcher links preserve the directory page and omit the previous knowledge selection", async () => {
     const html = await render(
       "/spaces/research?directoryPage=3&knowledgePage=2&selected=document:notes",
-      <SpaceBrowser
+      <SpaceNavigation
         roots={directory([space], 25, 3)}
         selectedSpaceId={space.id}
-      >
-        <p>Knowledge</p>
-      </SpaceBrowser>,
+      />,
     );
     expect(html).toContain('href="/spaces?page=3"');
     expect(html).toContain('href="/spaces/research?directoryPage=3"');
@@ -94,48 +90,8 @@ describe("Space browser navigation", () => {
       ...directory([space]),
       error: { kind: "forbidden" as const, retryable: false },
     };
-    const html = await render(
-      "/spaces",
-      <SpaceBrowser roots={roots}>
-        <p>Directory</p>
-      </SpaceBrowser>,
-    );
+    const html = await render("/spaces", <SpaceNavigation roots={roots} />);
     expect(html).not.toContain('href="/spaces/research"');
     expect(html).not.toContain("Research");
-  });
-});
-
-const knowledge: KnowledgeSummary = {
-  id: "notes",
-  type: "document",
-  title: "Notes",
-  kind: null,
-  workspace: { id: space.id, path: space.path },
-  updatedAt: space.activityAt,
-  indexStatus: "indexed",
-};
-describe("Space reader selection scope", () => {
-  test("restores only an item present in the current page and space", () => {
-    expect(
-      selectedSpaceKnowledge([knowledge], "document:notes", space.id),
-    ).toBe(knowledge);
-  });
-  test("an unknown or other-page selection cannot load arbitrary content", () => {
-    expect(
-      selectedSpaceKnowledge([knowledge], "document:outside", space.id),
-    ).toBeUndefined();
-    expect(
-      selectedSpaceKnowledge([], "document:notes", space.id),
-    ).toBeUndefined();
-  });
-  test("an equal id of a different type does not select the document", () => {
-    expect(
-      selectedSpaceKnowledge([knowledge], "context:notes", space.id),
-    ).toBeUndefined();
-  });
-  test("content belonging to another space is not selected", () => {
-    expect(
-      selectedSpaceKnowledge([knowledge], "document:notes", "other-space"),
-    ).toBeUndefined();
   });
 });

@@ -1,19 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { Outlet, useLocation, useParams, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { ChevronRightIcon, SearchIcon } from "lucide-react";
+import { ChevronLeftIcon, SearchIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { RequestFeedback } from "@/components/feedback/RequestFeedback";
 import { useRequestResource } from "@/hooks/use-request-resource";
 import { getSpace } from "@/features/spaces/spaces-api";
-import { WorkspaceCounts } from "@/features/spaces/WorkspaceCard";
 import {
   PageHeader,
   PageHeaderSkeleton,
 } from "@/components/content/PageHeader";
-import { SpaceKnowledge } from "@/features/spaces/SpaceKnowledge";
+import { SpaceContents } from "@/features/spaces/SpaceContents";
 import { SpaceKnowledgeSkeleton } from "@/features/spaces/SpaceKnowledgeList";
-import { SpaceBrowser } from "@/features/spaces/SpaceBrowser";
+import { Link } from "react-router";
+import { SpaceSwitcher } from "@/features/spaces/SpaceBrowser";
 import { useSpaceDirectory } from "@/features/spaces/use-space-directory";
 import "@/styles/spaces.css";
 import { workspaceDirectoryParams } from "@/features/spaces/directory-query";
@@ -21,8 +22,8 @@ import { DirectoryParameter } from "@/features/spaces/directory-enums";
 
 export function SpaceDetail() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const { spaceId = "" } = useParams();
+  const location = useLocation();
   const [params, setParams] = useSearchParams();
   useEffect(() => {
     if (!params.has("spaceView") && !params.has("page")) return;
@@ -43,68 +44,101 @@ export function SpaceDetail() {
   const data =
     detail.error && !detail.error.retryable ? undefined : detail.data;
   const space = data?.workspace;
-  const search = space
-    ? `/search?${new URLSearchParams({ workspace: space.path })}`
-    : "/search";
+  const actions = space && (
+    <>
+      <SpaceSwitcher roots={roots} selectedSpaceId={space.id} />
+      <Button asChild variant="outline" size="sm">
+        <Link
+          to={`/search?${new URLSearchParams({ workspace: space.path })}`}
+          state={{ focusSearch: true }}
+          aria-label={t("spacesSearchHere")}
+          title={t("spacesSearchHere")}
+        >
+          <SearchIcon data-icon="inline-start" aria-hidden="true" />
+          {t("spacesSearchAction")}
+        </Link>
+      </Button>
+    </>
+  );
   return (
     <div className="spaces-workbench">
-      <SpaceBrowser roots={roots} selectedSpaceId={space?.id}>
-        <nav className="space-breadcrumbs" aria-label={t("spacesBreadcrumb")}>
-          <Link to={`/spaces${rootQuery}`}>{t("spaces")}</Link>
-          {space && (
-            <span>
-              <ChevronRightIcon aria-hidden="true" />
-              <span aria-current="page">{space.name}</span>
-            </span>
-          )}
-        </nav>
-        {detail.error && (
-          <RequestFeedback
-            title={t("spacesDetailError")}
-            failure={detail.error}
-            onRetry={() => setAttempt((value) => value + 1)}
-            pending={detail.pending}
-            stale={!!space}
-            recoveryAction={{
-              label: t("spacesReturnDirectory"),
-              onClick: () => void navigate(`/spaces${rootQuery}`),
-            }}
-          />
-        )}
-        {!space && detail.pending && !detail.error && (
-          <div className="space-detail-skeleton" aria-busy="true">
-            <span className="sr-only" role="status">
-              {t("loading")}
-            </span>
-            <PageHeaderSkeleton />
-            <SpaceKnowledgeSkeleton />
-          </div>
-        )}
-        {space && (
-          <>
-            <PageHeader
-              title={space.name}
-              description={space.description ?? ""}
-              actions={
-                <Button asChild variant="outline">
-                  <Link to={search} state={{ focusSearch: true }}>
-                    <SearchIcon aria-hidden="true" />
-                    {t("spacesSearchHere")}
-                  </Link>
-                </Button>
-              }
+      <div>
+        <div className="space-browser">
+          <div className="space-browser-main">
+            <nav
+              className="space-detail-navigation"
+              aria-label={t("spacesReturnDirectory")}
             >
-              <div className="space-detail-meta">
-                <code className="space-detail-path" title={space.path}>
-                  {space.path}
-                </code>
-                <WorkspaceCounts space={space} />
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="space-directory-back"
+              >
+                <Link
+                  to={`/spaces${rootQuery}`}
+                  aria-label={t("spacesReturnDirectory")}
+                >
+                  <ChevronLeftIcon
+                    data-icon="inline-start"
+                    aria-hidden="true"
+                  />
+                  {t("spacesDirectoryLink")}
+                </Link>
+              </Button>
+            </nav>
+            {detail.error && (
+              <RequestFeedback
+                title={t("spacesDetailError")}
+                failure={detail.error}
+                onRetry={() => setAttempt((value) => value + 1)}
+                pending={detail.pending}
+                stale={!!space}
+              />
+            )}
+            {!space && detail.pending && !detail.error && (
+              <div className="space-detail-skeleton" aria-busy="true">
+                <span className="sr-only" role="status">
+                  {t("loading")}
+                </span>
+                <div className="space-detail-heading">
+                  <PageHeaderSkeleton eyebrow={false} />
+                </div>
+                <div className="space-content-toolbar" aria-hidden="true">
+                  <Skeleton className="h-12 w-44" />
+                  <div className="space-content-actions">
+                    <Skeleton className="space-layout-switch h-11 w-24" />
+                    <div className="space-toolbar-commands">
+                      <Skeleton className="h-11 w-28" />
+                      <Skeleton className="h-11 w-24" />
+                    </div>
+                  </div>
+                </div>
+                <SpaceKnowledgeSkeleton />
               </div>
-            </PageHeader>
-            <SpaceKnowledge key={space.id} spaceId={space.id} />
-          </>
-        )}
-      </SpaceBrowser>
+            )}
+            {space && (
+              <>
+                <div
+                  className="space-detail-heading"
+                  key={`heading:${space.id}`}
+                >
+                  <PageHeader
+                    title={space.name}
+                    description={space.description ?? ""}
+                  />
+                </div>
+                <SpaceContents
+                  key={`${space.id}:${location.state?.refreshKnowledge ?? ""}`}
+                  spaceId={space.id}
+                  actions={actions}
+                />
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+      <Outlet />
     </div>
   );
 }

@@ -9,7 +9,9 @@ import {
   knowledgeKindLabels,
 } from "@/features/knowledge/knowledge-types";
 import { CreateWorkspaceDialog } from "./CreateWorkspaceDialog";
-import type { KnowledgeSummary, WorkspaceSummary } from "./home-api";
+import { knowledgePath } from "@/features/knowledge/knowledge-routes";
+import { type KnowledgeSummary } from "@/features/knowledge/knowledge-models";
+import { type WorkspaceSummary } from "@/features/spaces/workspace-summary";
 import { RequestFeedback } from "@/components/feedback/RequestFeedback";
 import type { RequestFailure } from "@/lib/request-failure";
 export function CollectionError({
@@ -110,7 +112,7 @@ export function RecentKnowledge({
         return (
           <li key={`${item.type}:${item.id}`}>
             <Link
-              to={`/${item.type === "context" ? "contexts" : "documents"}/${item.id}`}
+              to={knowledgePath(item.type, item.id, item.workspace.id)}
               state={{
                 from: location.pathname + location.search,
                 navigation,

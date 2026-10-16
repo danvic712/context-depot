@@ -18,12 +18,16 @@ function RouteSkeleton({
   pathname: string;
   search?: string;
 }) {
-  if (/^\/(contexts|documents)\/[^/]+$/.test(pathname))
+  if (
+    /^\/(?:knowledge|spaces\/[^/]+)\/(contexts|documents)\/[^/]+$/.test(
+      pathname,
+    )
+  )
     return <KnowledgeReaderSkeleton />;
   if (pathname === "/") return <HomeSkeleton />;
   if (pathname === "/search") return <SearchPageSkeleton />;
   if (pathname === "/settings") return <SettingsSkeleton />;
-  if (/^\/spaces(?:\/[^/]+)?$/.test(pathname))
+  if (/^\/spaces(?:\/[^/]+(?:\/archived)?)?$/.test(pathname))
     return <SpacesSkeleton detail={pathname !== "/spaces"} search={search} />;
   return (
     <div aria-hidden="true">
@@ -41,7 +45,11 @@ export function RouteLoading({
   search?: string;
 }) {
   const { t } = useTranslation();
-  if (/^\/(contexts|documents)\/[^/]+$/.test(pathname))
+  if (
+    /^\/(?:knowledge|spaces\/[^/]+)\/(contexts|documents)\/[^/]+$/.test(
+      pathname,
+    )
+  )
     return <KnowledgeReaderSkeleton label={t("loading")} />;
   return (
     <div role="status" aria-label={t("loading")}>

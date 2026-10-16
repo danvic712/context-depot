@@ -5,7 +5,7 @@ import {
   type IssuedKey,
 } from "@/features/settings/settings-api";
 import type { setupProviderRequests } from "./setup-inference-draft";
-import type { CreateWorkspace } from "@/features/home/home-api";
+import { type CreateWorkspace } from "@/features/spaces/workspace-management-api";
 
 export const setupSteps = [
   "workspace",

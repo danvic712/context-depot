@@ -6,7 +6,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router";
 import { Button } from "@/components/ui/button";
-import type { WorkspaceSummary } from "./home-api";
+import { type WorkspaceSummary } from "@/features/spaces/workspace-summary";
 
 export function KnowledgeEmptyState({
   spaces,

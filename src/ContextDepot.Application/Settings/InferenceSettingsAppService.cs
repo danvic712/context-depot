@@ -1,3 +1,4 @@
+using ContextDepot.Application.Shared.Runtime;
 using ContextDepot.Application.Settings.Contracts;
 using ContextDepot.Application.Settings.Dtos;
 using ContextDepot.Application.Shared.Exceptions;
@@ -10,25 +11,25 @@ public sealed class InferenceSettingsAppService(IInferenceSettingsRepository rep
 {
     public Task<IReadOnlyList<InferenceRouteDto>> GetAsync(CancellationToken cancellationToken)
     {
-        SettingsAccess.RequireManagement(depot, access);
+        ManagementAccess.RequireManagement(depot, access);
         return repository.GetAsync(cancellationToken);
     }
 
     public Task<InferenceProviderSettingsDto> GetProvidersAsync(CancellationToken cancellationToken)
     {
-        SettingsAccess.RequireManagement(depot, access);
+        ManagementAccess.RequireManagement(depot, access);
         return repository.GetProvidersAsync(cancellationToken);
     }
 
     public Task<InferenceProviderSettingsDto> SaveProviderAsync(SaveInferenceProviderRequest request, CancellationToken cancellationToken)
     {
-        SettingsAccess.RequireManagement(depot, access);
+        ManagementAccess.RequireManagement(depot, access);
         return repository.SaveProviderAsync(InferenceConfigurationValidator.NormalizeProvider(request), cancellationToken);
     }
 
     public Task<InferenceRouteDto> SaveAsync(string capability, SaveInferenceRouteRequest request, CancellationToken cancellationToken)
     {
-        SettingsAccess.RequireManagement(depot, access);
+        ManagementAccess.RequireManagement(depot, access);
         if (capability is not ("embedding" or "chat") || request.TimeoutSeconds is < 1 or > 300 ||
             (request.ProviderId is null
                 ? request.Model is not null || request.Dimensions is not null

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useSearchParams } from "react-router";
-import { hitKey, type ContextKind, type SearchHit } from "./search-api";
+import { type SearchHit } from "./search-api";
+import { knowledgeKey } from "@/features/knowledge/knowledge-models";
+import { type ContextKind } from "@/features/knowledge/knowledge-models";
 import {
   useKnowledgeSearch,
   useKnowledgePreview,
@@ -31,12 +33,12 @@ export function useSearchPage() {
       hit.type === (params.get("type") === "contexts" ? "context" : "document"),
   );
   const selected =
-    hits.find((hit) => hitKey(hit) === params.get("selected")) ?? hits[0];
+    hits.find((hit) => knowledgeKey(hit) === params.get("selected")) ?? hits[0];
   const detail = useKnowledgePreview(selected, previewRetry);
   const reading = params.get("read") === "1" && !!selected;
   const listRef = useRef<HTMLDivElement>(null);
   const paneRef = useRef<HTMLElement>(null);
-  const selectedKey = selected ? hitKey(selected) : "";
+  const selectedKey = selected ? knowledgeKey(selected) : "";
   const readingBefore = useRef(reading);
   const scrollBefore = useRef({ list: 0, page: 0 });
   useEffect(() => {
@@ -103,7 +105,7 @@ export function useSearchPage() {
         page: window.scrollY,
       };
     const next = new URLSearchParams(params);
-    next.set("selected", hitKey(hit));
+    next.set("selected", knowledgeKey(hit));
     if (open) next.set("read", "1");
     else next.delete("read");
     update(next, !open || reading);
