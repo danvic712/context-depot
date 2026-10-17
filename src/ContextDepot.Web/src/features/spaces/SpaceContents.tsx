@@ -10,15 +10,21 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { SpaceKnowledge } from "./SpaceKnowledge";
 import { ArchivedDocuments } from "./ArchivedDocuments";
 import { spaceContentsPath } from "@/features/knowledge/knowledge-routes";
+import { SegmentIndicator } from "./SegmentIndicator";
 
 export function SpaceContents({
   spaceId,
+  contentCount,
   actions,
 }: {
   spaceId: string;
+  contentCount: number;
   actions?: ReactNode;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const formattedCount = new Intl.NumberFormat(i18n.resolvedLanguage).format(
+    contentCount,
+  );
   const location = useLocation();
   const reading = /\/(contexts|documents)\/[^/]+$/.test(location.pathname);
   const basePath = reading
@@ -35,6 +41,7 @@ export function SpaceContents({
         aria-label={t("spacesActions")}
       >
         <nav className="space-content-view" aria-label={t("spacesContentView")}>
+          <SegmentIndicator value={view} selector='a[aria-current="page"]' />
           <Link
             preventScrollReset
             viewTransition
@@ -43,6 +50,15 @@ export function SpaceContents({
           >
             <FilesIcon aria-hidden="true" />
             {t("spacesCurrentContent")}
+            <span
+              className="space-content-count"
+              title={t("spacesKnowledgeCount", {
+                count: contentCount,
+                value: formattedCount,
+              })}
+            >
+              {formattedCount}
+            </span>
           </Link>
           <Link
             preventScrollReset
@@ -62,6 +78,7 @@ export function SpaceContents({
               value={layout}
               aria-label={t("spacesDisplayMode")}
             >
+              <SegmentIndicator value={layout} />
               <ToggleGroupItem
                 value="list"
                 onClick={() =>

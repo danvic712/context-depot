@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -7,6 +7,8 @@ import {
   ChevronDownIcon,
   FolderIcon,
   LayoutListIcon,
+  SearchIcon,
+  XIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RequestFeedback } from "@/components/feedback/RequestFeedback";
@@ -26,17 +29,32 @@ import {
   workspaceDetailTarget,
 } from "./directory-query";
 import { DirectoryParameter } from "./directory-enums";
+import { useSpacePicker } from "./use-space-picker";
+import { useSpaceDialogMotion } from "./use-space-dialog-motion";
+import {
+  InputGroup,
+  InputGroupInput,
+  InputGroupAddon,
+  InputGroupButton,
+} from "@/components/ui/input-group";
 
-type Directory = ReturnType<typeof useSpaceDirectory>;
+type Directory = Pick<
+  ReturnType<typeof useSpaceDirectory>,
+  "data" | "error" | "pending" | "page" | "changePage" | "refresh"
+>;
 
 export function SpaceNavigation({
   roots,
   selectedSpaceId,
   onNavigate,
+  emptyMessage,
+  showCount = true,
 }: {
   roots: Directory;
   selectedSpaceId?: string;
   onNavigate?: () => void;
+  emptyMessage?: string;
+  showCount?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const [params] = useSearchParams();
@@ -132,8 +150,18 @@ export function SpaceNavigation({
                 <Link
                   className="space-navigation-link"
                   to={target(space.id)}
+                  state={{ focusSpace: true }}
                   viewTransition
-                  onClick={onNavigate}
+                  onClick={(event) => {
+                    if (
+                      event.button === 0 &&
+                      !event.metaKey &&
+                      !event.ctrlKey &&
+                      !event.shiftKey &&
+                      !event.altKey
+                    )
+                      onNavigate?.();
+                  }}
                   title={space.path}
                   aria-current={
                     space.id === selectedSpaceId ? "page" : undefined
@@ -149,6 +177,7 @@ export function SpaceNavigation({
                         {space.description}
                       </span>
                     )}
+                    <code className="space-navigation-path">{space.path}</code>
                   </span>
                   {space.id === selectedSpaceId && (
                     <Badge variant="secondary">
@@ -162,7 +191,9 @@ export function SpaceNavigation({
           </ul>
         )}
         {data?.totalCount === 0 && (
-          <p className="space-navigation-note">{t("spacesExplorerEmpty")}</p>
+          <p className="space-navigation-note" role="status">
+            {emptyMessage ?? t("spacesExplorerEmpty")}
+          </p>
         )}
       </div>
       <div className="space-navigation-footer">
@@ -175,7 +206,7 @@ export function SpaceNavigation({
           >
             <LayoutListIcon aria-hidden="true" />
             {t("spacesAllSpaces")}
-            {pageInfo && (
+            {pageInfo && showCount && (
               <span className="space-navigation-count">
                 {new Intl.NumberFormat(i18n.resolvedLanguage).format(
                   pageInfo.totalCount,
@@ -202,17 +233,33 @@ export function SpaceNavigation({
 }
 
 export function SpaceSwitcher({
-  roots,
   selectedSpaceId,
 }: {
-  roots: Directory;
   selectedSpaceId?: string;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const roots = useSpacePicker(open);
+  const motion = useSpaceDialogMotion(() => setOpen(false));
   const content = useRef<HTMLDivElement>(null);
+  const motionRef = motion.ref;
+  const attachContent = useCallback(
+    (node: HTMLDivElement | null) => {
+      content.current = node;
+      motionRef(node);
+    },
+    [motionRef],
+  );
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(value) => {
+        if (value) {
+          setOpen(true);
+          motion.open();
+        } else motion.close();
+      }}
+    >
       <DialogTrigger asChild>
         <Button className="space-browser-trigger" variant="outline" size="sm">
           <FolderIcon aria-hidden="true" />
@@ -221,7 +268,9 @@ export function SpaceSwitcher({
         </Button>
       </DialogTrigger>
       <DialogContent
-        ref={content}
+        ref={attachContent}
+        overlayProps={{ ref: motion.overlayRef }}
+        data-space-motion="spring"
         className="space-browser-dialog"
         overlayClassName="space-explorer-overlay"
         aria-describedby={undefined}
@@ -241,11 +290,40 @@ export function SpaceSwitcher({
       >
         <DialogHeader className="space-switcher-heading">
           <DialogTitle>{t("spacesExplorer")}</DialogTitle>
+          <DialogDescription>{t("spacesSwitchHint")}</DialogDescription>
         </DialogHeader>
+        <div className="space-switcher-search">
+          <InputGroup>
+            <InputGroupAddon>
+              <SearchIcon aria-hidden="true" />
+            </InputGroupAddon>
+            <InputGroupInput
+              aria-label={t("spacesFindSpaces")}
+              placeholder={t("spacesFilterPlaceholder")}
+              value={roots.query}
+              maxLength={200}
+              onChange={(event) => roots.changeQuery(event.target.value)}
+            />
+            {roots.query && (
+              <InputGroupAddon align="inline-end">
+                <InputGroupButton
+                  size="icon-sm"
+                  aria-label={t("spacesClearKeyword")}
+                  onClick={() => roots.changeQuery("")}
+                >
+                  <XIcon aria-hidden="true" />
+                </InputGroupButton>
+              </InputGroupAddon>
+            )}
+          </InputGroup>
+        </div>
         <SpaceNavigation
+          key={roots.query.trim()}
           roots={roots}
           selectedSpaceId={selectedSpaceId}
-          onNavigate={() => setOpen(false)}
+          onNavigate={() => motion.close()}
+          emptyMessage={roots.query.trim() ? t("spacesNoMatches") : undefined}
+          showCount={!roots.query.trim()}
         />
       </DialogContent>
     </Dialog>

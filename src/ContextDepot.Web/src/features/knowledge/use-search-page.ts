@@ -15,6 +15,14 @@ export function useSearchPage() {
   const query = params.get("q") ?? "";
   const workspace = params.get("workspace") ?? undefined;
   const kind = params.get("kind") as ContextKind | undefined;
+  const criteria = JSON.stringify([query, workspace, params.get("type"), kind]);
+  const [selection, setSelection] = useState({
+    criteria,
+    key: params.get("selected") ?? "",
+    reading: params.get("read") === "1",
+  });
+  const currentSelection =
+    selection.criteria === criteria ? selection : undefined;
   const [retry, setRetry] = useState(0);
   const [spaceRetry, setSpaceRetry] = useState(0);
   const [previewRetry, setPreviewRetry] = useState(0);
@@ -33,9 +41,9 @@ export function useSearchPage() {
       hit.type === (params.get("type") === "contexts" ? "context" : "document"),
   );
   const selected =
-    hits.find((hit) => knowledgeKey(hit) === params.get("selected")) ?? hits[0];
+    hits.find((hit) => knowledgeKey(hit) === currentSelection?.key) ?? hits[0];
   const detail = useKnowledgePreview(selected, previewRetry);
-  const reading = params.get("read") === "1" && !!selected;
+  const reading = !!currentSelection?.reading && !!selected;
   const listRef = useRef<HTMLDivElement>(null);
   const paneRef = useRef<HTMLElement>(null);
   const selectedKey = selected ? knowledgeKey(selected) : "";
@@ -70,6 +78,7 @@ export function useSearchPage() {
     });
   }
   function changeQuery(value: string, submit = false) {
+    setSelection({ criteria, key: "", reading: false });
     const next = new URLSearchParams(params);
     if (value) next.set("q", value);
     else next.delete("q");
@@ -80,6 +89,7 @@ export function useSearchPage() {
     update(next, !submit);
   }
   function filter(key: "type" | "kind" | "workspace", value: string) {
+    setSelection({ criteria, key: "", reading: false });
     const next = new URLSearchParams(params);
     if (value === "all") next.delete(key);
     else next.set(key, value);
@@ -91,6 +101,7 @@ export function useSearchPage() {
     update(next);
   }
   function reset() {
+    setSelection({ criteria, key: "", reading: false });
     const next = new URLSearchParams(params);
     for (const key of ["type", "kind", "workspace", "selected", "read"])
       next.delete(key);
@@ -104,16 +115,10 @@ export function useSearchPage() {
         list: listRef.current?.scrollTop ?? 0,
         page: window.scrollY,
       };
-    const next = new URLSearchParams(params);
-    next.set("selected", knowledgeKey(hit));
-    if (open) next.set("read", "1");
-    else next.delete("read");
-    update(next, !open || reading);
+    setSelection({ criteria, key: knowledgeKey(hit), reading: open });
   }
   function back() {
-    const next = new URLSearchParams(params);
-    next.delete("read");
-    update(next, true);
+    setSelection({ criteria, key: selectedKey, reading: false });
   }
   return {
     params,

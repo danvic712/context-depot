@@ -1,4 +1,5 @@
 using ContextDepot.Application.Shared.Exceptions;
+using ContextDepot.Application.Documents;
 using ContextDepot.Domain.Exceptions;
 using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
@@ -61,6 +62,8 @@ public sealed class GlobalExceptionHandler(
                 ["traceId"] = httpContext.TraceIdentifier
             }
         };
+        if (exception is DocumentLinkValidationException links)
+            problem.Extensions["linkErrors"] = links.LinkErrors;
         if (fieldCodes is not null)
         {
             problem.Extensions["errors"] = fieldCodes.ToDictionary(pair => pair.Key,

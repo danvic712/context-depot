@@ -2,6 +2,8 @@ import { knowledgeTypes } from "./knowledge-types";
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { MarkdownContent } from "@/components/content/MarkdownContent";
+import { markdownDocumentLink } from "@/lib/markdown-url";
+import { DocumentMarkdownLink } from "./DocumentMarkdownLink";
 import { type KnowledgePreview } from "@/features/knowledge/knowledge-models";
 import "@/styles/knowledge-content.css";
 
@@ -10,11 +12,13 @@ export function KnowledgeContent({
   headingLevel = 2,
   showWorkspace = true,
   showHeading = true,
+  fragment,
 }: {
   detail: KnowledgePreview;
   headingLevel?: 1 | 2;
   showWorkspace?: boolean;
   showHeading?: boolean;
+  fragment?: string;
 }) {
   const { t } = useTranslation();
   const Title = headingLevel === 1 ? "h1" : "h2";
@@ -34,7 +38,20 @@ export function KnowledgeContent({
       <MarkdownContent
         key={`${detail.type}:${detail.id}`}
         content={detail.content}
+        fragment={fragment}
         nested
+        renderLink={
+          detail.type === "document"
+            ? (href, children) => {
+                const link = markdownDocumentLink(href);
+                return link ? (
+                  <DocumentMarkdownLink sourceId={detail.id} {...link}>
+                    {children}
+                  </DocumentMarkdownLink>
+                ) : undefined;
+              }
+            : undefined
+        }
       />
     </>
   );

@@ -1,6 +1,7 @@
+import { KnowledgeOpenLink } from "./KnowledgeOpenLink";
 import { KnowledgeCopyButton } from "./KnowledgeCopyButton";
 import type { RefObject } from "react";
-import { Link, useLocation } from "react-router";
+import { useLocation } from "react-router";
 import { ArrowUpRightIcon } from "lucide-react";
 import { knowledgePath } from "./knowledge-routes";
 import { useTranslation } from "react-i18next";
@@ -43,7 +44,8 @@ export function SearchPreview({
         <div className="search-preview-actions">
           {item && (
             <Button asChild variant="ghost" size="icon">
-              <Link
+              <KnowledgeOpenLink
+                item={{ type: item.type, id: item.id, title: item.title }}
                 to={knowledgePath(item.type, item.id)}
                 state={{
                   from: location.pathname + location.search,
@@ -53,7 +55,7 @@ export function SearchPreview({
                 title={t("spacesOpenFullPage")}
               >
                 <ArrowUpRightIcon aria-hidden="true" />
-              </Link>
+              </KnowledgeOpenLink>
             </Button>
           )}
           <Button

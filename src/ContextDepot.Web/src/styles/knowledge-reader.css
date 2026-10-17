@@ -56,18 +56,25 @@
   max-width: 1120px;
   margin-inline: auto;
   padding: 0 0 3rem;
-  animation: knowledge-document-enter 240ms ease-out;
+}
+.knowledge-reader-session {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.knowledge-reader-content:not([data-pending]) {
+  animation: knowledge-document-enter 180ms ease-out;
 }
 @keyframes knowledge-document-enter {
   from {
-    opacity: 0.6;
+    opacity: 0.7;
   }
   to {
     opacity: 1;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .knowledge-reader-document {
+  .knowledge-reader-content:not([data-pending]) {
     animation: none;
   }
 }
@@ -85,7 +92,11 @@
 }
 .knowledge-content-skeleton {
   display: grid;
-  gap: var(--space-4);
+  gap: 0;
+}
+.reader-heading-skeleton {
+  display: grid;
+  gap: 1rem;
 }
 .reader-title-skeleton {
   width: 85%;
@@ -93,7 +104,7 @@
 }
 .reader-body-skeleton {
   display: grid;
-  gap: var(--space-3);
+  gap: 1.75rem;
   padding-top: 24px;
   margin-top: 8px;
   border-top: 1px solid var(--border);
@@ -140,6 +151,8 @@
   overflow: hidden;
 }
 .knowledge-reader[data-panel] {
+  --control-height: var(--target-min);
+  --control-height-sm: var(--target-min);
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -149,14 +162,23 @@
   position: relative;
   flex: none;
   gap: 0.75rem;
-  padding: 1.5rem 4.5rem 1.5rem 1.5rem;
+  padding: 1rem 1.5rem 1.25rem;
 }
 .knowledge-reader-header h1 {
   margin: 0;
+  min-height: 2.8em;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
   font-size: 1.375rem;
   line-height: 1.4;
   text-wrap: pretty;
   overflow-wrap: anywhere;
+}
+.knowledge-reader-header .knowledge-reader-previous {
+  align-self: flex-start;
+  margin-left: -0.5rem;
 }
 .knowledge-reader-header .knowledge-metadata {
   display: flex;
@@ -167,16 +189,52 @@
   color: var(--muted);
   font-size: 0.75rem;
 }
-.knowledge-reader-close {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
+.knowledge-reader-header-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--target-min);
 }
+.knowledge-reader-close {
+  margin-left: auto;
+}
+.reader-panel-title-skeleton {
+  display: grid;
+  align-content: center;
+  gap: 0.65rem;
+  min-height: 2.8em;
+}
+.reader-title-line {
+  display: block;
+  height: 0.85em;
+  width: 92%;
+}
+.reader-title-line:last-child {
+  width: 62%;
+}
+.reader-metadata-skeleton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 1.5rem;
+}
+.knowledge-reader-header .knowledge-metadata {
+  min-height: 1.5rem;
+}
+.reader-delete-placeholder {
+  width: 5.5rem;
+  min-height: var(--target-min);
+}
+.knowledge-reader-header :is(button, a):active {
+  transform: scale(0.96);
+}
+
 .knowledge-reader-body {
   flex: 1;
   min-height: 0;
   padding: 1.5rem;
   overflow: auto;
+  scrollbar-gutter: stable;
   overscroll-behavior: contain;
   scrollbar-width: thin;
   overflow-wrap: anywhere;
@@ -206,11 +264,23 @@
 }
 .reader-body-placeholder {
   display: grid;
-  gap: var(--space-3);
+  gap: 1.75rem;
 }
+.reader-section-skeleton {
+  width: 48%;
+  height: 1.25rem;
+}
+.reader-paragraph-skeleton {
+  display: grid;
+  gap: 0.85rem;
+}
+.reader-line-skeleton {
+  height: 0.85rem;
+}
+
 @media (max-width: 540px) {
   .knowledge-reader-header {
-    padding: 1.25rem 4rem 1.25rem 1rem;
+    padding: 0.75rem 1rem 1rem;
   }
   .knowledge-reader-header h1 {
     font-size: 1.25rem;
@@ -223,16 +293,18 @@
   }
 }
 
-.knowledge-reader-sheet[data-state="open"] {
-  animation-duration: 240ms;
-  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-}
-.knowledge-reader-sheet[data-state="closed"] {
-  animation-duration: 180ms;
-  animation-timing-function: cubic-bezier(0.4, 0, 1, 1);
+.knowledge-reader-sheet[data-reader-motion="spring"],
+.knowledge-reader-overlay {
+  animation: none;
+  transition: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  .knowledge-reader-sheet[data-state] {
-    animation: none;
+  .knowledge-reader-header :is(button, a):active {
+    transform: none;
+  }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .knowledge-reader-sheet {
+    background: var(--surface);
   }
 }

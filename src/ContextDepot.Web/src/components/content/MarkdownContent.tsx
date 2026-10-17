@@ -1,7 +1,15 @@
 import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import rehypeSlug from "rehype-slug";
-import { useId, useRef, type MouseEvent } from "react";
+import { rehypeMarkdownHeadings } from "@/lib/markdown-headings";
+import {
+  useEffect,
+  useLayoutEffect,
+  useEffectEvent,
+  useId,
+  useRef,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import "@/styles/markdown-body.css";
 
 import { safeMarkdownUrl } from "@/lib/markdown-url";
@@ -18,9 +26,13 @@ const nestedHeadings: Components = {
 export function MarkdownContent({
   content,
   nested = false,
+  renderLink,
+  fragment,
 }: {
   content: string;
   nested?: boolean;
+  renderLink?: (href: string, children: ReactNode) => ReactNode;
+  fragment?: string;
 }) {
   const prefix = `markdown-${useId()}-`;
   const article = useRef<HTMLElement>(null);
@@ -41,6 +53,9 @@ export function MarkdownContent({
     )
       return;
     event.preventDefault();
+    scrollToFragment(id, true);
+  }
+  function scrollToFragment(id: string, smooth = false) {
     const target = Array.from(
       article.current?.querySelectorAll<HTMLElement>("[id]") ?? [],
     ).find((heading) => heading.id === id);
@@ -52,28 +67,64 @@ export function MarkdownContent({
         /auto|scroll/.test(getComputedStyle(container).overflowY) &&
         container.scrollHeight > container.clientHeight
       ) {
-        container.scrollTop +=
+        const top =
+          container.scrollTop +
           target.getBoundingClientRect().top -
           container.getBoundingClientRect().top;
+        container.scrollTo({
+          top,
+          behavior:
+            smooth &&
+            !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+              ? "smooth"
+              : "instant",
+        });
         break;
       }
       container = container.parentElement;
     }
-    if (!container) target.scrollIntoView({ block: "start" });
+    if (!container)
+      target.scrollIntoView({
+        block: "start",
+        behavior:
+          smooth &&
+          !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+            ? "smooth"
+            : "instant",
+      });
     target.tabIndex = -1;
     target.focus({ preventScroll: true });
   }
+  const followLocationFragment = useEffectEvent(() => {
+    const hash = fragment ?? window.location.hash;
+    if (hash) {
+      const id = fragmentId(hash);
+      if (id) scrollToFragment(id);
+    }
+  });
+  useLayoutEffect(() => {
+    followLocationFragment();
+  }, [content, fragment]);
+  useEffect(() => {
+    if (fragment !== undefined) return;
+    window.addEventListener("hashchange", followLocationFragment);
+    return () =>
+      window.removeEventListener("hashchange", followLocationFragment);
+  }, [content, fragment]);
   return (
     <article className="markdown-body" ref={article}>
       <Markdown
         skipHtml
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[[rehypeSlug, { prefix }]]}
+        rehypePlugins={[[rehypeMarkdownHeadings, { prefix }]]}
         urlTransform={safeMarkdownUrl}
         components={{
           ...(nested ? nestedHeadings : {}),
           a: ({ href, children }) => {
             const id = href?.startsWith("#") ? fragmentId(href) : undefined;
+            const custom =
+              href && !id ? renderLink?.(href, children) : undefined;
+            if (custom !== undefined) return custom;
             return href ? (
               <a
                 href={id ? `#${id}` : href}

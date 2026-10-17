@@ -55,6 +55,7 @@ export function WorkspaceRow({
       state={{
         from: location.pathname + location.search,
         navigation: "spaces",
+        focusSpace: true,
       }}
     >
       <span className="workspace-row-icon" aria-hidden="true">
@@ -64,9 +65,12 @@ export function WorkspaceRow({
         <div className="workspace-row-title">
           <h3 title={space.name}>{space.name}</h3>
         </div>
-        {space.description && (
-          <p title={space.description}>{space.description}</p>
-        )}
+        <p
+          title={space.description || space.path}
+          data-identifier={!space.description || undefined}
+        >
+          {space.description || space.path}
+        </p>
       </div>
       <span
         className="workspace-row-summary"

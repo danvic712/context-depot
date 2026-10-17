@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -18,6 +19,7 @@ import { FormDialog } from "@/components/content/FormDialog";
 import { SubmitButton } from "@/components/content/SubmitButton";
 import { createWorkspace } from "@/features/spaces/workspace-management-api";
 import { suggestWorkspacePath } from "@/features/spaces/workspace-path";
+import { useSpaceDialogMotion } from "@/features/spaces/use-space-dialog-motion";
 import "@/styles/create-workspace.css";
 
 type FieldErrors = Partial<Record<"name" | "path", string>>;
@@ -48,6 +50,23 @@ export function CreateWorkspaceDialog({
       <span>{t("newSpace")}</span>
     </>
   );
+  const created = useRef(false);
+  const handleClosed = useCallback(() => {
+    setOpen(false);
+    if (created.current) {
+      created.current = false;
+      setName("");
+      setPath("");
+      setPathCustomized(false);
+      setDescription("");
+    }
+  }, []);
+  const {
+    ref: dialogRef,
+    overlayRef,
+    close: closeDialog,
+    open: reopenDialog,
+  } = useSpaceDialogMotion(handleClosed);
   useEffect(() => () => request.current?.abort(), []);
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -78,11 +97,8 @@ export function CreateWorkspaceDialog({
         },
         controller.signal,
       );
-      setOpen(false);
-      setName("");
-      setPath("");
-      setPathCustomized(false);
-      setDescription("");
+      created.current = true;
+      closeDialog();
       toast.success(t("spaceCreated"));
       void onCreated();
     } catch (error) {
@@ -113,7 +129,11 @@ export function CreateWorkspaceDialog({
     <Dialog
       open={open}
       onOpenChange={(value) => {
-        if (!pending) setOpen(value);
+        if (pending) return;
+        if (value) {
+          setOpen(true);
+          reopenDialog();
+        } else closeDialog();
       }}
     >
       <DialogTrigger asChild>
@@ -128,6 +148,9 @@ export function CreateWorkspaceDialog({
         )}
       </DialogTrigger>
       <FormDialog
+        ref={dialogRef}
+        data-space-motion="spring"
+        overlayProps={{ ref: overlayRef }}
         className="create-space-dialog"
         overlayClassName="space-dialog-overlay"
         titleIcon={FolderPlusIcon}
@@ -143,7 +166,7 @@ export function CreateWorkspaceDialog({
               variant="outline"
               type="button"
               disabled={pending}
-              onClick={() => setOpen(false)}
+              onClick={() => closeDialog()}
             >
               {t("cancel")}
             </Button>

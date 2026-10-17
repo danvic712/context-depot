@@ -1,10 +1,12 @@
+import { KnowledgeOpenLink } from "@/features/knowledge/KnowledgeOpenLink";
 import { paginationDefaults } from "@/lib/pagination";
 import { useDisplayPreference } from "@/lib/display-preferences";
 import { stripDisplayParams } from "@/lib/display-query";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useLocation, useSearchParams } from "react-router";
+import { useLocation, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { ArchiveIcon, FileTextIcon } from "lucide-react";
+import { ArchivedDocumentsSkeleton } from "./ArchivedDocumentsSkeleton";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -17,7 +19,7 @@ import { RequestFeedback } from "@/components/feedback/RequestFeedback";
 import { PaginationBar } from "@/components/content/PaginationBar";
 import { useRequestResource } from "@/hooks/use-request-resource";
 import { getArchivedDocuments } from "@/features/knowledge/document-archive-api";
-import { SpaceKnowledgeSkeleton } from "./SpaceKnowledgeList";
+import { usePaginationSnapshot } from "./use-pagination-snapshot";
 import { knowledgePath } from "@/features/knowledge/knowledge-routes";
 import { DeleteKnowledgeDialog } from "@/features/knowledge/DeleteKnowledgeDialog";
 
@@ -47,11 +49,12 @@ export function ArchivedDocuments({ spaceId }: { spaceId: string }) {
   );
   const data =
     resource.error && !resource.error.retryable ? undefined : resource.data;
+  const pageInfo = usePaginationSnapshot(`${spaceId}:${pageSize}`, resource);
   const items = data?.items.filter((item) => !deletedIds.has(item.id)) ?? [];
   const totalCount = data
     ? data.totalCount -
       data.items.filter((item) => deletedIds.has(item.id)).length
-    : undefined;
+    : pageInfo?.totalCount;
   const location = useLocation();
   const list = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -119,15 +122,28 @@ export function ArchivedDocuments({ spaceId }: { spaceId: string }) {
           <h2 className="sr-only" tabIndex={-1}>
             {t("spacesArchivedDocuments")}
           </h2>
-          {(totalCount ?? 0) > 0 && (
-            <p className="space-archive-note">{t("spacesArchiveHint")}</p>
-          )}
+          <p className="space-archive-note">
+            <ArchiveIcon aria-hidden="true" />
+            {t("spacesArchiveHint")}
+          </p>
           {!data && resource.pending && !resource.error && (
             <>
               <span className="sr-only" role="status">
                 {t("loading")}
               </span>
-              <SpaceKnowledgeSkeleton />
+              <ArchivedDocumentsSkeleton
+                count={
+                  pageInfo
+                    ? Math.min(
+                        pageSize,
+                        Math.max(
+                          1,
+                          pageInfo.totalCount - (page - 1) * pageSize,
+                        ),
+                      )
+                    : pageSize
+                }
+              />
             </>
           )}
           {!!items.length && (
@@ -140,7 +156,13 @@ export function ArchivedDocuments({ spaceId }: { spaceId: string }) {
                     data-id={document.id}
                     asChild
                   >
-                    <Link
+                    <KnowledgeOpenLink
+                      item={{
+                        type: "document",
+                        id: document.id,
+                        title: document.title,
+                        spaceId,
+                      }}
                       preventScrollReset
                       to={
                         knowledgePath("document", document.id, spaceId) +
@@ -162,7 +184,7 @@ export function ArchivedDocuments({ spaceId }: { spaceId: string }) {
                           })}
                         </time>
                       </span>
-                    </Link>
+                    </KnowledgeOpenLink>
                   </Button>
                   <DeleteKnowledgeDialog
                     item={{ ...document, type: "document" }}

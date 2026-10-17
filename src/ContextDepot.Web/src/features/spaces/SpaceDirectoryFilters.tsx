@@ -30,7 +30,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { Spinner } from "@/components/ui/spinner";
-import { Separator } from "@/components/ui/separator";
+import { SegmentIndicator } from "./SegmentIndicator";
 import { SpaceSortMenu } from "./SpaceSortMenu";
 import {
   defaultDirectoryFilters,
@@ -55,7 +55,7 @@ export function SpaceDirectoryFilters({
   onApply,
   onReset,
 }: {
-  action: ReactNode;
+  action?: ReactNode;
   filters: DirectoryFilters;
   pending: boolean;
   onApply: (filters: DirectoryFilters) => void;
@@ -165,7 +165,10 @@ export function SpaceDirectoryFilters({
   }
   return (
     <div className="space-directory-filters">
-      <div className="space-directory-toolbar">
+      <div
+        className="space-directory-toolbar"
+        data-has-action={!!action || undefined}
+      >
         <form
           className="space-directory-query-form"
           role="search"
@@ -270,6 +273,7 @@ export function SpaceDirectoryFilters({
               applyDraft(next);
             }}
           >
+            <SegmentIndicator value={draft.status} />
             {[
               { value: WorkspaceContentStatus.All, label: t("spacesViewAll") },
               {
@@ -474,13 +478,7 @@ export function SpaceDirectoryFilters({
             </form>
           </PopoverContent>
         </Popover>
-        <div className="space-directory-actions">
-          <Separator
-            orientation="vertical"
-            className="space-directory-action-divider"
-          />
-          {action}
-        </div>
+        {action && <div className="space-directory-actions">{action}</div>}
       </div>
       {chips.length > 0 && (
         <div
@@ -540,9 +538,6 @@ export function SpaceDirectoryFiltersSkeleton({
           </div>
         </div>
         <Skeleton className="space-directory-menu-trigger space-filter-trigger space-filter-trigger-skeleton" />
-        <div className="space-directory-actions">
-          <Skeleton className="spaces-create-skeleton" />
-        </div>
       </div>
       {chipCount > 0 && (
         <div className="space-filter-chips">

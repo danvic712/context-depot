@@ -1,0 +1,41 @@
+[
+  {
+    "name": "formatted and duplicate headings",
+    "content": "# 详情\n\n# Details\n\n# Details-1\n\n# Details\n\n### *Formatted* `heading`!\n\n## [Linked](https://example.com) ![Image](https://example.com/image.png)\n\n## Café &amp; tea\n\nSetext **heading**\n===\n\n```md\n# Ignored heading\n```\n\n## <b>Visible</b> <!-- comment -->\n\n## ~~Removed~~",
+    "headings": [
+      "详情",
+      "details",
+      "details-1",
+      "details-2",
+      "formatted-heading",
+      "linked-",
+      "café--tea",
+      "setext-heading",
+      "visible-",
+      "removed"
+    ]
+  },
+  {
+    "name": "Unicode, empty and colliding identifiers",
+    "content": "# Á\n\n# a₁ b² Ⅲ\n\n# Σ ΟΣ\n\n# İstanbul\n\n# 😀\n\n# 😀\n\n# 𐐀 𠀀\n\n# 中文，标题！\n\n# A‌B\n\n# A‍B\n\n# A B\n\n# A  B",
+    "headings": [
+      "á",
+      "a-b-ⅲ",
+      "σ-ος",
+      "i̇stanbul",
+      "",
+      "-1",
+      "𐐨-𠀀",
+      "中文标题",
+      "ab",
+      "ab-1",
+      "a-b",
+      "a--b"
+    ]
+  },
+  {
+    "name": "native Unicode categories and supplementary letters",
+    "content": "# 𑼂 Kawi\n\n# a‿b\n\n# Ⓐ title\n\n# A B\n\n# 123 العربية",
+    "headings": ["𑼂-kawi", "a‿b", "ⓐ-title", "ab", "123-العربية"]
+  }
+]

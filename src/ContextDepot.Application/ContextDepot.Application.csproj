@@ -2,6 +2,7 @@
 
     <ItemGroup>
       <PackageReference Include="FluentValidation" />
+      <PackageReference Include="Markdig" />
       <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
       <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
       <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />

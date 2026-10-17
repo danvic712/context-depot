@@ -56,7 +56,11 @@ export function WorkspaceCard({
     <Link
       className="space-card"
       to={`/spaces/${space.id}`}
-      state={{ from: location.pathname + location.search, navigation }}
+      state={{
+        from: location.pathname + location.search,
+        navigation,
+        focusSpace: true,
+      }}
     >
       <div className="space-card-top">
         <span className="space-card-icon">

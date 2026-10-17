@@ -9,9 +9,11 @@ import { useRequestResource } from "@/hooks/use-request-resource";
 import {
   SpaceKnowledgeList,
   SpaceKnowledgeSkeleton,
+  SpaceKnowledgeColumns,
 } from "./SpaceKnowledgeList";
 import { knowledgePath } from "@/features/knowledge/knowledge-routes";
 import { knowledgeKey } from "@/features/knowledge/knowledge-models";
+import { usePaginationSnapshot } from "./use-pagination-snapshot";
 import { RequestFeedback } from "@/components/feedback/RequestFeedback";
 import { PaginationBar } from "@/components/content/PaginationBar";
 import { paginationDefaults } from "@/lib/pagination";
@@ -49,6 +51,13 @@ export function SpaceKnowledge({ spaceId }: { spaceId: string }) {
   );
   const data =
     resource.error && !resource.error.retryable ? undefined : resource.data;
+  const pageInfo = usePaginationSnapshot(`${spaceId}:${pageSize}`, resource);
+  const placeholderCount = pageInfo
+    ? Math.min(
+        pageSize,
+        Math.max(1, pageInfo.totalCount - (page - 1) * pageSize),
+      )
+    : pageSize;
   const list = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const key = location.state?.focusKnowledge;
@@ -115,11 +124,15 @@ export function SpaceKnowledge({ spaceId }: { spaceId: string }) {
               <span className="sr-only" role="status">
                 {t("loading")}
               </span>
-              <SpaceKnowledgeSkeleton layout={layout} />
+              <SpaceKnowledgeSkeleton
+                layout={layout}
+                count={placeholderCount}
+              />
             </>
           )}
           {!!data?.items.length && (
             <div className="space-knowledge-panel" data-layout={layout}>
+              <SpaceKnowledgeColumns />
               <SpaceKnowledgeList
                 layout={layout}
                 items={data.items}
@@ -166,7 +179,7 @@ export function SpaceKnowledge({ spaceId }: { spaceId: string }) {
             <PaginationBar
               page={page}
               pageSize={pageSize}
-              totalCount={data?.totalCount}
+              totalCount={pageInfo?.totalCount}
               itemCount={data?.items.length ?? 0}
               loading={resource.pending && !data}
               ariaLabel={t("spacesKnowledgePagination")}

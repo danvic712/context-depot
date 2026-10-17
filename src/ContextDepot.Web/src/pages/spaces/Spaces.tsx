@@ -3,6 +3,7 @@ import { CreateWorkspaceDialog } from "@/features/home/CreateWorkspaceDialog";
 import { SpaceDirectory } from "@/features/spaces/SpaceDirectory";
 import { useDirectoryPage } from "@/features/spaces/use-space-directory";
 import { SpaceDirectoryFilters } from "@/features/spaces/SpaceDirectoryFilters";
+import { PageHeader } from "@/components/content/PageHeader";
 import "@/styles/spaces.css";
 
 export function Spaces() {
@@ -10,11 +11,14 @@ export function Spaces() {
   const directory = useDirectoryPage();
   return (
     <div className="spaces-workbench spaces-directory-page">
-      <h1 className="sr-only">{t("spacesTitle")}</h1>
-      <SpaceDirectoryFilters
-        action={
+      <PageHeader
+        title={t("spacesTitle")}
+        description={t("spacesSub")}
+        actions={
           <CreateWorkspaceDialog onCreated={directory.resource.onCreated} />
         }
+      />
+      <SpaceDirectoryFilters
         filters={directory.filters}
         pending={directory.resource.pending}
         onApply={directory.apply}

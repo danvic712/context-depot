@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { KnowledgeOpenLink } from "@/features/knowledge/KnowledgeOpenLink";
 import {
   RovingFocusGroup,
   RovingFocusGroupItem,
@@ -12,6 +12,35 @@ import {
   knowledgeKindLabels,
 } from "@/features/knowledge/knowledge-types";
 import { knowledgeKey } from "@/features/knowledge/knowledge-models";
+import configuredI18n from "@/lib/i18n";
+
+export function SpaceKnowledgeColumns({
+  loading = false,
+}: {
+  loading?: boolean;
+}) {
+  const { t } = useTranslation(undefined, {
+    i18n: configuredI18n,
+    useSuspense: false,
+  });
+  return (
+    <div className="space-knowledge-columns" aria-hidden="true">
+      {loading ? (
+        <>
+          <Skeleton className="h-3 w-12" />
+          <Skeleton className="h-3 w-10" />
+          <Skeleton className="h-3 w-16" />
+        </>
+      ) : (
+        <>
+          <span>{t("spacesColumnTitle")}</span>
+          <span>{t("spacesColumnType")}</span>
+          <span>{t("spacesActivity")}</span>
+        </>
+      )}
+    </div>
+  );
+}
 
 export function SpaceKnowledgeList({
   items,
@@ -46,9 +75,16 @@ export function SpaceKnowledgeList({
           return (
             <li key={key}>
               <RovingFocusGroupItem asChild tabStopId={key}>
-                <Link
+                <KnowledgeOpenLink
+                  item={{
+                    type: item.type,
+                    id: item.id,
+                    title: item.title,
+                    spaceId: item.workspace.id,
+                  }}
                   className="space-knowledge-row"
                   data-key={key}
+                  data-type={item.type}
                   to={getHref(item)}
                   state={getState(item)}
                   preventScrollReset
@@ -85,7 +121,7 @@ export function SpaceKnowledgeList({
                     className="space-knowledge-arrow"
                     aria-hidden="true"
                   />
-                </Link>
+                </KnowledgeOpenLink>
               </RovingFocusGroupItem>
             </li>
           );
@@ -97,8 +133,10 @@ export function SpaceKnowledgeList({
 
 export function SpaceKnowledgeSkeleton({
   layout = "list",
+  count = 6,
 }: {
   layout?: "list" | "cards";
+  count?: number;
 }) {
   return (
     <div
@@ -106,13 +144,15 @@ export function SpaceKnowledgeSkeleton({
       data-layout={layout}
       aria-hidden="true"
     >
+      <SpaceKnowledgeColumns loading />
       <div className="space-knowledge-list" data-layout={layout}>
-        {Array.from({ length: 4 }, (_, index) => (
+        {Array.from({ length: count }, (_, index) => (
           <div className="space-knowledge-row" key={index}>
             <Skeleton className="space-knowledge-icon" />
             <Skeleton className="space-knowledge-title h-4 w-3/4" />
             <Skeleton className="space-knowledge-type h-3 w-16" />
             <Skeleton className="space-knowledge-date h-3 w-20" />
+            <Skeleton className="space-knowledge-arrow h-3" />
           </div>
         ))}
       </div>

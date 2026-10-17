@@ -1,3 +1,4 @@
+import { KnowledgeReadingProvider } from "./features/knowledge/KnowledgeReadingProvider";
 import { stripDisplayParams } from "@/lib/display-query";
 import {
   useCallback,
@@ -224,7 +225,7 @@ export default function App() {
     );
   }
   return (
-    <>
+    <KnowledgeReadingProvider>
       {searchDialog && (
         <FeatureBoundary
           key={searchDialog.session}
@@ -291,6 +292,6 @@ export default function App() {
           </div>
         )}
       </AppShell>
-    </>
+    </KnowledgeReadingProvider>
   );
 }

@@ -1,6 +1,7 @@
+import { KnowledgeOpenLink } from "@/features/knowledge/KnowledgeOpenLink";
 import { ArrowRightIcon, FolderIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Link, useLocation } from "react-router";
+import { useLocation } from "react-router";
 import { KnowledgeSkeleton, WorkspaceSkeleton } from "./HomeSkeleton";
 import { WorkspaceCard } from "@/features/spaces/WorkspaceCard";
 import { NewSpaceCard } from "@/features/spaces/NewSpaceCard";
@@ -111,7 +112,13 @@ export function RecentKnowledge({
         const Icon = knowledgeTypes[item.type].icon;
         return (
           <li key={`${item.type}:${item.id}`}>
-            <Link
+            <KnowledgeOpenLink
+              item={{
+                type: item.type,
+                id: item.id,
+                title: item.title,
+                spaceId: item.workspace.id,
+              }}
               to={knowledgePath(item.type, item.id, item.workspace.id)}
               state={{
                 from: location.pathname + location.search,
@@ -154,7 +161,7 @@ export function RecentKnowledge({
                 {relativeTime(item.updatedAt, locale)}
               </time>
               <ArrowRightIcon className="home-row-arrow" aria-hidden="true" />
-            </Link>
+            </KnowledgeOpenLink>
           </li>
         );
       })}

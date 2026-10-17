@@ -131,6 +131,20 @@ export const appRoutes: RouteObject[] = [
               ),
             ),
           },
+          {
+            path: "documents/:knowledgeId/link",
+            ErrorBoundary: PageRouteError,
+            handle: {
+              page: "space",
+              title: "documentReaderTitle",
+              navigation: "spaces",
+            },
+            lazy: lazyPage(() =>
+              import("./features/knowledge/DocumentLinkReader").then(
+                ({ DocumentLinkReader }) => ({ Component: DocumentLinkReader }),
+              ),
+            ),
+          },
         ],
       },
       {
@@ -160,6 +174,20 @@ export const appRoutes: RouteObject[] = [
         lazy: lazyPage(() =>
           import("./pages/document-reader/DocumentReader").then(
             ({ DocumentReader }) => ({ Component: DocumentReader }),
+          ),
+        ),
+      },
+      {
+        path: "knowledge/documents/:knowledgeId/link",
+        ErrorBoundary: PageRouteError,
+        handle: {
+          page: "document",
+          title: "documentReaderTitle",
+          navigation: "search",
+        },
+        lazy: lazyPage(() =>
+          import("./features/knowledge/DocumentLinkReader").then(
+            ({ DocumentLinkReader }) => ({ Component: DocumentLinkReader }),
           ),
         ),
       },

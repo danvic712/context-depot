@@ -28,7 +28,13 @@ function RouteSkeleton({
   if (pathname === "/search") return <SearchPageSkeleton />;
   if (pathname === "/settings") return <SettingsSkeleton />;
   if (/^\/spaces(?:\/[^/]+(?:\/archived)?)?$/.test(pathname))
-    return <SpacesSkeleton detail={pathname !== "/spaces"} search={search} />;
+    return (
+      <SpacesSkeleton
+        detail={pathname !== "/spaces"}
+        archived={pathname.endsWith("/archived")}
+        search={search}
+      />
+    );
   return (
     <div aria-hidden="true">
       <Skeleton className="h-16 w-2/3" />

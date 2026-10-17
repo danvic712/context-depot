@@ -1,4 +1,6 @@
 using ContextDepot.Application.Shared.Exceptions;
+using ContextDepot.Application.Documents;
+using System.Text.Json;
 using ContextDepot.Domain.Exceptions;
 using Microsoft.EntityFrameworkCore;
 using ModelContextProtocol;
@@ -14,6 +16,15 @@ internal static class MCPToolErrorMapper
         var correlationId = Activity.Current?.Id ?? Guid.CreateVersion7().ToString("N");
         switch (exception)
         {
+            case DocumentLinkValidationException linkException:
+                logger.LogWarning("MCP document links rejected; correlation_id={CorrelationId}", correlationId);
+                throw new McpException(JsonSerializer.Serialize(new
+                {
+                    code = linkException.ErrorCode,
+                    message = ApplicationErrorMessages.Get(linkException.ErrorCode, locale),
+                    correlationId,
+                    linkErrors = linkException.LinkErrors
+                }, JsonSerializerOptions.Web));
             case ContextDepotBusinessException applicationException:
                 logger.LogWarning(
                     "MCP request failed with application error {ErrorCode}; correlation_id={CorrelationId}",

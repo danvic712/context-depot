@@ -57,6 +57,7 @@ public static class ApplicationErrorCodes
     public const string DocumentConflict = "DocumentConflict";
     public const string InvalidDocumentTitle = "InvalidDocumentTitle";
     public const string InvalidDocumentPath = "InvalidDocumentPath";
+    public const string InvalidDocumentLinks = "InvalidDocumentLinks";
     public const string DocumentWriteFailed = "DocumentWriteFailed";
     /// <summary>
     /// Identifies a permanent document deletion that failed while accessing canonical Markdown.

@@ -1,4 +1,5 @@
 using ContextDepot.Application.Overview;
+using ContextDepot.Application.Documents.Contracts;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ContextDepot.Controllers;
@@ -17,6 +18,20 @@ namespace ContextDepot.Controllers;
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class KnowledgeController(OverviewAppService service, KnowledgeSearchAppService search) : ControllerBase
 {
+    /// <summary>
+    /// Resolves a Markdown link within the active source document's authorized workspace.
+    /// </summary>
+    /// <param name="documents">The authorized canonical document service.</param>
+    /// <param name="id">The source document identifier.</param>
+    /// <param name="path">The URL-encoded Markdown path, without query or fragment.</param>
+    /// <param name="workspaceId">An optional owning-workspace constraint.</param>
+    /// <param name="cancellationToken">Cancels the asynchronous operation.</param>
+    /// <returns>The active target document identifier.</returns>
+    [HttpGet("document/{id:guid}/link")]
+    public async Task<ActionResult<object>> ResolveDocumentLinkAsync([FromServices] IDocumentAppService documents,
+        Guid id, [FromQuery] string path, CancellationToken cancellationToken, [FromQuery] Guid? workspaceId = null) =>
+        Ok(new { id = await documents.ResolveLinkAsync(id, path, cancellationToken, workspaceId) });
+
     /// <summary>
     /// Lists recent knowledge for the home overview.
     /// </summary>

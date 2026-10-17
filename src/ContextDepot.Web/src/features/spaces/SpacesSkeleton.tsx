@@ -8,14 +8,18 @@ import {
 } from "./SpaceDirectoryLayout";
 import { SpaceListSkeleton } from "./SpaceDirectory";
 import { SpaceDirectoryFiltersSkeleton } from "./SpaceDirectoryFilters";
+import { SpaceDetailHeadingSkeleton } from "./SpaceDetailHeading";
+import { ArchivedDocumentsSkeleton } from "./ArchivedDocumentsSkeleton";
 import { readDirectoryFilters } from "./directory-query";
 import "@/styles/spaces.css";
 
 export function SpacesSkeleton({
   detail = false,
+  archived = false,
   search = "",
 }: {
   detail?: boolean;
+  archived?: boolean;
   search?: string;
 }) {
   const [pageSize] = useDisplayPreference("directoryPageSize");
@@ -28,6 +32,10 @@ export function SpacesSkeleton({
         aria-hidden="true"
         inert
       >
+        <PageHeaderSkeleton
+          eyebrow={false}
+          actions={<Skeleton className="spaces-create-skeleton" />}
+        />
         <SpaceDirectoryFiltersSkeleton filters={filters} />
         <section className="space-directory">
           <WorkspaceListPanel>
@@ -47,9 +55,7 @@ export function SpacesSkeleton({
           <div className="space-detail-navigation">
             <Skeleton className="h-11 w-24" />
           </div>
-          <div className="space-detail-heading">
-            <PageHeaderSkeleton eyebrow={false} />
-          </div>
+          <SpaceDetailHeadingSkeleton />
           <div className="space-content-toolbar" aria-hidden="true">
             <Skeleton className="h-12 w-44" />
             <div className="space-content-actions">
@@ -60,7 +66,11 @@ export function SpacesSkeleton({
               </div>
             </div>
           </div>
-          <SpaceKnowledgeSkeleton />
+          {archived ? (
+            <ArchivedDocumentsSkeleton />
+          ) : (
+            <SpaceKnowledgeSkeleton />
+          )}
         </div>
       </div>
     </div>
