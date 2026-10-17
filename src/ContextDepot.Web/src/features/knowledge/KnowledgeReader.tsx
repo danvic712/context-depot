@@ -1,112 +1,30 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useLocation, useParams } from "react-router";
-import { useTranslation } from "react-i18next";
-import { ArrowLeftIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { RequestFeedback } from "@/components/feedback/RequestFeedback";
-import {
-  useRequestResource,
-  type Resource,
-} from "@/hooks/use-request-resource";
-import { KnowledgeContent } from "./KnowledgeContent";
-import { KnowledgeContentSkeleton } from "./KnowledgeReaderSkeleton";
-import { SearchCopyButton } from "./SearchContent";
+import { useLocation, useNavigate, useParams } from "react-router";
+import { KnowledgeReadingSession } from "./KnowledgeReadingSession";
 import { knowledgeReturnTarget } from "./knowledge-navigation";
-import {
-  getKnowledgePreview,
-  type KnowledgePreview,
-  type KnowledgeType,
-} from "./search-api";
-import "@/styles/knowledge-reader.css";
-
-export function KnowledgeReaderView({
-  resource,
-  source,
-  onRetry,
-}: {
-  resource: Resource<KnowledgePreview>;
-  source?: unknown;
-  onRetry: () => void;
-}) {
-  const { t } = useTranslation();
-  const back = knowledgeReturnTarget(source);
-  const errorTitle =
-    resource.error?.kind === "notFound"
-      ? "knowledgeNotFound"
-      : resource.error?.kind === "forbidden"
-        ? "knowledgeForbidden"
-        : "knowledgeLoadError";
-  return (
-    <section className="knowledge-reader" aria-busy={resource.pending}>
-      <div className="knowledge-reader-toolbar">
-        <Button asChild variant="outline">
-          <Link to={back.to}>
-            <ArrowLeftIcon aria-hidden="true" />
-            {t(back.label)}
-          </Link>
-        </Button>
-        <SearchCopyButton
-          detail={resource.error ? undefined : resource.data}
-          pending={resource.pending}
-        />
-      </div>
-      <article className="knowledge-reader-document">
-        {resource.error ? (
-          <div className="knowledge-reader-error">
-            <RequestFeedback
-              title={t(errorTitle)}
-              headingLevel={1}
-              failure={resource.error}
-              pending={resource.pending}
-              onRetry={onRetry}
-            />
-          </div>
-        ) : resource.data ? (
-          <KnowledgeContent detail={resource.data} headingLevel={1} />
-        ) : (
-          <div role="status" aria-label={t("loading")}>
-            <KnowledgeContentSkeleton />
-          </div>
-        )}
-      </article>
-    </section>
-  );
-}
+import type { KnowledgeType } from "./knowledge-models";
+export { KnowledgeReaderView } from "./KnowledgeReaderView";
 
 export function KnowledgeReader({ type }: { type: KnowledgeType }) {
-  const { knowledgeId = "" } = useParams();
-  const { state } = useLocation();
-  const { t } = useTranslation();
-  const [attempt, setAttempt] = useState(0);
-  const reader = useRef<HTMLDivElement>(null);
-  const load = useCallback(
-    (signal: AbortSignal) =>
-      getKnowledgePreview({ type, id: knowledgeId }, signal),
-    [type, knowledgeId],
-  );
-  const resource = useRequestResource(`${type}:${knowledgeId}`, attempt, load);
-  useEffect(() => {
-    document.title = `ContextDepot · ${
-      resource.error
-        ? t("knowledgeLoadError")
-        : (resource.data?.title ??
-          t(type === "context" ? "contextDetailTitle" : "documentReaderTitle"))
-    }`;
-    if (
-      (resource.data || resource.error) &&
-      document.activeElement === document.body
-    )
-      reader.current?.querySelector<HTMLHeadingElement>("h1")?.focus({
-        preventScroll: true,
-      });
-  }, [resource.data, resource.error, type, t]);
+  const { knowledgeId = "", spaceId } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   return (
-    <div ref={reader}>
-      <KnowledgeReaderView
-        resource={resource}
-        source={state}
-        onRetry={() => setAttempt((value) => value + 1)}
-      />
-    </div>
+    <KnowledgeReadingSession
+      key={`${spaceId ?? "global"}:${type}:${knowledgeId}`}
+      initial={{ type, id: knowledgeId, spaceId, hash: location.hash }}
+      panel={!!spaceId}
+      source={location.state}
+      search={location.search}
+      onClose={(deleted = false) => {
+        void navigate(
+          knowledgeReturnTarget(location.state, spaceId, location.search).to,
+          {
+            replace: deleted,
+            preventScrollReset: true,
+            state: deleted ? { refreshKnowledge: Date.now() } : location.state,
+          },
+        );
+      }}
+    />
   );
 }

@@ -19,7 +19,7 @@ describe("Markdown reader", () => {
     expect(html).toContain('<pre><code class="language-ts">');
   });
 
-  test("does not render raw HTML, executable links or external images", () => {
+  test("renders images safely while rejecting raw HTML and executable links", () => {
     const html = renderToStaticMarkup(
       <MarkdownContent
         content={
@@ -29,7 +29,9 @@ describe("Markdown reader", () => {
     );
     expect(html).not.toContain("<script");
     expect(html).not.toContain("href=");
-    expect(html).not.toContain("<img");
+    expect(html).toContain('src="https://example.com/image.png"');
+    expect(html).toContain('loading="lazy"');
+    expect(html).toContain('referrerPolicy="no-referrer"');
     expect(html).toContain("Remote image");
   });
 

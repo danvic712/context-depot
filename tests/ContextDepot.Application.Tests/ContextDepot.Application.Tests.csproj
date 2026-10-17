@@ -19,6 +19,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\..\src\ContextDepot.Application\ContextDepot.Application.csproj" />
+      <EmbeddedResource Include="../fixtures/markdown-heading-links.json" LogicalName="markdown-heading-links.json" />
     </ItemGroup>
 
 </Project>

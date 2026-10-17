@@ -15,19 +15,23 @@ export function DialogContent({
   closeDisabled = false,
   showCloseButton = true,
   overlayClassName,
+  overlayProps,
   ...props
 }: ComponentProps<typeof Primitive.Content> & {
   closeLabel?: string;
   showCloseButton?: boolean;
   overlayClassName?: string;
   closeDisabled?: boolean;
+  overlayProps?: ComponentProps<typeof Primitive.Overlay>;
 }) {
   return (
     <Primitive.Portal>
       <Primitive.Overlay
+        {...overlayProps}
         className={cn(
           "fixed inset-0 z-50 bg-black/40 backdrop-blur-sm",
           overlayClassName,
+          overlayProps?.className,
         )}
       />
       <Primitive.Content

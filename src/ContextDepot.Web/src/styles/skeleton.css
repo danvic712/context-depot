@@ -1,30 +1,33 @@
 .skeleton {
   position: relative;
   overflow: hidden;
-  background: color-mix(in srgb, var(--border) 72%, var(--surface));
+  background: color-mix(in oklab, var(--border) 64%, var(--surface));
 }
 .skeleton::after {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(
-    90deg,
-    transparent 20%,
-    color-mix(in srgb, var(--surface) 55%, transparent) 50%,
-    transparent 80%
-  );
-  transform: translateX(-100%);
-  animation: skeleton-shimmer 2.4s ease-in-out 150ms infinite;
+  background: var(--surface);
+  opacity: 0;
+  animation: skeleton-breathe 1.6s ease-in-out 240ms infinite;
 }
-@keyframes skeleton-shimmer {
-  to {
-    transform: translateX(100%);
+@keyframes skeleton-breathe {
+  50% {
+    opacity: 0.45;
   }
 }
 @media (prefers-reduced-motion: reduce) {
   .skeleton::after {
     animation: none;
+    display: none;
+  }
+}
+@media (prefers-contrast: more) {
+  .skeleton {
+    outline: 1px solid var(--border);
+  }
+  .skeleton::after {
     display: none;
   }
 }

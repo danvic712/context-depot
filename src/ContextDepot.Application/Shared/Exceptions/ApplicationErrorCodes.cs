@@ -4,6 +4,10 @@ namespace ContextDepot.Application.Shared.Exceptions;
 
 public static class ApplicationErrorCodes
 {
+    /// <summary>
+    /// Identifies a permanent context deletion rejected because the observed revision is no longer current.
+    /// </summary>
+    public const string KnowledgeDeleteConflict = "KnowledgeDeleteConflict";
     public const string SetupConflict = "SetupConflict";
     public const string SetupRequired = "SetupRequired";
     public const string SetupIncomplete = "SetupIncomplete";
@@ -53,7 +57,12 @@ public static class ApplicationErrorCodes
     public const string DocumentConflict = "DocumentConflict";
     public const string InvalidDocumentTitle = "InvalidDocumentTitle";
     public const string InvalidDocumentPath = "InvalidDocumentPath";
+    public const string InvalidDocumentLinks = "InvalidDocumentLinks";
     public const string DocumentWriteFailed = "DocumentWriteFailed";
+    /// <summary>
+    /// Identifies a permanent document deletion that failed while accessing canonical Markdown.
+    /// </summary>
+    public const string DocumentDeleteFailed = "DocumentDeleteFailed";
     public const string ContextBudgetInvalid = "ContextBudgetInvalid";
     public const string DatabaseMigrationFailed = "DatabaseMigrationFailed";
     public const string DatabaseUnavailable = "DatabaseUnavailable";

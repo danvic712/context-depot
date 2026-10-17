@@ -9,7 +9,7 @@ import { AppLoading } from "../../src/components/feedback/RouteFeedback";
 import { initializeI18n } from "../../src/lib/i18n";
 import { KnowledgeEmptyState } from "../../src/features/home/KnowledgeEmptyState";
 import { WorkspaceTiles } from "../../src/features/home/HomeCollections";
-import type { WorkspaceSummary } from "../../src/features/home/home-api";
+import { type WorkspaceSummary } from "../../src/features/spaces/workspace-summary";
 
 // These route-layout tests use an existing installation; setup gating has its own API-boundary tests.
 const appRoutes = productionRoutes.map((route) => ({
@@ -65,6 +65,47 @@ async function english() {
 }
 
 describe("Application routes", () => {
+  test("scoped content addresses retain space navigation and a deterministic page return", async () => {
+    await english();
+    for (const type of ["documents", "contexts"]) {
+      const router = createMemoryRouter(appRoutes, {
+        initialEntries: [`/spaces/projects/${type}/record?knowledgePage=2`],
+      });
+      try {
+        await ready(router);
+        expect(router.state.errors).toBeNull();
+        expect(router.state.matches.at(-1)?.route.id).toBe(
+          type === "documents" ? "space-document" : "space-context",
+        );
+        const html = renderToStaticMarkup(<RouterProvider router={router} />);
+        expect(
+          router.state.matches.some((match) => match.route.id === "space"),
+        ).toBe(true);
+        expect(html).toContain("spaces-workbench");
+        expect(router.state.location.search).toBe("?knowledgePage=2");
+        expect(selected(html, "/spaces")).toBe(true);
+      } finally {
+        router.dispose();
+      }
+    }
+  });
+  test("archive is a distinct space address and old content addresses are not retained", async () => {
+    await english();
+    const router = createMemoryRouter(appRoutes, {
+      initialEntries: ["/spaces/projects/archived?archivePage=2"],
+    });
+    try {
+      await ready(router);
+      expect(router.state.matches.at(-1)?.route.id).toBe("space-archive");
+      expect(
+        renderToStaticMarkup(<RouterProvider router={router} />),
+      ).not.toContain("Page not found");
+      await router.navigate("/documents/old");
+      expect(router.state.matches.at(-1)?.route.id).toBe("not-found");
+    } finally {
+      router.dispose();
+    }
+  });
   test("a direct search link preserves its query and filters while results load", async () => {
     await english();
     const router = createMemoryRouter(appRoutes, {
@@ -92,7 +133,7 @@ describe("Application routes", () => {
     const router = createMemoryRouter(appRoutes, {
       initialEntries: [
         {
-          pathname: "/documents/notes",
+          pathname: "/knowledge/documents/notes",
           state: { from: "/search?q=notes" },
         },
       ],
@@ -108,7 +149,7 @@ describe("Application routes", () => {
       expect(router.state.location.state).toEqual({
         from: "/search?q=notes",
       });
-      await router.navigate("/contexts/decision");
+      await router.navigate("/knowledge/contexts/decision");
       expect(router.state.matches.at(-1)?.route.id).toBe("context");
       const context = renderToStaticMarkup(<RouterProvider router={router} />);
       expect(context).toContain('href="/search"');
@@ -232,8 +273,8 @@ describe("Sidebar navigation", () => {
         "/search?q=notes",
         "/spaces",
         "/spaces/projects",
-        "/documents/notes",
-        "/contexts/decision",
+        "/knowledge/documents/notes",
+        "/knowledge/contexts/decision",
         "/settings",
       ]) {
         await router.navigate(
@@ -295,7 +336,10 @@ describe("Sidebar navigation", () => {
           "/spaces",
         ),
       ).toBe(true);
-      for (const path of ["/documents/notes", "/contexts/decision"]) {
+      for (const path of [
+        "/knowledge/documents/notes",
+        "/knowledge/contexts/decision",
+      ]) {
         await router.navigate(`${path}`);
         expect(
           selected(
@@ -304,7 +348,7 @@ describe("Sidebar navigation", () => {
           ),
         ).toBe(true);
       }
-      await router.navigate("/documents/notes", {
+      await router.navigate("/knowledge/documents/notes", {
         state: { from: "/spaces/personal", navigation: "spaces" },
       });
       expect(
@@ -385,7 +429,10 @@ describe("Sidebar navigation", () => {
   });
 
   test("direct knowledge startup shows a reading skeleton before translations initialize", () => {
-    for (const pathname of ["/contexts/record", "/documents/record"]) {
+    for (const pathname of [
+      "/knowledge/contexts/record",
+      "/knowledge/documents/record",
+    ]) {
       const html = renderToStaticMarkup(<AppLoading pathname={pathname} />);
       expect(html).toContain('class="knowledge-reader"');
       expect(html).toContain('aria-label="Loading / 加载中"');

@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router";
 import { KnowledgeReaderView } from "../../src/features/knowledge/KnowledgeReader";
 import { KnowledgeContent } from "../../src/features/knowledge/KnowledgeContent";
 import { knowledgeReturnTarget } from "../../src/features/knowledge/knowledge-navigation";
-import type { KnowledgePreview } from "../../src/features/knowledge/search-api";
+import { type KnowledgePreview } from "../../src/features/knowledge/knowledge-models";
 import type { Resource } from "../../src/hooks/use-request-resource";
 import { initializeI18n } from "../../src/lib/i18n";
 

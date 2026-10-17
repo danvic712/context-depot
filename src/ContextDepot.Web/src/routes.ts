@@ -93,9 +93,62 @@ export const appRoutes: RouteObject[] = [
             ({ SpaceDetail }) => ({ Component: SpaceDetail }),
           ),
         ),
+        children: [
+          {
+            path: "archived",
+            id: "space-archive",
+            ErrorBoundary: PageRouteError,
+            handle: { page: "space", title: "spaces", navigation: "spaces" },
+            Component: () => null,
+          },
+          {
+            path: "contexts/:knowledgeId",
+            id: "space-context",
+            ErrorBoundary: PageRouteError,
+            handle: {
+              page: "space",
+              title: "contextDetailTitle",
+              navigation: "spaces",
+            },
+            lazy: lazyPage(() =>
+              import("./pages/context-detail/ContextDetail").then(
+                ({ ContextDetail }) => ({ Component: ContextDetail }),
+              ),
+            ),
+          },
+          {
+            path: "documents/:knowledgeId",
+            id: "space-document",
+            ErrorBoundary: PageRouteError,
+            handle: {
+              page: "space",
+              title: "documentReaderTitle",
+              navigation: "spaces",
+            },
+            lazy: lazyPage(() =>
+              import("./pages/document-reader/DocumentReader").then(
+                ({ DocumentReader }) => ({ Component: DocumentReader }),
+              ),
+            ),
+          },
+          {
+            path: "documents/:knowledgeId/link",
+            ErrorBoundary: PageRouteError,
+            handle: {
+              page: "space",
+              title: "documentReaderTitle",
+              navigation: "spaces",
+            },
+            lazy: lazyPage(() =>
+              import("./features/knowledge/DocumentLinkReader").then(
+                ({ DocumentLinkReader }) => ({ Component: DocumentLinkReader }),
+              ),
+            ),
+          },
+        ],
       },
       {
-        path: "contexts/:knowledgeId",
+        path: "knowledge/contexts/:knowledgeId",
         id: "context",
         ErrorBoundary: PageRouteError,
         handle: {
@@ -110,7 +163,7 @@ export const appRoutes: RouteObject[] = [
         ),
       },
       {
-        path: "documents/:knowledgeId",
+        path: "knowledge/documents/:knowledgeId",
         id: "document",
         ErrorBoundary: PageRouteError,
         handle: {
@@ -121,6 +174,20 @@ export const appRoutes: RouteObject[] = [
         lazy: lazyPage(() =>
           import("./pages/document-reader/DocumentReader").then(
             ({ DocumentReader }) => ({ Component: DocumentReader }),
+          ),
+        ),
+      },
+      {
+        path: "knowledge/documents/:knowledgeId/link",
+        ErrorBoundary: PageRouteError,
+        handle: {
+          page: "document",
+          title: "documentReaderTitle",
+          navigation: "search",
+        },
+        lazy: lazyPage(() =>
+          import("./features/knowledge/DocumentLinkReader").then(
+            ({ DocumentLinkReader }) => ({ Component: DocumentLinkReader }),
           ),
         ),
       },

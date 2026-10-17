@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -6,18 +7,19 @@ import {
   type ReactNode,
 } from "react";
 import axios from "axios";
-import { PlusIcon } from "lucide-react";
+import { FolderPlusIcon, PlusIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Field, FieldLabel, FieldDescription } from "@/components/ui/field";
 import { FormDialog } from "@/components/content/FormDialog";
 import { SubmitButton } from "@/components/content/SubmitButton";
-import { createWorkspace } from "./home-api";
+import { createWorkspace } from "@/features/spaces/workspace-management-api";
 import { suggestWorkspacePath } from "@/features/spaces/workspace-path";
+import { useSpaceDialogMotion } from "@/features/spaces/use-space-dialog-motion";
 import "@/styles/create-workspace.css";
 
 type FieldErrors = Partial<Record<"name" | "path", string>>;
@@ -40,9 +42,31 @@ export function CreateWorkspaceDialog({
   const [failure, setFailure] = useState(false);
   const [pending, setPending] = useState(false);
   const request = useRef<AbortController | null>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
   const nameInput = useRef<HTMLInputElement>(null);
   const pathInput = useRef<HTMLInputElement>(null);
+  const triggerContent = children ?? (
+    <>
+      <PlusIcon data-icon="inline-start" aria-hidden="true" />
+      <span>{t("newSpace")}</span>
+    </>
+  );
+  const created = useRef(false);
+  const handleClosed = useCallback(() => {
+    setOpen(false);
+    if (created.current) {
+      created.current = false;
+      setName("");
+      setPath("");
+      setPathCustomized(false);
+      setDescription("");
+    }
+  }, []);
+  const {
+    ref: dialogRef,
+    overlayRef,
+    close: closeDialog,
+    open: reopenDialog,
+  } = useSpaceDialogMotion(handleClosed);
   useEffect(() => () => request.current?.abort(), []);
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -73,11 +97,8 @@ export function CreateWorkspaceDialog({
         },
         controller.signal,
       );
-      setOpen(false);
-      setName("");
-      setPath("");
-      setPathCustomized(false);
-      setDescription("");
+      created.current = true;
+      closeDialog();
       toast.success(t("spaceCreated"));
       void onCreated();
     } catch (error) {
@@ -108,47 +129,49 @@ export function CreateWorkspaceDialog({
     <Dialog
       open={open}
       onOpenChange={(value) => {
-        if (!pending) setOpen(value);
+        if (pending) return;
+        if (value) {
+          setOpen(true);
+          reopenDialog();
+        } else closeDialog();
       }}
     >
       <DialogTrigger asChild>
-        <button
-          type="button"
-          ref={trigger}
-          className={
-            triggerClassName ?? `${buttonVariants()} home-create-action`
-          }
-        >
-          {children ?? (
-            <>
-              <PlusIcon aria-hidden="true" />
-              <span>{t("newSpace")}</span>
-            </>
-          )}
-        </button>
+        {triggerClassName ? (
+          <button type="button" className={triggerClassName}>
+            {triggerContent}
+          </button>
+        ) : (
+          <Button type="button" className="home-create-action">
+            {triggerContent}
+          </Button>
+        )}
       </DialogTrigger>
       <FormDialog
+        ref={dialogRef}
+        data-space-motion="spring"
+        overlayProps={{ ref: overlayRef }}
+        className="create-space-dialog"
+        overlayClassName="space-dialog-overlay"
+        titleIcon={FolderPlusIcon}
         title={t("newSpace")}
         description={t("createSpaceDescription")}
         closeLabel={t("cancel")}
         pending={pending}
         error={failure ? t("spaceCreateError") : undefined}
         onSubmit={(event) => void submit(event)}
-        onCloseAutoFocus={(event) => {
-          event.preventDefault();
-          requestAnimationFrame(() => trigger.current?.focus());
-        }}
         footer={
           <>
             <Button
               variant="outline"
               type="button"
               disabled={pending}
-              onClick={() => setOpen(false)}
+              onClick={() => closeDialog()}
             >
               {t("cancel")}
             </Button>
             <SubmitButton
+              icon={PlusIcon}
               pending={pending}
               label={t("newSpace")}
               pendingLabel={t("spaceCreating")}
@@ -190,9 +213,7 @@ export function CreateWorkspaceDialog({
           )}
         </Field>
         <Field data-invalid={!!errors.path} data-disabled={pending}>
-          <FieldLabel htmlFor="space-path">
-            {t("setupSpacePathLabel")}
-          </FieldLabel>
+          <FieldLabel htmlFor="space-path">{t("spacesAddress")}</FieldLabel>
           <Input
             id="space-path"
             ref={pathInput}
@@ -217,7 +238,7 @@ export function CreateWorkspaceDialog({
             spellCheck={false}
           />
           <FieldDescription id="space-path-hint">
-            {t("setupSpacePathHint")}
+            {t("spaceCreatePathHint")}
           </FieldDescription>
           {errors.path && (
             <p id="space-path-error" className="form-dialog-error" role="alert">
@@ -236,7 +257,11 @@ export function CreateWorkspaceDialog({
             onChange={(event) => setDescription(event.target.value)}
             disabled={pending}
             rows={3}
+            aria-describedby="space-description-hint"
           />
+          <FieldDescription id="space-description-hint">
+            {t("spaceCreateDescriptionHint")}
+          </FieldDescription>
         </Field>
       </FormDialog>
     </Dialog>

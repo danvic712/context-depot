@@ -1,4 +1,4 @@
-import { contextKinds } from "./search-api";
+import { contextKinds } from "@/features/knowledge/knowledge-models";
 
 export function normalizeKnowledgeParams(params: URLSearchParams) {
   const next = new URLSearchParams(params);

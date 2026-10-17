@@ -1,6 +1,8 @@
 using ContextDepot.Application.Workspaces;
 using ContextDepot.Application.Workspaces.Contracts;
 using ContextDepot.Application.Workspaces.Dtos;
+using ContextDepot.Application.Workspaces.Enums;
+using ContextDepot.Application.Shared.Dtos;
 using ContextDepot.Application.Overview;
 using ContextDepot.Domain.Contexts.Enums;
 using ContextDepot.Domain.Documents.Enums;
@@ -10,18 +12,42 @@ namespace ContextDepot.Infrastructure.Repositories;
 
 public sealed class WorkspaceBrowserRepository(ContextDepotDbContext db) : IWorkspaceBrowserRepository
 {
-    public async Task<WorkspaceDirectory> BrowseAsync(Guid depotId, Guid? parentId, int page, int pageSize,
+    /// <inheritdoc />
+    public async Task<WorkspaceDirectory> BrowseAsync(Guid depotId, WorkspaceDirectoryQuery filter,
         DateTimeOffset asOf, CancellationToken cancellationToken)
     {
-        var query = Summaries(depotId, asOf).Where(x => x.ParentId == parentId);
-        var total = await query.CountAsync(cancellationToken);
-        var rows = await query.OrderByDescending(x => x.ActivityAt).ThenBy(x => x.Id)
-            .Skip((page - 1) * pageSize).Take(pageSize).ToArrayAsync(cancellationToken);
         var nodes = await LoadNodesAsync(depotId, cancellationToken);
         var paths = Topology(nodes).Paths;
-        return new(asOf, rows.Select(x => ToItem(x, paths[x.Id])).ToArray(), total, page, pageSize);
+        var query = Summaries(depotId, asOf);
+        if (filter.ParentId is not null) query = query.Where(x => x.ParentId == filter.ParentId);
+        if (!string.IsNullOrEmpty(filter.Query))
+        {
+            var matchingPaths = paths.Where(x => x.Value.Contains(filter.Query, StringComparison.OrdinalIgnoreCase))
+                .Select(x => x.Key).ToArray();
+            var pattern = "%" + filter.Query.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
+            query = query.Where(x => matchingPaths.Contains(x.Id) || EF.Functions.ILike(x.Name, pattern, "\\") ||
+                (x.Description != null && EF.Functions.ILike(x.Description, pattern, "\\")));
+        }
+        if (filter.Status == WorkspaceContentStatus.Populated) query = query.Where(x => x.ContextCount + x.DocumentCount > 0);
+        if (filter.Status == WorkspaceContentStatus.Empty) query = query.Where(x => x.ContextCount == 0 && x.DocumentCount == 0);
+        if (filter.Content is WorkspaceContentType.Contexts or WorkspaceContentType.Both) query = query.Where(x => x.ContextCount > 0);
+        if (filter.Content is WorkspaceContentType.Documents or WorkspaceContentType.Both) query = query.Where(x => x.DocumentCount > 0);
+        var from = filter.UpdatedWithinDays is { } days ? asOf.AddDays(-(int)days) : filter.UpdatedFrom;
+        if (from is not null) query = query.Where(x => x.ActivityAt >= from);
+        if (filter.UpdatedBefore is not null) query = query.Where(x => x.ActivityAt < filter.UpdatedBefore);
+        var total = await query.CountAsync(cancellationToken);
+        var ordered = filter.Sort switch
+        {
+            WorkspaceSortOrder.Name => query.OrderBy(x => x.Name),
+            WorkspaceSortOrder.Knowledge => query.OrderByDescending(x => x.ContextCount + x.DocumentCount),
+            _ => query.OrderByDescending(x => x.ActivityAt)
+        };
+        var rows = await ordered.ThenBy(x => x.Id)
+            .Skip((filter.Page - 1) * filter.PageSize).Take(filter.PageSize).ToArrayAsync(cancellationToken);
+        return new(asOf, rows.Select(x => ToItem(x, paths[x.Id])).ToArray(), total, filter.Page, filter.PageSize);
     }
 
+    /// <inheritdoc />
     public async Task<WorkspaceDetail?> GetAsync(Guid depotId, Guid id, DateTimeOffset asOf, CancellationToken cancellationToken)
     {
         var row = await Summaries(depotId, asOf).SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
@@ -41,7 +67,8 @@ public sealed class WorkspaceBrowserRepository(ContextDepotDbContext db) : IWork
         return new(ToItem(row, paths[row.Id]), ancestors);
     }
 
-    public async Task<WorkspaceKnowledge?> ListKnowledgeAsync(Guid depotId, Guid id, int page, int pageSize,
+    /// <inheritdoc />
+    public async Task<WorkspaceKnowledge?> ListKnowledgeAsync(Guid depotId, Guid id, PaginationQuery pagination,
         DateTimeOffset asOf, CancellationToken cancellationToken)
     {
         var nodes = await LoadNodesAsync(depotId, cancellationToken);
@@ -62,14 +89,14 @@ public sealed class WorkspaceBrowserRepository(ContextDepotDbContext db) : IWork
         var query = contexts.Concat(documents);
         var total = await query.CountAsync(cancellationToken);
         var rows = await query.OrderByDescending(x => x.UpdatedAt).ThenBy(x => x.Type).ThenBy(x => x.Id)
-            .Skip((page - 1) * pageSize).Take(pageSize).ToArrayAsync(cancellationToken);
+            .Skip((pagination.Page - 1) * pagination.PageSize).Take(pagination.PageSize).ToArrayAsync(cancellationToken);
         var path = Topology(nodes).Paths[id];
         return new(asOf, rows.Select(x => new KnowledgeSummary(x.Id, x.Type,
             x.Kind is null ? null : Enum.Parse<ContextKind>(x.Kind, true),
             x.Type == "context" ? OverviewRepository.ContextTitle(x.Title, x.Key, x.Content)
                 : string.IsNullOrWhiteSpace(x.Title) ? x.Key! : x.Title,
             new(id, path), x.UpdatedAt,
-            x.IndexStatus is null ? null : Enum.Parse<DocumentIndexStatus>(x.IndexStatus, true))).ToArray(), total, page, pageSize);
+            x.IndexStatus is null ? null : Enum.Parse<DocumentIndexStatus>(x.IndexStatus, true))).ToArray(), total, pagination.Page, pagination.PageSize);
     }
 
     private IQueryable<SummaryRow> Summaries(Guid depotId, DateTimeOffset asOf)
@@ -109,23 +136,37 @@ public sealed class WorkspaceBrowserRepository(ContextDepotDbContext db) : IWork
     private sealed class KnowledgeRow
     {
         public Guid Id { get; init; }
+
         public string Type { get; init; } = "";
+
         public string? Kind { get; init; }
+
         public string? Title { get; init; }
+
         public string? Key { get; init; }
+
         public string Content { get; init; } = "";
+
         public DateTimeOffset UpdatedAt { get; init; }
+
         public string? IndexStatus { get; init; }
     }
     private sealed class SummaryRow
     {
         public Guid Id { get; init; }
+
         public string Name { get; init; } = string.Empty;
+
         public string? Description { get; init; }
+
         public Guid? ParentId { get; init; }
+
         public int ContextCount { get; init; }
+
         public int DocumentCount { get; init; }
+
         public int SubspaceCount { get; init; }
+
         public DateTimeOffset ActivityAt { get; init; }
     }
 }

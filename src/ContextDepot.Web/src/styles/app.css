@@ -1,5 +1,34 @@
 @import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
+@import "tw-animate-css";
+/* Radix keeps closing popovers mounted until their CSS animation completes. */
+[data-slot="popover-content"][data-state="open"] {
+  animation: popover-fade-in var(--motion-normal) ease-out;
+}
+[data-slot="popover-content"][data-state="closed"] {
+  animation: popover-fade-out var(--motion-fast) ease-out;
+}
+@keyframes popover-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes popover-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="popover-content"] {
+    animation: none;
+  }
+}
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);

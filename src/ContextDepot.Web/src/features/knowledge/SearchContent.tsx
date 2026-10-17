@@ -1,9 +1,6 @@
 import { knowledgeTypes } from "./knowledge-types";
-import { useState } from "react";
-import copyToClipboard from "copy-to-clipboard";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
-import { CheckIcon, CopyIcon, SearchIcon } from "lucide-react";
+import { SearchIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,7 +12,7 @@ import {
   EmptyDescription,
   EmptyContent,
 } from "@/components/ui/empty";
-import { hitKey, type SearchHit, type KnowledgePreview } from "./search-api";
+import { type SearchHit } from "./search-api";
 
 export { KnowledgeContent as SearchPreviewContent } from "./KnowledgeContent";
 
@@ -99,47 +96,5 @@ export function SearchResultText({
         <Highlight text={hit.excerpt} query={query} />
       </p>
     </div>
-  );
-}
-
-export function SearchCopyButton({
-  detail,
-  pending = false,
-}: {
-  detail?: KnowledgePreview;
-  pending?: boolean;
-}) {
-  const { t } = useTranslation();
-  const [copied, setCopied] = useState<KnowledgePreview>();
-  const [copyPending, setCopyPending] = useState(false);
-  const done = !!detail && copied === detail;
-  async function copy() {
-    if (!detail || copyPending || pending) return;
-    setCopyPending(true);
-    try {
-      if (!(await copyToClipboard(detail.content)))
-        throw new Error("Clipboard unavailable");
-      setCopied(detail);
-      toast.success(t("dialogCopied"), { id: `copy-${hitKey(detail)}` });
-    } catch {
-      toast.error(t("dialogCopyError"));
-    } finally {
-      setCopyPending(false);
-    }
-  }
-  return (
-    <Button
-      variant="outline"
-      size="sm"
-      disabled={!detail || pending || copyPending}
-      onClick={() => void copy()}
-    >
-      {done ? (
-        <CheckIcon data-icon="inline-start" aria-hidden="true" />
-      ) : (
-        <CopyIcon data-icon="inline-start" aria-hidden="true" />
-      )}
-      {t(done ? "dialogCopied" : "dialogCopy")}
-    </Button>
   );
 }

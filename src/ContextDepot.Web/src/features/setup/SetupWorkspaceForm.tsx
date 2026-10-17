@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Field, FieldLabel, FieldDescription } from "@/components/ui/field";
 import { SubmitButton } from "@/components/content/SubmitButton";
-import type { CreateWorkspace } from "@/features/home/home-api";
+import { type CreateWorkspace } from "@/features/spaces/workspace-management-api";
 import type { SetupWorkspace } from "./setup-api";
 import { suggestWorkspacePath } from "@/features/spaces/workspace-path";
 

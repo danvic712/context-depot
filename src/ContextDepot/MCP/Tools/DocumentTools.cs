@@ -10,7 +10,11 @@ public sealed class DocumentTools(MCPToolExecutor executor, ILogger<DocumentTool
     [McpServerTool(Name = "document_upsert", Title = "Write canonical Markdown", Destructive = false,
         UseStructuredContent = true)]
     [Description(
-        "Create or update a canonical Markdown document. Use this for durable designs, ADRs, runbooks, research, and plans. Updates require the latest content hash when the file changed.")]
+        "Create or update canonical Markdown. Updates require the latest content hash when changed. " +
+        "For same-Workspace document links, prefer [label](/known/path.md#heading) using actual saved paths. " +
+        "Unsafe link protocols and invalid paths reject the entire write with linkErrors. " +
+        "Success returns linkValidation.warnings for missing/archived targets or missing headings; save targets, fix links, " +
+        "then document_get the source to recheck. Warnings do not mean the write failed.")]
     public async Task<DocumentModel> UpsertAsync(
         IDocumentAppService service,
         string workspace,
@@ -29,7 +33,9 @@ public sealed class DocumentTools(MCPToolExecutor executor, ILogger<DocumentTool
     [McpServerTool(Name = "document_get", Title = "Read canonical Markdown", ReadOnly = true, Idempotent = true,
         UseStructuredContent = true)]
     [Description(
-        "Read a known canonical Markdown document by ID when the full document is explicitly needed. Ordinary tasks should prefer context_bootstrap excerpts.")]
+        "Read known canonical Markdown by ID when the full document is needed. " +
+        "metadata.linkValidation rechecks current link targets and headings; use it after a related document batch " +
+        "or to confirm a link fix. Ordinary tasks should prefer context_bootstrap excerpts.")]
     public async Task<DocumentContentModel?> GetAsync(IDocumentAppService service, Guid documentId,
         CancellationToken cancellationToken = default)
     {

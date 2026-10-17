@@ -124,6 +124,10 @@ public sealed class KnowledgeSearchAppServiceTests
         Assert.Equal("# Complete Markdown\n\nNot a search excerpt.", result.Content);
         Assert.Equal(now, result.UpdatedAt);
         Assert.Equal("projects/notes", result.Workspace);
+        Assert.Equal(result, await Create().GetAsync("document", id, default, metadata.WorkspaceId));
+        var wrongSpace = await Assert.ThrowsAsync<ContextDepotApplicationException>(() =>
+            Create().GetAsync("document", id, default, Guid.CreateVersion7()));
+        Assert.Equal(ApplicationErrorCodes.DocumentNotFound, wrongSpace.ErrorCode);
         contexts.VerifyNoOtherCalls();
     }
 }

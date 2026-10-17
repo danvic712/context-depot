@@ -49,10 +49,12 @@ export function AppShell({
         >
           {children}
         </main>
-        <footer>
-          <span>ContextDepot</span>
-          <span>{t("footerTagline")}</span>
-        </footer>
+        {page !== "spaces" && (
+          <footer>
+            <span>ContextDepot</span>
+            <span>{t("footerTagline")}</span>
+          </footer>
+        )}
         <BackToTop />
       </div>
     </div>

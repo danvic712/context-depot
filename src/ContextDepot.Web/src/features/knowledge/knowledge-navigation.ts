@@ -1,5 +1,14 @@
-export function knowledgeReturnTarget(state: unknown) {
-  const fallback = { to: "/search", label: "knowledgeBackSearch" } as const;
+export function knowledgeReturnTarget(
+  state: unknown,
+  spaceId?: string,
+  search = "",
+) {
+  const fallback = spaceId
+    ? {
+        to: `/spaces/${encodeURIComponent(spaceId)}${search}`,
+        label: "knowledgeBackSpaces" as const,
+      }
+    : { to: "/search", label: "knowledgeBackSearch" as const };
   if (!state || typeof state !== "object" || !("from" in state))
     return fallback;
   const from = state.from;
@@ -16,7 +25,10 @@ export function knowledgeReturnTarget(state: unknown) {
     return { to: from, label: "knowledgeBackHome" } as const;
   if (pathname === "/search")
     return { to: from, label: "knowledgeBackSearch" } as const;
-  if (pathname === "/spaces" || /^\/spaces\/[^/]+$/.test(pathname ?? ""))
+  if (
+    pathname === "/spaces" ||
+    /^\/spaces\/[^/]+(?:\/archived)?$/.test(pathname ?? "")
+  )
     return { to: from, label: "knowledgeBackSpaces" } as const;
   return fallback;
 }

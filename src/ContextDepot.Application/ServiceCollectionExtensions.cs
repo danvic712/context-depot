@@ -82,6 +82,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IContextAppService, ContextAppService>();
         services.AddScoped<IContextQueryAppService, ContextQueryAppService>();
         services.AddScoped<IDocumentAppService, DocumentAppService>();
+        services.AddScoped<DocumentManagementAppService>();
+        services.AddScoped<ContextManagementAppService>();
         services.AddScoped<IContextBootstrapAppService, ContextBootstrapAppService>();
         services.AddScoped<VectorIndexRepairer>();
         services.AddScoped<IIndexRepairAppService, IndexRepairAppService>();

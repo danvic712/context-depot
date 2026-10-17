@@ -1,16 +1,15 @@
+import { knowledgeKey } from "./knowledge-models";
+import {
+  responseRecord as record,
+  responseText as text,
+} from "@/lib/response-values";
+import type {
+  KnowledgeType,
+  ContextKind,
+  KnowledgePreview,
+} from "./knowledge-models";
 import { httpRequest } from "@/lib/http-client";
 
-export type KnowledgeType = "context" | "document";
-export const contextKinds = [
-  "fact",
-  "preference",
-  "decision",
-  "goal",
-  "state",
-  "event",
-  "observation",
-] as const;
-export type ContextKind = (typeof contextKinds)[number];
 export interface SearchHit {
   id: string;
   type: KnowledgeType;
@@ -24,29 +23,9 @@ export interface SearchResponse {
   degraded: boolean;
   limit: number;
 }
-export interface KnowledgePreview {
-  id: string;
-  type: KnowledgeType;
-  title: string;
-  workspace: string;
-  content: string;
-  updatedAt: string;
-}
 export interface SearchWorkspace {
   id: string;
   path: string;
-}
-export const hitKey = (item: Pick<SearchHit, "type" | "id">) =>
-  `${item.type}:${item.id}`;
-
-function record(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    throw new Error("search.invalid_response");
-  return value as Record<string, unknown>;
-}
-function text(value: unknown): string {
-  if (typeof value !== "string") throw new Error("search.invalid_response");
-  return value;
 }
 function rows(value: unknown): unknown[] {
   if (!Array.isArray(value)) throw new Error("search.invalid_response");
@@ -77,7 +56,7 @@ export function parseSearch(data: unknown): SearchResponse {
   // A document can match several chunks. Keep one result per resource, preserving relevance order.
   const unique = new Map<string, SearchHit>();
   for (const item of items)
-    if (!unique.has(hitKey(item))) unique.set(hitKey(item), item);
+    if (!unique.has(knowledgeKey(item))) unique.set(knowledgeKey(item), item);
   return {
     items: [...unique.values()],
     degraded: value.degraded,
@@ -129,10 +108,13 @@ export function getSearchWorkspaces(signal?: AbortSignal) {
 export function getKnowledgePreview(
   item: Pick<SearchHit, "id" | "type">,
   signal?: AbortSignal,
+  spaceId?: string,
 ) {
   return httpRequest({
     method: "GET",
-    url: `/knowledge/${item.type}/${encodeURIComponent(item.id)}`,
+    url: spaceId
+      ? `/workspaces/${encodeURIComponent(spaceId)}/knowledge/${item.type}/${encodeURIComponent(item.id)}`
+      : `/knowledge/${item.type}/${encodeURIComponent(item.id)}`,
     signal,
     parse: (data) => {
       const detail = parsePreview(data);

@@ -99,19 +99,35 @@ public sealed class BackendReviewRegressionTests
             var documents = fixture.Store.GetCollection<Guid, DocumentVectorRecord>(
                 VectorCollectionNamePolicy.CreateDocumentCollectionName(profile), VectorCollectionDefinitions.CreateDocument(3));
             await contexts.EnsureCollectionExistsAsync(); await documents.EnsureCollectionExistsAsync();
-            await contexts.UpsertAsync(archived.Concat([expired, hidden]).Select(context => new ContextVectorRecord
+            await contexts.UpsertAsync(new[] { expired, hidden }.Select(context => new ContextVectorRecord
             {
-                ContextItemId = context.Id, DepotId = fixture.Depot.Id, WorkspaceId = context.WorkspaceId,
-                Kind = "fact", EmbeddingInputHash = "hash", Embedding = new float[] { 1, 0, 0 }
-            }).Append(new ContextVectorRecord { ContextItemId = active.Id, DepotId = fixture.Depot.Id,
-                WorkspaceId = fixture.Root.Id, Kind = "fact", EmbeddingInputHash = "hash", Embedding = new float[] { .8f, .2f, 0 } }));
-            await documents.UpsertAsync(Enumerable.Range(0, 64).Select(_ => new DocumentVectorRecord
+                ContextItemId = context.Id,
+                DepotId = fixture.Depot.Id,
+                WorkspaceId = context.WorkspaceId,
+                Kind = "fact",
+                EmbeddingInputHash = "hash",
+                Embedding = new float[] { 1, 0, 0 }
+            }).Append(new ContextVectorRecord
             {
-                DocumentChunkId = Guid.CreateVersion7(), DocumentId = document.Id, DepotId = fixture.Depot.Id,
-                WorkspaceId = fixture.Root.Id, EmbeddingInputHash = "hash", Embedding = new float[] { 1, 0, 0 }
-            }).Append(new DocumentVectorRecord { DocumentChunkId = chunk.Id, DocumentId = document.Id,
-                DepotId = fixture.Depot.Id, WorkspaceId = fixture.Root.Id, EmbeddingInputHash = "hash",
-                Embedding = new float[] { .8f, .2f, 0 } }));
+                ContextItemId = active.Id,
+                DepotId = fixture.Depot.Id,
+                WorkspaceId = fixture.Root.Id,
+                Kind = "fact",
+                EmbeddingInputHash = "hash",
+                Embedding = new float[] { .8f, .2f, 0 }
+            }));
+            await fixture.SeedArchivedContextVectorsAsync(profile, archived.Select(x => x.Id).ToArray());
+            // Legacy/orphan rows are seeded directly: normal writes now require a live source.
+            await fixture.SeedDocumentOrphansAsync(profile, document.Id, 64);
+            await documents.UpsertAsync(new DocumentVectorRecord
+            {
+                DocumentChunkId = chunk.Id,
+                DocumentId = document.Id,
+                DepotId = fixture.Depot.Id,
+                WorkspaceId = fixture.Root.Id,
+                EmbeddingInputHash = "hash",
+                Embedding = new float[] { .8f, .2f, 0 }
+            });
         }
         var access = new CurrentDepotAccessContext();
         access.Initialize(new DepotAccessKeyIdentity(Guid.CreateVersion7(), fixture.Depot.Id, "test", [fixture.Root.Id], [fixture.Root.Id]));
@@ -222,11 +238,26 @@ public sealed class BackendReviewRegressionTests
         var collection = fixture.Store.GetCollection<Guid, ContextVectorRecord>(
             VectorCollectionNamePolicy.CreateContextCollectionName(new string('c', 64)), VectorCollectionDefinitions.CreateContext(3));
         await collection.EnsureCollectionExistsAsync();
-        var records = Enumerable.Range(0, 32).Select(_ => new ContextVectorRecord
-        { ContextItemId = Guid.CreateVersion7(), DepotId = fixture.Depot.Id, WorkspaceId = fixture.Root.Id,
-            Kind = "fact", EmbeddingInputHash = "hash", Embedding = new float[] { 1, 0, 0 } }).ToArray();
-        var invalid = new ContextVectorRecord { ContextItemId = Guid.CreateVersion7(), DepotId = fixture.Depot.Id,
-            WorkspaceId = fixture.Root.Id, Kind = "fact", EmbeddingInputHash = "hash", Embedding = new float[] { float.NaN, 0, 0 } };
+        var sources = Enumerable.Range(0, 33).Select(_ => fixture.Context("batch source", fixture.Now)).ToArray();
+        fixture.Db.AddRange(sources); await fixture.Db.SaveChangesAsync();
+        var records = sources.Take(32).Select(context => new ContextVectorRecord
+        {
+            ContextItemId = context.Id,
+            DepotId = fixture.Depot.Id,
+            WorkspaceId = fixture.Root.Id,
+            Kind = "fact",
+            EmbeddingInputHash = "hash",
+            Embedding = new float[] { 1, 0, 0 }
+        }).ToArray();
+        var invalid = new ContextVectorRecord
+        {
+            ContextItemId = sources[^1].Id,
+            DepotId = fixture.Depot.Id,
+            WorkspaceId = fixture.Root.Id,
+            Kind = "fact",
+            EmbeddingInputHash = "hash",
+            Embedding = new float[] { float.NaN, 0, 0 }
+        };
         await Assert.ThrowsAsync<PostgresException>(() => collection.UpsertAsync(records.Append(invalid)));
         Assert.Null(await collection.GetAsync(records[0].ContextItemId));
         await collection.UpsertAsync(records);
@@ -293,6 +324,130 @@ public sealed class BackendReviewRegressionTests
         Assert.Null(await authenticator.AuthenticateAsync(secret.Plaintext));
     }
 
+    [PostgreSqlFact]
+    public async Task Archived_delete_removes_canonical_chunks_and_every_vector_profile_without_touching_other_documents_or_depots()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var document = fixture.Document("old.md", fixture.Now);
+        var keep = fixture.Document("keep.md", fixture.Now);
+        var chunk = fixture.Chunk(document, "old", fixture.Now); document.Chunks.Add(chunk);
+        var keepChunk = fixture.Chunk(keep, "keep", fixture.Now); keep.Chunks.Add(keepChunk);
+        fixture.Db.AddRange(document, keep); await fixture.Db.SaveChangesAsync();
+        var profiles = new[] { new string('a', 64), new string('b', 64) };
+        var oldVector = new DocumentVectorRecord
+        {
+            DocumentChunkId = chunk.Id,
+            DocumentId = document.Id,
+            DepotId = fixture.Depot.Id,
+            WorkspaceId = fixture.Root.Id,
+            EmbeddingInputHash = "hash",
+            Embedding = new float[] { 1, 0, 0 }
+        };
+        var foreignKey = Guid.CreateVersion7(); var foreignDepot = Guid.CreateVersion7();
+        foreach (var profile in profiles)
+        {
+            var name = VectorCollectionNamePolicy.CreateDocumentCollectionName(profile);
+            var collection = fixture.Store.GetCollection<Guid, DocumentVectorRecord>(name, VectorCollectionDefinitions.CreateDocument(3));
+            await collection.EnsureCollectionExistsAsync();
+            await collection.UpsertAsync(oldVector);
+            await collection.UpsertAsync(new DocumentVectorRecord
+            {
+                DocumentChunkId = keepChunk.Id,
+                DocumentId = keep.Id,
+                DepotId = fixture.Depot.Id,
+                WorkspaceId = fixture.Root.Id,
+                EmbeddingInputHash = "hash",
+                Embedding = new float[] { 1, 0, 0 }
+            });
+            Assert.NotNull(await collection.GetAsync(chunk.Id));
+            // Seed an inconsistent foreign-depot row directly to prove cleanup remains depot scoped.
+            await fixture.Db.Database.OpenConnectionAsync();
+            await using var insert = new NpgsqlCommand($"INSERT INTO {PostgreSqlVectorSqlBuilder.QuoteQualifiedName(fixture.VectorSchema, name)} (document_chunk_id, document_id, depot_id, workspace_id, embedding_input_hash, embedding) VALUES (@chunk, @document, @depot, @workspace, 'hash', '[1,0,0]')",
+                (NpgsqlConnection)fixture.Db.Database.GetDbConnection());
+            insert.Parameters.AddWithValue("chunk", foreignKey);
+            insert.Parameters.AddWithValue("document", document.Id);
+            insert.Parameters.AddWithValue("depot", foreignDepot);
+            insert.Parameters.AddWithValue("workspace", fixture.Root.Id);
+            await insert.ExecuteNonQueryAsync();
+        }
+        document.MarkArchived(fixture.Now); await fixture.Db.SaveChangesAsync(); fixture.Db.ChangeTracker.Clear();
+        var root = Path.Combine(Path.GetTempPath(), "archive-delete-" + Guid.CreateVersion7().ToString("N"));
+        try
+        {
+            var markdown = new ContextDepot.Infrastructure.Markdown.FileSystemMarkdownStore(new ArchiveEnvironment { ContentRootPath = root },
+                Microsoft.Extensions.Options.Options.Create(new ContextDepot.Infrastructure.Options.MarkdownStoreOptions { MarkdownRoot = root }));
+            await markdown.WriteAtomicAsync(fixture.Depot.Id, "root/old.md", "canonical old", default);
+            await markdown.WriteAtomicAsync(fixture.Depot.Id, "root/keep.md", "canonical keep", default);
+            var repository = new DocumentManagementRepository(fixture.Db, markdown,
+                Microsoft.Extensions.Options.Options.Create(new PostgreSqlVectorStoreOptions { Schema = fixture.VectorSchema }));
+            var page = await repository.ListArchivedAsync(fixture.Depot.Id, fixture.Root.Id, new ContextDepot.Application.Shared.Dtos.PaginationQuery(), default);
+            Assert.Equal(document.Id, Assert.Single(page.Items).Id);
+            await Assert.ThrowsAsync<ContextDepotApplicationException>(() => repository.DeleteAsync(fixture.Depot.Id, document.Id, fixture.Root.Id,
+                "root/old.md", fixture.Now.AddSeconds(-1), default));
+            Assert.NotNull(await markdown.GetAsync(fixture.Depot.Id, "root/old.md", default));
+            await repository.DeleteAsync(fixture.Depot.Id, document.Id, fixture.Root.Id, "root/old.md", fixture.Now, default);
+            Assert.Null(await markdown.GetAsync(fixture.Depot.Id, "root/old.md", default));
+            Assert.Equal("canonical keep", (await markdown.GetAsync(fixture.Depot.Id, "root/keep.md", default))!.Content);
+            Assert.False(await fixture.Db.Documents.AnyAsync(x => x.Id == document.Id));
+            Assert.False(await fixture.Db.DocumentChunks.AnyAsync(x => x.Id == chunk.Id));
+            Assert.True(await fixture.Db.Documents.AnyAsync(x => x.Id == keep.Id));
+            Assert.Empty((await repository.ListArchivedAsync(fixture.Depot.Id, fixture.Root.Id, new ContextDepot.Application.Shared.Dtos.PaginationQuery(), default)).Items);
+            foreach (var profile in profiles)
+            {
+                var collection = fixture.Store.GetCollection<Guid, DocumentVectorRecord>(VectorCollectionNamePolicy.CreateDocumentCollectionName(profile), VectorCollectionDefinitions.CreateDocument(3));
+                Assert.Null(await collection.GetAsync(chunk.Id));
+                Assert.NotNull(await collection.GetAsync(keepChunk.Id));
+                Assert.NotNull(await collection.GetAsync(foreignKey));
+                await collection.UpsertAsync(oldVector); // Late repair output must not resurrect a deleted index.
+                Assert.Null(await collection.GetAsync(chunk.Id));
+            }
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    [PostgreSqlFact]
+    public async Task Canonical_delete_failure_rolls_back_document_chunks_and_vector_cleanup()
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var document = fixture.Document("old.md", fixture.Now);
+        var chunk = fixture.Chunk(document, "old", fixture.Now); document.Chunks.Add(chunk);
+        fixture.Db.Add(document); await fixture.Db.SaveChangesAsync();
+        var collection = fixture.Store.GetCollection<Guid, DocumentVectorRecord>(VectorCollectionNamePolicy.CreateDocumentCollectionName(new string('a', 64)), VectorCollectionDefinitions.CreateDocument(3));
+        await collection.EnsureCollectionExistsAsync();
+        await collection.UpsertAsync(new DocumentVectorRecord
+        {
+            DocumentChunkId = chunk.Id,
+            DocumentId = document.Id,
+            DepotId = fixture.Depot.Id,
+            WorkspaceId = fixture.Root.Id,
+            EmbeddingInputHash = "hash",
+            Embedding = new float[] { 1, 0, 0 }
+        });
+        document.MarkArchived(fixture.Now); await fixture.Db.SaveChangesAsync(); fixture.Db.ChangeTracker.Clear();
+        var repository = new DocumentManagementRepository(fixture.Db, new FailingDeleteMarkdown(),
+            Microsoft.Extensions.Options.Options.Create(new PostgreSqlVectorStoreOptions { Schema = fixture.VectorSchema }));
+        await Assert.ThrowsAsync<IOException>(() => repository.DeleteAsync(fixture.Depot.Id, document.Id, fixture.Root.Id, "root/old.md", fixture.Now, default));
+        Assert.True(await fixture.Db.Documents.AnyAsync(x => x.Id == document.Id));
+        Assert.True(await fixture.Db.DocumentChunks.AnyAsync(x => x.Id == chunk.Id));
+        Assert.NotNull(await collection.GetAsync(chunk.Id));
+    }
+
+    private sealed class FailingDeleteMarkdown : ContextDepot.Application.Documents.Contracts.IMarkdownStore
+    {
+        public Task<ContextDepot.Application.Documents.Dtos.MarkdownDocument?> GetAsync(Guid depotId, string path, CancellationToken cancellationToken) => Task.FromResult<ContextDepot.Application.Documents.Dtos.MarkdownDocument?>(new(path, "keep", "hash"));
+        public Task DeleteAsync(Guid depotId, string path, CancellationToken cancellationToken) => throw new IOException("simulated filesystem failure");
+        public Task WriteAtomicAsync(Guid depotId, string path, string content, CancellationToken cancellationToken) => throw new InvalidOperationException("Deletion did not complete; no restore should be attempted.");
+        public bool CanReadAndWrite() => true;
+    }
+
+    private sealed class ArchiveEnvironment : Microsoft.Extensions.Hosting.IHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = "Development";
+        public string ApplicationName { get; set; } = "ArchiveTests";
+        public string ContentRootPath { get; set; } = "";
+        public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; } = new Microsoft.Extensions.FileProviders.NullFileProvider();
+    }
+
     private sealed class ManualClock(DateTimeOffset now) : TimeProvider
     {
         public DateTimeOffset Now { get; set; } = now;
@@ -328,6 +483,7 @@ public sealed class BackendReviewRegressionTests
         public DbContextOptions<ContextDepotDbContext> Options { get; private set; } = null!;
         public PostgreSqlVectorStore Store { get; private set; } = null!;
         private NpgsqlDataSource dataSource = null!;
+        public string VectorSchema => schema;
         private readonly string schema = "review_vectors_" + Guid.CreateVersion7().ToString("N");
 
         public static async Task<Fixture> CreateAsync()
@@ -344,6 +500,27 @@ public sealed class BackendReviewRegressionTests
             var builder = new NpgsqlDataSourceBuilder(connection); builder.UseVector(); fixture.dataSource = builder.Build();
             fixture.Store = new PostgreSqlVectorStore(fixture.dataSource, Microsoft.Extensions.Options.Options.Create(new PostgreSqlVectorStoreOptions { Schema = fixture.schema }));
             return fixture;
+        }
+
+        public async Task SeedArchivedContextVectorsAsync(string profile, Guid[] ids)
+        {
+            var table = PostgreSqlVectorSqlBuilder.QuoteQualifiedName(schema, VectorCollectionNamePolicy.CreateContextCollectionName(profile));
+            await using var command = dataSource.CreateCommand($"INSERT INTO {table} (context_item_id, depot_id, workspace_id, kind, embedding_input_hash, embedding) SELECT id, @depot, @workspace, 'fact', 'hash', '[1,0,0]'::vector FROM unnest(@ids) AS id");
+            command.Parameters.AddWithValue("depot", Depot.Id);
+            command.Parameters.AddWithValue("workspace", Root.Id);
+            command.Parameters.AddWithValue("ids", ids);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        public async Task SeedDocumentOrphansAsync(string profile, Guid documentId, int count)
+        {
+            var table = PostgreSqlVectorSqlBuilder.QuoteQualifiedName(schema, VectorCollectionNamePolicy.CreateDocumentCollectionName(profile));
+            await using var command = dataSource.CreateCommand($"INSERT INTO {table} (document_chunk_id, document_id, depot_id, workspace_id, embedding_input_hash, embedding) SELECT gen_random_uuid(), @document, @depot, @workspace, 'hash', '[1,0,0]'::vector FROM generate_series(1, @count)");
+            command.Parameters.AddWithValue("document", documentId);
+            command.Parameters.AddWithValue("depot", Depot.Id);
+            command.Parameters.AddWithValue("workspace", Root.Id);
+            command.Parameters.AddWithValue("count", count);
+            await command.ExecuteNonQueryAsync();
         }
 
         public ContextItem Context(string content, DateTimeOffset now, Guid? workspaceId = null) =>

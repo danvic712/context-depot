@@ -3,11 +3,8 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { AppSelect } from "@/components/ui/AppSelect";
 import { Button } from "@/components/ui/button";
-import {
-  contextKinds,
-  type SearchWorkspace,
-  type SearchHit,
-} from "./search-api";
+import { type SearchWorkspace, type SearchHit } from "./search-api";
+import { contextKinds } from "@/features/knowledge/knowledge-models";
 
 export function SearchFilters({
   params,

@@ -129,6 +129,12 @@ internal static class PostgreSqlVectorSqlBuilder
             .Where(property => property is not VectorStoreKeyProperty)
             .Select(property => $"{QuoteIdentifier(GetStorageName(property))} = EXCLUDED.{QuoteIdentifier(GetStorageName(property))}"));
 
+        if (keyName is "document_chunk_id" or "context_item_id")
+        {
+            // Hold source row locks through the insert. A repair batch computed before
+            // permanent deletion cannot recreate a vector after its chunk is removed.
+            return $"WITH incoming ({columns}) AS (VALUES ({values})) INSERT INTO {table} ({columns}) SELECT {columns} FROM incoming WHERE {BuildSourceExists("incoming", keyName == "context_item_id", lockSource: true)} ON CONFLICT ({QuoteIdentifier(keyName)}) DO UPDATE SET {updates};";
+        }
         return $"INSERT INTO {table} ({columns}) VALUES ({values}) ON CONFLICT ({QuoteIdentifier(keyName)}) DO UPDATE SET {updates};";
     }
 
@@ -151,10 +157,31 @@ internal static class PostgreSqlVectorSqlBuilder
     public static string QuoteQualifiedName(string schema, string collectionName) =>
         $"{QuoteIdentifier(schema)}.{QuoteIdentifier(collectionName)}";
 
-    internal static string BuildSourceExists(string vectorQualifier, bool context)
+    /// <summary>
+    /// Builds a source-existence predicate scoped to the vector row's depot, workspace and resource identity.
+    /// </summary>
+    /// <param name="vectorQualifier">
+    /// The trusted SQL alias used to qualify vector identity columns.
+    /// </param>
+    /// <param name="context">
+    /// Whether to inspect a context source instead of a document chunk and its owning document.
+    /// </param>
+    /// <param name="lockSource">
+    /// Whether to acquire source-row key-share locks for a vector write instead of applying retrieval-time validity bounds.
+    /// </param>
+    /// <returns>
+    /// An EXISTS predicate suitable for the vector read or write statement.
+    /// </returns>
+    /// <remarks>
+    /// Write locks are held by the surrounding statement transaction so a concurrent permanent deletion
+    /// cannot be followed by insertion of a vector for the deleted source. Retrieval predicates apply
+    /// context validity at the source_now parameter; write predicates check active source identity.
+    /// </remarks>
+    internal static string BuildSourceExists(string vectorQualifier, bool context, bool lockSource = false)
     {
         if (context)
         {
+            if (lockSource) return $"EXISTS (SELECT 1 FROM public.context_items AS source WHERE source.id = {vectorQualifier}.context_item_id AND source.depot_id = {vectorQualifier}.depot_id AND source.workspace_id = {vectorQualifier}.workspace_id AND source.status = 'Active' FOR KEY SHARE OF source)";
             return $"""
                 EXISTS (SELECT 1 FROM public.context_items AS source
                 WHERE source.id = {vectorQualifier}.context_item_id
@@ -174,7 +201,8 @@ internal static class PostgreSqlVectorSqlBuilder
               AND source.document_id = {vectorQualifier}.document_id
               AND source.depot_id = {vectorQualifier}.depot_id
               AND source.workspace_id = {vectorQualifier}.workspace_id
-              AND document.status = 'Active' AND document.index_status = 'Indexed')
+              AND document.status = 'Active' AND document.index_status = 'Indexed'
+              {(lockSource ? "FOR KEY SHARE OF source, document" : "")})
             """;
     }
 

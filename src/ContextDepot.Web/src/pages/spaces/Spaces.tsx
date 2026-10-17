@@ -1,22 +1,30 @@
 import { useTranslation } from "react-i18next";
-import { PageHeader } from "@/components/content/PageHeader";
 import { CreateWorkspaceDialog } from "@/features/home/CreateWorkspaceDialog";
 import { SpaceDirectory } from "@/features/spaces/SpaceDirectory";
-import { useSpaceDirectory } from "@/features/spaces/use-space-directory";
+import { useDirectoryPage } from "@/features/spaces/use-space-directory";
+import { SpaceDirectoryFilters } from "@/features/spaces/SpaceDirectoryFilters";
+import { PageHeader } from "@/components/content/PageHeader";
 import "@/styles/spaces.css";
 
 export function Spaces() {
   const { t } = useTranslation();
-  const spaces = useSpaceDirectory();
+  const directory = useDirectoryPage();
   return (
     <div className="spaces-workbench spaces-directory-page">
       <PageHeader
-        eyebrow={t("spacesKicker")}
         title={t("spacesTitle")}
         description={t("spacesSub")}
-        actions={<CreateWorkspaceDialog onCreated={spaces.onCreated} />}
+        actions={
+          <CreateWorkspaceDialog onCreated={directory.resource.onCreated} />
+        }
       />
-      <SpaceDirectory resource={spaces} />
+      <SpaceDirectoryFilters
+        filters={directory.filters}
+        pending={directory.resource.pending}
+        onApply={directory.apply}
+        onReset={directory.reset}
+      />
+      <SpaceDirectory directory={directory} />
     </div>
   );
 }

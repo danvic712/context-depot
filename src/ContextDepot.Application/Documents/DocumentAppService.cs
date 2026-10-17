@@ -24,6 +24,7 @@ public sealed class DocumentAppService(
     TimeProvider timeProvider) : IDocumentAppService
 {
     private readonly CanonicalDocumentIndexer indexer = new(repository, markdownStore, chunker, sourceSafety, idGenerator, timeProvider);
+    private readonly DocumentLinkValidator linkValidator = new(repository, markdownStore);
 
     public async Task<DocumentModel> UpsertAsync(UpsertDocumentCommand command, CancellationToken cancellationToken)
     {
@@ -64,13 +65,17 @@ public sealed class DocumentAppService(
             throw new ContextDepotApplicationException(ApplicationErrorCodes.DocumentConflict);
         }
 
+        var links = await linkValidator.ValidateAsync(depotId, workspace.Id, workspace.Path, normalizedPath,
+            command.Content, cancellationToken);
+        if (!links.IsValid) throw new DocumentLinkValidationException(links.Errors);
+
         var now = timeProvider.GetUtcNow();
         if (currentFile is not null && document is { Status: DocumentStatus.Active, IndexStatus: DocumentIndexStatus.Indexed } &&
             string.Equals(currentFile.ContentHash, incomingHash, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(document.IndexedContentHash, incomingHash, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(document.Title, command.Title.Trim(), StringComparison.Ordinal))
         {
-            return ToModel(document, workspace.Path);
+            return ToModel(document, workspace.Path) with { LinkValidation = links };
         }
 
         if (document is not null)
@@ -112,7 +117,7 @@ public sealed class DocumentAppService(
             normalizedPath,
             command.Title.Trim(),
             canonical), cancellationToken);
-        return ToModel(result.Document, workspace.Path);
+        return ToModel(result.Document, workspace.Path) with { LinkValidation = links };
     }
 
     public async Task<DocumentContentModel?> GetAsync(Guid documentId, CancellationToken cancellationToken)
@@ -135,8 +140,29 @@ public sealed class DocumentAppService(
             return null;
         }
 
-        var model = ToModel(document, workspace.Path);
+        // Re-read target state on explicit document_get, including unchanged-source retries.
+        var links = await linkValidator.ValidateAsync(currentDepot.DepotId, workspace.Id, workspace.Path,
+            document.Path, markdown.Content, cancellationToken);
+        var model = ToModel(document, workspace.Path) with { LinkValidation = links };
         return new DocumentContentModel(model, markdown.Content, markdown.ContentHash);
+    }
+
+    public async Task<Guid> ResolveLinkAsync(Guid sourceId, string path, CancellationToken cancellationToken, Guid? workspaceId = null)
+    {
+        var source = await repository.GetByIdAsync(currentDepot.DepotId, sourceId, cancellationToken);
+        if (source is null || source.Status != DocumentStatus.Active ||
+            (workspaceId is not null && source.WorkspaceId != workspaceId))
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.DocumentNotFound);
+
+        var workspace = await workspaceAppService.GetAsync(source.WorkspaceId, cancellationToken);
+        if (workspace is null)
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.DocumentNotFound);
+
+        var targetPath = DocumentPath.ResolveLink(source.Path, path);
+        var target = await repository.GetByPathAsync(currentDepot.DepotId, workspace.Id, targetPath, cancellationToken);
+        if (target is null || target.Status != DocumentStatus.Active)
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.DocumentNotFound);
+        return target.Id;
     }
 
     public async Task ArchiveAsync(Guid documentId, CancellationToken cancellationToken)

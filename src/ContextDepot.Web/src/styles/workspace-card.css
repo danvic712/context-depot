@@ -19,9 +19,9 @@
   min-height: 196px;
   min-width: 0;
   border: 1px solid var(--border);
-  border-radius: var(--radius-card);
+  border-radius: 1rem;
   background: var(--surface);
-  padding: 20px;
+  padding: 1.5rem;
   color: var(--foreground);
   text-decoration: none;
   text-align: left;
@@ -34,11 +34,11 @@ a.space-card:hover,
 .space-create-card:hover {
   background: var(--row-hover);
   border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
-  transform: translateY(-2px);
 }
 a.space-card:active,
 .space-create-card:active {
-  transform: translateY(0);
+  background: var(--selection);
+  transition-duration: 0ms;
 }
 .space-card:focus-visible {
   outline: 2px solid var(--primary);
@@ -167,5 +167,20 @@ a.space-card:hover .space-card-arrow {
   .space-card {
     padding: var(--space-4);
     min-height: 196px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .space-card,
+  .space-card-arrow {
+    transition: none;
+  }
+  a.space-card:hover .space-card-arrow {
+    transform: none;
+  }
+}
+@media (prefers-contrast: more) {
+  .space-card {
+    border-color: var(--foreground);
   }
 }

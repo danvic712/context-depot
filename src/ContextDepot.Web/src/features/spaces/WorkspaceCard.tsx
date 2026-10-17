@@ -2,7 +2,7 @@ import { ChevronRightIcon, FolderIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { WorkspaceSummary } from "@/features/home/home-api";
+import { type WorkspaceSummary } from "@/features/spaces/workspace-summary";
 import "@/styles/workspace-card.css";
 
 type Workspace = Pick<
@@ -12,25 +12,33 @@ type Workspace = Pick<
 
 export function WorkspaceCounts({
   space,
+  hideEmpty = false,
 }: {
   space: Pick<Workspace, "contextCount" | "documentCount">;
+  hideEmpty?: boolean;
 }) {
   const { t, i18n } = useTranslation();
+  if (hideEmpty && space.contextCount === 0 && space.documentCount === 0)
+    return null;
   const number = new Intl.NumberFormat(i18n.resolvedLanguage);
   return (
     <div className="space-counts" title={t("spaceCountsHint")}>
-      <span>
-        {t("spacesContextCount", {
-          count: space.contextCount,
-          value: number.format(space.contextCount),
-        })}
-      </span>
-      <span>
-        {t("spacesDocumentCount", {
-          count: space.documentCount,
-          value: number.format(space.documentCount),
-        })}
-      </span>
+      {(!hideEmpty || space.contextCount > 0) && (
+        <span>
+          {t("spacesContextCount", {
+            count: space.contextCount,
+            value: number.format(space.contextCount),
+          })}
+        </span>
+      )}
+      {(!hideEmpty || space.documentCount > 0) && (
+        <span>
+          {t("spacesDocumentCount", {
+            count: space.documentCount,
+            value: number.format(space.documentCount),
+          })}
+        </span>
+      )}
     </div>
   );
 }
@@ -48,7 +56,11 @@ export function WorkspaceCard({
     <Link
       className="space-card"
       to={`/spaces/${space.id}`}
-      state={{ from: location.pathname + location.search, navigation }}
+      state={{
+        from: location.pathname + location.search,
+        navigation,
+        focusSpace: true,
+      }}
     >
       <div className="space-card-top">
         <span className="space-card-icon">

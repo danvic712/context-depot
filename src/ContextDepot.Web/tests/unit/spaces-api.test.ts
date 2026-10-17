@@ -1,11 +1,18 @@
 import { describe, expect, test } from "bun:test";
 import { httpClient } from "../../src/lib/http-client";
+import { defaultDirectoryFilters } from "../../src/features/spaces/directory-query";
 import {
   getSpace,
   getSpaceDirectory,
   parseDirectory,
   parseSpaceDetail,
 } from "../../src/features/spaces/spaces-api";
+
+import {
+  WorkspaceContentType,
+  WorkspaceUpdateWindow,
+  WorkspaceSortOrder,
+} from "../../src/features/spaces/directory-enums";
 
 const space = {
   id: "root-id",
@@ -60,7 +67,10 @@ describe("Space browser contracts", () => {
         requests.push(url.pathname + url.search);
         return Response.json(
           url.pathname.endsWith("/browse")
-            ? directory
+            ? {
+                ...directory,
+                pageSize: Number(url.searchParams.get("pageSize") ?? 12),
+              }
             : { workspace: space, ancestors: [] },
         );
       },
@@ -81,11 +91,32 @@ describe("Space browser contracts", () => {
         "/api/workspaces/browse?parentId=root-id&page=2&pageSize=12",
         "/api/workspaces/root-id",
       ]);
+      await getSpaceDirectory(undefined, 1, controller.signal, {
+        ...defaultDirectoryFilters,
+        query: "项目",
+        content: WorkspaceContentType.Both,
+        updated: WorkspaceUpdateWindow.Month,
+        sort: WorkspaceSortOrder.Name,
+      });
+      const filtered = new URL(requests[2]!, server.url);
+      expect(filtered.searchParams.get("query")).toBe("项目");
+      expect(filtered.searchParams.get("content")).toBe("both");
+      expect(filtered.searchParams.get("updatedWithinDays")).toBe("30");
+      expect(filtered.searchParams.get("sort")).toBe("name");
+      const custom = await getSpaceDirectory(
+        undefined,
+        2,
+        controller.signal,
+        defaultDirectoryFilters,
+        6,
+      );
+      expect(custom.pageSize).toBe(6);
+      expect(requests[3]).toBe("/api/workspaces/browse?page=2&pageSize=6");
       controller.abort();
       await expect(
         getSpaceDirectory(undefined, 1, controller.signal),
       ).rejects.toThrow();
-      expect(requests.length).toBe(2);
+      expect(requests.length).toBe(4);
     } finally {
       httpClient.interceptors.request.eject(interceptor);
       server.stop(true);

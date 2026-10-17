@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { httpClient } from "../../src/lib/http-client";
 import {
-  createWorkspace,
   getKnowledge,
   getReadiness,
   getWorkspaces,
-  parseKnowledge,
-  parseWorkspace,
 } from "../../src/features/home/home-api";
+import { createWorkspace } from "../../src/features/spaces/workspace-management-api";
+import { parseKnowledge } from "../../src/features/knowledge/knowledge-summary";
+import { parseWorkspace } from "../../src/features/spaces/workspace-summary";
 
 const now = "2026-10-01T00:00:00Z";
 const workspace = {

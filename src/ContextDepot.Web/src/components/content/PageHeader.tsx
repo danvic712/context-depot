@@ -36,17 +36,26 @@ export function PageHeader({
   );
 }
 
-export function PageHeaderSkeleton({ welcome = false }: { welcome?: boolean }) {
+export function PageHeaderSkeleton({
+  welcome = false,
+  actions,
+  eyebrow = true,
+}: {
+  welcome?: boolean;
+  actions?: ReactNode;
+  eyebrow?: boolean;
+}) {
   return (
     <div
       className={cn("page-heading", welcome && "page-heading-welcome")}
       aria-hidden="true"
     >
       <div className="page-heading-copy">
-        <Skeleton className="h-4 w-28" />
+        {eyebrow && <Skeleton className="h-4 w-28" />}
         <Skeleton className="page-title-skeleton" />
         <Skeleton className="h-4 w-3/4" />
       </div>
+      {actions && <div className="page-heading-actions">{actions}</div>}
     </div>
   );
 }

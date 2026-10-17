@@ -16,4 +16,7 @@ public sealed record DocumentModel(
     DocumentIndexStatus IndexStatus,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    IReadOnlyList<DocumentChunkModel> Chunks);
+    IReadOnlyList<DocumentChunkModel> Chunks)
+{
+    public DocumentLinkValidation LinkValidation { get; init; } = DocumentLinkValidation.Empty;
+}

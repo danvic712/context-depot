@@ -1,12 +1,13 @@
 import { useCallback } from "react";
+import { useKnowledgeReading } from "./knowledge-reading-context";
 import { useRequestResource } from "@/hooks/use-request-resource";
 import {
   getSearchWorkspaces,
   searchKnowledge,
   getKnowledgePreview,
   type SearchHit,
-  type ContextKind,
 } from "./search-api";
+import { type ContextKind } from "@/features/knowledge/knowledge-models";
 
 export function useKnowledgeSearch(
   query: string,
@@ -15,6 +16,7 @@ export function useKnowledgeSearch(
   kind?: ContextKind,
   immediate = false,
 ) {
+  const revision = useKnowledgeReading()?.revision ?? 0;
   const normalized = query.trim();
   const key = JSON.stringify([normalized, workspace, kind]);
   const load = useCallback(
@@ -24,7 +26,7 @@ export function useKnowledgeSearch(
   );
   return useRequestResource(
     key,
-    retry,
+    retry + revision,
     normalized ? load : null,
     immediate ? 0 : 220,
   );
@@ -38,6 +40,7 @@ export function useKnowledgePreview(
   item: SearchHit | undefined,
   retry: number,
 ) {
+  const revision = useKnowledgeReading()?.revision ?? 0;
   const id = item?.id;
   const type = item?.type;
   const key = JSON.stringify([id, type]);
@@ -46,5 +49,5 @@ export function useKnowledgePreview(
       getKnowledgePreview({ id: id!, type: type! }, signal),
     [id, type],
   );
-  return useRequestResource(key, retry, item ? load : null);
+  return useRequestResource(key, retry + revision, item ? load : null);
 }

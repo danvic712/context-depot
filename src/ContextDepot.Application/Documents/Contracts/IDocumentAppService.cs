@@ -8,5 +8,7 @@ public interface IDocumentAppService
 
     Task<DocumentContentModel?> GetAsync(Guid documentId, CancellationToken cancellationToken);
 
+    Task<Guid> ResolveLinkAsync(Guid sourceId, string path, CancellationToken cancellationToken, Guid? workspaceId = null);
+
     Task ArchiveAsync(Guid documentId, CancellationToken cancellationToken);
 }

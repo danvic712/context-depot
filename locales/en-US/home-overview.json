@@ -55,7 +55,7 @@
   "homeUnavailable": "Unavailable",
   "homeUnknown": "Unknown",
   "homeReadinessHint": "Service status",
-  "spaceCountsHint": "Current space only; excludes child spaces",
+  "spaceCountsHint": "Contexts and documents saved in this space",
   "homeReadinessDetail": "Checks the database, document storage and retrieval indexes. Model connections are not tested.",
   "homeKnowledgeEmptyHint": "Connect an MCP client to save context or a document. Your latest updates will appear here.",
   "homeSaveContext": "Save a piece of context",

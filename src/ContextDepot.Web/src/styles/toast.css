@@ -1,6 +1,9 @@
 :root:has(
     [data-slot="dropdown-menu-content"][data-state="open"],
-    [data-slot="select-content"][data-state="open"]
+    [data-slot="select-content"][data-state="open"],
+    .create-space-dialog[data-state="open"],
+    .space-browser-dialog[data-state="open"],
+    .archived-document-confirm[data-state="open"]
   )
   .toaster[data-sonner-toaster] {
   transform: translateX(

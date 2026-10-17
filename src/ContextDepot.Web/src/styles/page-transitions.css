@@ -49,3 +49,48 @@
     animation: none;
   }
 }
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+::view-transition-group(space-items) {
+  animation: none;
+}
+::view-transition-old(space-items) {
+  animation: content-crossfade-out 120ms ease-out both;
+}
+::view-transition-new(space-items) {
+  animation: content-crossfade-in 160ms ease-out both;
+}
+@keyframes content-crossfade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes content-crossfade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/* Keep input responsive while native snapshots fade between display choices. */
+::view-transition {
+  pointer-events: none;
+}
+.frame > .page.space > .route-content {
+  animation: none;
+}

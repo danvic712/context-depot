@@ -4,7 +4,8 @@ import { useTranslation } from "react-i18next";
 import { ChevronRightIcon } from "lucide-react";
 import { RequestFeedback } from "@/components/feedback/RequestFeedback";
 import type { Resource } from "@/hooks/use-request-resource";
-import { hitKey, type SearchHit, type SearchResponse } from "./search-api";
+import { type SearchHit, type SearchResponse } from "./search-api";
+import { knowledgeKey } from "@/features/knowledge/knowledge-models";
 import { SearchEmpty, SearchResultText } from "./SearchContent";
 import { SearchResultsSkeleton } from "./SearchSkeleton";
 
@@ -98,16 +99,18 @@ export function SearchResults({
           (hits.length ? (
             <ul className="search-result-rows">
               {hits.map((hit, index) => (
-                <li key={hitKey(hit)}>
+                <li key={knowledgeKey(hit)}>
                   <button
                     type="button"
                     className="search-result-row"
-                    data-selected={hitKey(hit) === selected || undefined}
-                    aria-current={hitKey(hit) === selected ? "true" : undefined}
-                    tabIndex={hitKey(hit) === selected ? 0 : -1}
+                    data-selected={knowledgeKey(hit) === selected || undefined}
+                    aria-current={
+                      knowledgeKey(hit) === selected ? "true" : undefined
+                    }
+                    tabIndex={knowledgeKey(hit) === selected ? 0 : -1}
                     onClick={() => onSelect(hit, true)}
                     onFocus={() => {
-                      if (hitKey(hit) !== selected) onSelect(hit, false);
+                      if (knowledgeKey(hit) !== selected) onSelect(hit, false);
                     }}
                     onKeyDown={(event) => {
                       if (

@@ -3,6 +3,8 @@
   "DocumentConflict": "文档内容已经被其他操作更新，请重新读取后再保存。",
   "InvalidDocumentTitle": "文档标题不能为空，请输入标题。",
   "InvalidDocumentPath": "文档路径无效，请使用安全的相对 Markdown 路径。",
+  "InvalidDocumentLinks": "部分 Markdown 链接使用了不安全的协议或无效路径，请根据链接诊断修正后重新保存。",
   "DocumentWriteFailed": "无法保存文档，请稍后重试。",
-  "MarkdownFileMissing": "找不到文档对应的 Markdown 文件，索引将在文件恢复后重试。"
+  "MarkdownFileMissing": "找不到文档对应的 Markdown 文件，索引将在文件恢复后重试。",
+  "DocumentDeleteFailed": "暂时无法删除文档，请刷新状态后重试。"
 }

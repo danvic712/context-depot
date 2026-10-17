@@ -1,3 +1,5 @@
+import { KnowledgeReadingProvider } from "./features/knowledge/KnowledgeReadingProvider";
+import { stripDisplayParams } from "@/lib/display-query";
 import {
   useCallback,
   useEffect,
@@ -89,7 +91,7 @@ export default function App() {
   const navigate = useNavigate();
   const [rawParams, setParams] = useSearchParams();
   const params = useMemo(
-    () => normalizeKnowledgeParams(rawParams),
+    () => stripDisplayParams(normalizeKnowledgeParams(rawParams)),
     [rawParams],
   );
   const matched = useMatches().at(-1);
@@ -99,11 +101,19 @@ export default function App() {
     navigation: "home",
   }) as PageHandle;
   const page = handle.page;
-  const itemId = matched?.params.knowledgeId ?? matched?.params.spaceId;
+  const spaceRouteKey = matched?.params.spaceId
+    ? `/spaces/${matched.params.spaceId}`
+    : undefined;
+  const routeKey = spaceRouteKey ?? location.pathname;
   const navigation = useNavigation();
   const changingPage =
     navigation.state === "loading" &&
     navigation.location?.pathname !== location.pathname;
+  const stayingInSpace =
+    !!spaceRouteKey &&
+    (navigation.location?.pathname === spaceRouteKey ||
+      navigation.location?.pathname.startsWith(spaceRouteKey + "/"));
+  const showRouteLoading = changingPage && !stayingInSpace;
   const homeLayout =
     navigation.state === "loading"
       ? navigation.location?.pathname === "/"
@@ -215,7 +225,7 @@ export default function App() {
     );
   }
   return (
-    <>
+    <KnowledgeReadingProvider>
       {searchDialog && (
         <FeatureBoundary
           key={searchDialog.session}
@@ -259,7 +269,7 @@ export default function App() {
             ? "home"
             : searchLayout
               ? "search"
-              : changingPage
+              : showRouteLoading
                 ? "loading"
                 : page
         }
@@ -271,16 +281,17 @@ export default function App() {
         }
         feedback={appearanceFeedback}
       >
-        {changingPage ? (
+        {showRouteLoading ? (
           <RouteLoading
             pathname={navigation.location?.pathname ?? location.pathname}
+            search={navigation.location?.search ?? location.search}
           />
         ) : (
-          <div className="route-content" key={location.pathname}>
-            <Outlet key={itemId} context={context} />
+          <div className="route-content" key={routeKey}>
+            <Outlet context={context} />
           </div>
         )}
       </AppShell>
-    </>
+    </KnowledgeReadingProvider>
   );
 }
