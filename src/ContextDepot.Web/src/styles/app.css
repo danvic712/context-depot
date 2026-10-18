@@ -221,15 +221,6 @@ h1 {
   max-width: 900px;
 }
 
-.frame > footer {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 16px var(--content-inset) 24px;
-  color: var(--muted);
-  font-size: 11px;
-}
-
 code,
 pre {
   font-family: var(--font-mono);
@@ -352,12 +343,6 @@ kbd {
   }
   .page {
     padding: 14px 20px 50px;
-  }
-  .frame > footer {
-    padding: 10px 20px 20px;
-  }
-  .frame > footer span:last-child {
-    display: none;
   }
   .skip-link {
     left: 20px;

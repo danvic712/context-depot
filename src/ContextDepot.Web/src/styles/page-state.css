@@ -286,7 +286,6 @@
   min-height: 100dvh;
 }
 .shell:has(.page-state[data-layout="fullscreen"]) .rail,
-.shell:has(.page-state[data-layout="fullscreen"]) .frame > footer,
 .shell:has(.page-state[data-layout="fullscreen"]) .header-search {
   display: none;
 }

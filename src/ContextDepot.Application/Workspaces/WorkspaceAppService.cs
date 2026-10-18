@@ -40,6 +40,13 @@ public sealed class WorkspaceAppService(
     public Task<WorkspaceTopology> LoadTopologyAsync(CancellationToken cancellationToken) =>
         repository.LoadVisibleTopologyAsync(currentDepot.DepotId, cancellationToken);
 
+    /// <summary>Lists readable named scopes without restricting them to a parent level.</summary>
+    public async Task<IReadOnlyList<WorkspaceModel>> ListVisibleAsync(CancellationToken cancellationToken)
+    {
+        var entities = await repository.ListVisibleWithPathsAsync(currentDepot.DepotId, cancellationToken);
+        return entities.Select(lookup => WorkspaceModelMapper.ToModel(lookup.Workspace, lookup.Path)).ToArray();
+    }
+
     public async Task<WorkspaceModel> UpsertAsync(UpsertWorkspaceCommand command, CancellationToken cancellationToken)
     {
         var (path, name, description) = NormalizeWrite(command.Path, command.Name, command.Description, command.MetadataJson);

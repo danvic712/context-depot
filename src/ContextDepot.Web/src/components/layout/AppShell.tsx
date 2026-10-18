@@ -49,12 +49,6 @@ export function AppShell({
         >
           {children}
         </main>
-        {page !== "spaces" && (
-          <footer>
-            <span>ContextDepot</span>
-            <span>{t("footerTagline")}</span>
-          </footer>
-        )}
         <BackToTop />
       </div>
     </div>

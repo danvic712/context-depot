@@ -181,7 +181,9 @@ export function KnowledgeReadingSession({
         }}
         onCloseAutoFocus={(event) => {
           event.preventDefault();
-          onClose(deleted.current);
+          // Radix also restores focus when an open sheet is unmounted by
+          // route navigation. That cleanup must not navigate back again.
+          if (!open) onClose(deleted.current);
         }}
       >
         <div className="knowledge-reader-session" ref={reader}>

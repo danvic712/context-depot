@@ -154,19 +154,10 @@
   font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
-.inference-dimensions-help details {
+.inference-dimensions-details {
   margin-top: 12px;
 }
-.inference-dimensions-help summary {
-  cursor: pointer;
-  color: var(--primary);
-}
-.inference-dimensions-help summary:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 3px;
-  border-radius: 2px;
-}
-.inference-dimensions-help details > p {
+.inference-dimensions-help [data-slot="collapsible-content"] > p {
   margin-top: 8px;
 }
 @media (max-width: 900px) {

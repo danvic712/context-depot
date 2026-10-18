@@ -39,6 +39,25 @@ public sealed class WorkspaceAppServiceTests
         Assert.Equal("projects/context-depot", result!.Path);
     }
 
+    [Fact]
+    public async Task Visible_choices_keep_display_names_paths_and_depot_scope()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var workspace = new Workspace(Guid.CreateVersion7(), DepotId, Guid.CreateVersion7(), "项目笔记", "notes", null, now);
+        var repository = new Mock<IWorkspaceRepository>(MockBehavior.Strict);
+        using var cancellation = new CancellationTokenSource();
+        repository.Setup(x => x.ListVisibleWithPathsAsync(DepotId, cancellation.Token))
+            .ReturnsAsync(new[] { new WorkspacePathLookup(workspace, "projects/notes") });
+
+        var result = Assert.Single(await CreateService(repository).ListVisibleAsync(cancellation.Token));
+
+        Assert.Equal(workspace.Id, result.Id);
+        Assert.Equal("项目笔记", result.Name);
+        Assert.Equal("projects/notes", result.Path);
+        repository.Verify(x => x.ListVisibleWithPathsAsync(DepotId, cancellation.Token), Times.Once);
+        repository.VerifyNoOtherCalls();
+    }
+
     [Theory]
     [InlineData(" ", "{}", ApplicationErrorCodes.InvalidWorkspaceName)]
     [InlineData("Valid", "[]", ApplicationErrorCodes.InvalidWorkspaceMetadata)]

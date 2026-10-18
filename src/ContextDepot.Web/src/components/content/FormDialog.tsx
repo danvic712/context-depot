@@ -23,6 +23,7 @@ export function FormDialog({
   preventDismiss = false,
   variant = "default",
   footer,
+  bodyFooter,
   error,
   children,
   onSubmit,
@@ -32,13 +33,14 @@ export function FormDialog({
   ComponentProps<typeof DialogContent>,
   "title" | "closeDisabled" | "onEscapeKeyDown" | "onPointerDownOutside"
 > & {
-  title: string;
+  title: ReactNode;
   titleIcon?: LucideIcon;
   description: string;
   pending?: boolean;
   preventDismiss?: boolean;
   variant?: "default" | "wide";
   footer: ReactNode;
+  bodyFooter?: ReactNode;
   error?: string;
   onSubmit?: FormEventHandler<HTMLFormElement>;
   formRef?: Ref<HTMLFormElement>;
@@ -50,6 +52,9 @@ export function FormDialog({
       <div className="form-dialog-body">
         <FieldGroup className="form-dialog-fields">{children}</FieldGroup>
       </div>
+      {bodyFooter && (
+        <div className="form-dialog-body-footer">{bodyFooter}</div>
+      )}
       {error && (
         <RequestFeedback
           className="form-dialog-feedback"

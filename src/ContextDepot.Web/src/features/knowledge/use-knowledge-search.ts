@@ -5,6 +5,7 @@ import {
   getSearchWorkspaces,
   searchKnowledge,
   getKnowledgePreview,
+  getRecentKnowledge,
   type SearchHit,
 } from "./search-api";
 import { type ContextKind } from "@/features/knowledge/knowledge-models";
@@ -34,6 +35,25 @@ export function useKnowledgeSearch(
 
 export function useSearchWorkspaces(retry: number) {
   return useRequestResource("search-workspaces", retry, getSearchWorkspaces);
+}
+
+export function useRecentKnowledge(
+  enabled: boolean,
+  workspace: string | undefined,
+  type: string | undefined,
+  kind: ContextKind | undefined,
+  retry: number,
+) {
+  const revision = useKnowledgeReading()?.revision ?? 0;
+  const load = useCallback(
+    (signal: AbortSignal) => getRecentKnowledge(workspace, type, kind, signal),
+    [workspace, type, kind],
+  );
+  return useRequestResource(
+    JSON.stringify(["recent-knowledge", workspace, type, kind]),
+    retry + revision,
+    enabled ? load : null,
+  );
 }
 
 export function useKnowledgePreview(

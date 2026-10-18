@@ -1,8 +1,8 @@
 {
   "appVersion": "Version",
-  "appVersionMissing": "Not provided by server",
+  "appVersionMissing": "Not available",
   "appVersionLoading": "Loading…",
-  "appVersionUnavailable": "Temporarily unavailable",
+  "appVersionUnavailable": "Could not load",
   "loading": "Loading",
   "retry": "Retry",
   "pageLoadError": "Unable to load this page",

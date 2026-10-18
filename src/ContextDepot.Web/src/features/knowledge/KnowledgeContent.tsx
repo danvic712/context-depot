@@ -12,12 +12,14 @@ export function KnowledgeContent({
   headingLevel = 2,
   showWorkspace = true,
   showHeading = true,
+  workspaceName,
   fragment,
 }: {
   detail: KnowledgePreview;
   headingLevel?: 1 | 2;
   showWorkspace?: boolean;
   showHeading?: boolean;
+  workspaceName?: string;
   fragment?: string;
 }) {
   const { t } = useTranslation();
@@ -27,12 +29,20 @@ export function KnowledgeContent({
       {showHeading && (
         <header className="knowledge-heading search-preview-heading">
           <Badge variant="secondary">
-            {t(knowledgeTypes[detail.type].label)}
+            {t(
+              detail.type === "document"
+                ? "searchDocumentType"
+                : knowledgeTypes[detail.type].label,
+            )}
           </Badge>
           <Title tabIndex={headingLevel === 1 ? -1 : undefined}>
             {detail.title}
           </Title>
-          <KnowledgeMetadata detail={detail} showWorkspace={showWorkspace} />
+          <KnowledgeMetadata
+            detail={detail}
+            showWorkspace={showWorkspace}
+            workspaceName={workspaceName}
+          />
         </header>
       )}
       <MarkdownContent
@@ -61,22 +71,30 @@ export function KnowledgeMetadata({
   detail,
   showWorkspace = true,
   showType = false,
+  workspaceName,
 }: {
   detail: KnowledgePreview;
   showWorkspace?: boolean;
   showType?: boolean;
+  workspaceName?: string;
 }) {
   const { t, i18n } = useTranslation();
   return (
     <p className="knowledge-metadata">
       {showType && (
         <Badge variant="secondary">
-          {t(knowledgeTypes[detail.type].label)}
+          {t(
+            detail.type === "document"
+              ? "searchDocumentType"
+              : knowledgeTypes[detail.type].label,
+          )}
         </Badge>
       )}
       {showWorkspace && (
         <>
-          <span className="knowledge-workspace">{detail.workspace}</span>
+          <span className="knowledge-workspace">
+            {workspaceName ?? detail.workspaceName ?? t("searchUnknownSpace")}
+          </span>
           <span aria-hidden="true">·</span>
         </>
       )}

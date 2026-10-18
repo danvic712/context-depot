@@ -1,4 +1,6 @@
 import { useTranslation } from "react-i18next";
+import { useRef } from "react";
+import { usePopoverMotion } from "@/hooks/use-popover-motion";
 import {
   LanguagesIcon,
   SearchIcon,
@@ -62,11 +64,14 @@ function PreferenceMenu({
 }) {
   const selected = options.find((option) => option.value === value);
   const { t } = useTranslation();
+  const { open, present, onOpenChange, ref: menuRef } = usePopoverMotion();
+  const trigger = useRef<HTMLButtonElement>(null);
   const description = `${label}: ${pending ? t("loading") : (selected?.label ?? label)}`;
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={onOpenChange} modal={false}>
       <DropdownMenuTrigger asChild>
         <Button
+          ref={trigger}
           variant="outline"
           className="preference-trigger cursor-pointer"
           aria-label={description}
@@ -76,7 +81,7 @@ function PreferenceMenu({
         >
           {pending ? (
             <LoaderCircleIcon
-              className="animate-spin"
+              className="motion-safe:animate-spin"
               data-icon="inline-start"
               aria-hidden="true"
             />
@@ -98,24 +103,45 @@ function PreferenceMenu({
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="preference-menu">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>{label}</DropdownMenuLabel>
-          <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
-            {options.map((option) => (
-              <DropdownMenuRadioItem
-                key={option.value}
-                value={option.value}
-                indicatorPosition="end"
-                className="preference-option cursor-pointer"
-              >
-                {option.Icon && <option.Icon aria-hidden="true" />}
-                <span lang={option.lang}>{option.label}</span>
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
+      {present && (
+        <DropdownMenuContent
+          ref={menuRef}
+          forceMount
+          align="end"
+          sideOffset={8}
+          collisionPadding={12}
+          className="preference-menu"
+          aria-hidden={!open || undefined}
+          inert={!open || undefined}
+          onInteractOutside={(event) => {
+            if (trigger.current?.contains(event.target as Node))
+              event.preventDefault();
+          }}
+          onEscapeKeyDown={() =>
+            trigger.current?.focus({ preventScroll: true })
+          }
+        >
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>{label}</DropdownMenuLabel>
+            <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
+              {options.map((option) => (
+                <DropdownMenuRadioItem
+                  key={option.value}
+                  value={option.value}
+                  indicatorPosition="end"
+                  className="preference-option cursor-pointer"
+                  onSelect={() =>
+                    trigger.current?.focus({ preventScroll: true })
+                  }
+                >
+                  {option.Icon && <option.Icon aria-hidden="true" />}
+                  <span lang={option.lang}>{option.label}</span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      )}
     </DropdownMenu>
   );
 }

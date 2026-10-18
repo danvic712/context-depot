@@ -4,7 +4,6 @@ import {
   MessageSquareTextIcon,
   PlugIcon,
   RotateCcwIcon,
-  ChevronDownIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { HomeGuideLayout } from "./HomeLayout";
@@ -31,12 +30,11 @@ export function HomeGuide() {
           </li>
         ))}
       </ol>
-      <details className="home-mcp-guide">
-        <summary>
+      <section className="home-mcp-guide" aria-labelledby="home-mcp-title">
+        <h3 id="home-mcp-title" className="home-mcp-title">
           <PlugIcon aria-hidden="true" />
           {t("homeMcpTitle")}
-          <ChevronDownIcon className="home-guide-chevron" aria-hidden="true" />
-        </summary>
+        </h3>
         <div className="home-mcp-content">
           <p>{t("homeMcpHint")}</p>
           <dl>
@@ -56,7 +54,7 @@ export function HomeGuide() {
           </dl>
           <p className="home-mcp-access">{t("homeMcpAccessHint")}</p>
         </div>
-      </details>
+      </section>
     </HomeGuideLayout>
   );
 }

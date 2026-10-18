@@ -74,6 +74,17 @@ public sealed partial class WorkspaceRepository(
             .ToArray();
     }
 
+    /// <summary>Reuses the request's topology snapshot while retaining workspace grant filtering.</summary>
+    public async Task<IReadOnlyList<WorkspacePathLookup>> ListVisibleWithPathsAsync(Guid depotId, CancellationToken cancellationToken)
+    {
+        var tree = await topologyProvider.GetAsync(depotId, cancellationToken);
+        return tree.Workspaces
+            .Where(workspace => workspaceAccess.CanAccess(workspace.Id))
+            .OrderBy(workspace => tree.Topology.Paths[workspace.Id], StringComparer.Ordinal)
+            .Select(workspace => new WorkspacePathLookup(workspace, tree.Topology.Paths[workspace.Id]))
+            .ToArray();
+    }
+
     // Compatibility for existing repository callers; all decisions live in Application.
     public async Task<WorkspaceUpsertPersistenceResult> UpsertPathAsync(
         Guid depotId, string normalizedPath, string name, string? description, string metadataJson,

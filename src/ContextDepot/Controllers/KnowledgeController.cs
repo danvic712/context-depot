@@ -91,6 +91,19 @@ public sealed class KnowledgeController(OverviewAppService service, KnowledgeSea
         [FromQuery] string? kind = null) =>
         Ok(await search.SearchAsync(query ?? string.Empty, workspace, cancellationToken, kind));
 
+    /// <summary>Lists recently updated knowledge within the search page's current filters.</summary>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <param name="workspace">An optional exact workspace path.</param>
+    /// <param name="type">All, contexts or documents.</param>
+    /// <param name="kind">An optional context category.</param>
+    /// <param name="limit">The collection limit, from one to twenty.</param>
+    /// <returns>The ordered recent collection and continuation indicator.</returns>
+    [HttpGet("recent")]
+    public async Task<ActionResult<ResourceCollection<KnowledgeSummary>>> RecentAsync(CancellationToken cancellationToken,
+        [FromQuery] string? workspace = null, [FromQuery] string? type = null, [FromQuery] string? kind = null,
+        [FromQuery] int limit = 20) =>
+        Ok(await service.ListRecentKnowledgeAsync(limit, workspace, type, kind, cancellationToken));
+
     /// <summary>
     /// Lists the caller's visible workspace scopes for search.
     /// </summary>
@@ -98,13 +111,13 @@ public sealed class KnowledgeController(OverviewAppService service, KnowledgeSea
     /// Cancels the asynchronous operation.
     /// </param>
     /// <returns>
-    /// A task whose result contains workspace identifiers and full paths in path order.
+    /// A task whose result contains readable workspace identifiers, display names and full paths in path order.
     /// </returns>
     /// <response code="200">
     /// The visible search scopes were loaded.
     /// </response>
     [HttpGet("workspaces")]
-    public async Task<ActionResult<IReadOnlyList<KnowledgeWorkspace>>> WorkspacesAsync(CancellationToken cancellationToken) =>
+    public async Task<ActionResult<IReadOnlyList<KnowledgeSearchWorkspace>>> WorkspacesAsync(CancellationToken cancellationToken) =>
         Ok(await search.ListWorkspacesAsync(cancellationToken));
 
     /// <summary>

@@ -109,6 +109,35 @@ describe("Knowledge reader", () => {
 });
 
 describe("Knowledge source navigation", () => {
+  test("dismissing a space reader stays in its owning space after entry from Search", () => {
+    for (const from of [
+      "/search?q=guide&selected=document%3Aone&read=1",
+      "/",
+      "/spaces/another-space?q=notes",
+      "/spaces",
+    ]) {
+      expect(
+        knowledgeReturnTarget({ from }, "owning-space", "?type=documents"),
+      ).toEqual({
+        to: "/spaces/owning-space?type=documents",
+        label: "knowledgeBackSpaces",
+      });
+    }
+  });
+  test("same-space reader dismissal preserves its list filters and pagination", () => {
+    for (const from of [
+      "/spaces/owning-space?q=guide&knowledgePage=2",
+      "/spaces/owning-space/archived?knowledgePage=3",
+    ]) {
+      expect(knowledgeReturnTarget({ from }, "owning-space")).toEqual({
+        to: from,
+        label: "knowledgeBackSpaces",
+      });
+    }
+    expect(knowledgeReturnTarget(undefined, "projects/notes").to).toBe(
+      "/spaces/projects%2Fnotes",
+    );
+  });
   test("keeps valid source queries and selection without relying on browser history", () => {
     for (const from of [
       "/",

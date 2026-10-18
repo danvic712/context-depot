@@ -11,6 +11,9 @@ public interface IWorkspaceAppService
 
     Task<IReadOnlyList<WorkspaceModel>> ListAsync(string? parentPath, CancellationToken cancellationToken);
 
+    /// <summary>Lists all readable workspaces, including nested scopes, with their names and paths.</summary>
+    Task<IReadOnlyList<WorkspaceModel>> ListVisibleAsync(CancellationToken cancellationToken);
+
     Task<WorkspaceTopology> LoadTopologyAsync(CancellationToken cancellationToken);
 
     Task<WorkspaceModel> UpsertAsync(UpsertWorkspaceCommand command, CancellationToken cancellationToken);

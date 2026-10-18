@@ -3,6 +3,7 @@
   padding-bottom: 40px;
 }
 .home-hero {
+  container-type: inline-size;
   position: relative;
   isolation: isolate;
   padding: 28px 0;
@@ -12,6 +13,42 @@
 .home-hero-copy {
   position: relative;
   max-width: 960px;
+}
+.home-hero-art {
+  display: none;
+  position: absolute;
+  top: 32px;
+  right: 24px;
+  width: 160px;
+  height: 160px;
+  pointer-events: none;
+  user-select: none;
+}
+@container (min-width: 1180px) {
+  .home-hero-art {
+    display: block;
+    background: url("../assets/knowledge-keeper.png") center / contain no-repeat;
+  }
+  .home-hero-copy {
+    max-width: min(960px, calc(100% - 208px));
+  }
+}
+.home .space-card {
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--primary) 6%, transparent);
+}
+.home .space-create-card {
+  box-shadow: none;
+}
+.home .space-card:active {
+  box-shadow: none;
+}
+.home a.space-card:active,
+.home .space-create-card:active {
+  transform: translateY(1px);
+}
+.home .space-card:focus-visible .space-card-arrow {
+  color: var(--primary);
+  transform: translateX(2px);
 }
 .home .search-box {
   position: relative;
@@ -23,6 +60,9 @@
   border-radius: var(--radius-card);
   background: var(--elevated);
   box-shadow: var(--shadow-control);
+  transition:
+    border-color var(--motion-fast),
+    box-shadow var(--motion-fast);
 }
 .home .search-input-group input {
   font-size: 14px;
@@ -40,6 +80,14 @@
   padding-inline: 20px;
   margin-right: 6px;
   border-radius: var(--radius-control);
+  box-shadow:
+    inset 0 -1px 0 color-mix(in srgb, var(--foreground) 12%, transparent),
+    0 1px 2px color-mix(in srgb, var(--primary) 10%, transparent);
+}
+.home .search-input-group button[type="submit"]:active:not(:disabled) {
+  transform: scale(0.98);
+  box-shadow: none;
+  transition-duration: 0s;
 }
 .home-section-title {
   display: flex;
@@ -186,6 +234,13 @@
 .home-knowledge-row:focus-visible {
   outline-offset: -2px;
 }
+.home-knowledge-row:active {
+  background: var(--selection);
+  transition-duration: 0s;
+}
+.home-knowledge-row:focus-visible .home-knowledge-copy strong {
+  color: var(--primary);
+}
 .home-knowledge-list li:last-child .home-knowledge-row {
   border-bottom: 0;
 }
@@ -303,33 +358,22 @@
   border-top: 1px solid var(--border);
   padding-top: 16px;
 }
-.home-mcp-guide summary {
+.home-mcp-title {
   display: flex;
+  margin: 0;
   align-items: center;
   gap: var(--space-2);
-  min-height: 44px;
   font-size: 13px;
   font-weight: 500;
-  cursor: pointer;
-  list-style: none;
-}
-.home-mcp-guide summary::-webkit-details-marker {
-  display: none;
 }
 .home-mcp-content {
   padding-top: 12px;
 }
-.home-mcp-guide summary svg {
+.home-mcp-title svg {
   width: 18px;
   height: 18px;
+  flex-shrink: 0;
   color: var(--primary);
-}
-.home-guide-chevron {
-  margin-left: auto;
-  transition: transform var(--motion-fast);
-}
-.home-mcp-guide[open] .home-guide-chevron {
-  transform: rotate(180deg);
 }
 .home-mcp-guide p {
   color: var(--muted);
@@ -534,6 +578,37 @@
   }
 }
 @media (max-width: 640px) {
+  .home-hero .page-heading h1 {
+    word-break: keep-all;
+  }
+  .home .space-card {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 4px 12px;
+    min-height: 0;
+    align-content: start;
+  }
+  .home .space-card-top,
+  .home .space-create-card > .space-card-icon {
+    grid-column: 1;
+    grid-row: 1 / 3;
+  }
+  .home .space-card h3,
+  .home .space-create-card > strong {
+    grid-column: 2;
+    margin: 0;
+  }
+  .home .space-card-description {
+    grid-column: 2;
+    min-height: 0;
+    margin: 0;
+  }
+  .home .space-card-footer {
+    grid-column: 2;
+    min-height: 0;
+    margin-top: 8px;
+    padding-top: 8px;
+  }
   .home-hero {
     padding: 24px 0;
   }
@@ -640,7 +715,20 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .home a.space-card:active,
+  .home .space-card:focus-visible .space-card-arrow,
+  .home .space-create-card:active,
+  .home .search-input-group button[type="submit"]:active:not(:disabled) {
+    transform: none;
+  }
   .home-knowledge-row:hover .home-row-arrow {
     transform: none;
+  }
+}
+@media (prefers-contrast: more) {
+  .home .space-card,
+  .home .search-input-group {
+    border-color: var(--muted);
+    box-shadow: none;
   }
 }

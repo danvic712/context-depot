@@ -2,6 +2,7 @@ import { knowledgeKey } from "./knowledge-models";
 import {
   responseRecord as record,
   responseText as text,
+  responseDate as date,
 } from "@/lib/response-values";
 import type {
   KnowledgeType,
@@ -9,6 +10,7 @@ import type {
   KnowledgePreview,
 } from "./knowledge-models";
 import { httpRequest } from "@/lib/http-client";
+import { parseKnowledge } from "./knowledge-summary";
 
 export interface SearchHit {
   id: string;
@@ -17,6 +19,7 @@ export interface SearchHit {
   workspace: string;
   excerpt: string;
   kind: string;
+  updatedAt?: string;
 }
 export interface SearchResponse {
   items: SearchHit[];
@@ -25,6 +28,7 @@ export interface SearchResponse {
 }
 export interface SearchWorkspace {
   id: string;
+  name: string;
   path: string;
 }
 function rows(value: unknown): unknown[] {
@@ -76,6 +80,8 @@ export function parsePreview(data: unknown): KnowledgePreview {
     title: text(item.title),
     workspace: text(item.workspace),
     content: text(item.content),
+    workspaceName:
+      item.workspaceName == null ? undefined : text(item.workspaceName),
     updatedAt,
   };
 }
@@ -93,6 +99,43 @@ export function searchKnowledge(
     parse: parseSearch,
   });
 }
+
+export const recentKnowledgeLimit = 20;
+export function parseRecentKnowledge(data: unknown): SearchResponse {
+  const value = record(data);
+  date(value.asOf);
+  if (typeof value.hasMore !== "boolean")
+    throw new Error("search.invalid_response");
+  const items = rows(value.items).map((row): SearchHit => {
+    const item = parseKnowledge(row);
+    return {
+      id: item.id,
+      type: item.type,
+      title: item.title,
+      workspace: item.workspace.path,
+      kind: item.kind ?? "",
+      excerpt: "",
+      updatedAt: item.updatedAt,
+    };
+  });
+  if (items.length > recentKnowledgeLimit)
+    throw new Error("search.invalid_response");
+  return { items, degraded: false, limit: recentKnowledgeLimit };
+}
+export function getRecentKnowledge(
+  workspace?: string,
+  type?: string,
+  kind?: ContextKind,
+  signal?: AbortSignal,
+) {
+  return httpRequest({
+    method: "GET",
+    url: "/knowledge/recent",
+    params: { workspace, type, kind, limit: recentKnowledgeLimit },
+    signal,
+    parse: parseRecentKnowledge,
+  });
+}
 export function getSearchWorkspaces(signal?: AbortSignal) {
   return httpRequest({
     method: "GET",
@@ -101,7 +144,9 @@ export function getSearchWorkspaces(signal?: AbortSignal) {
     parse: (data) =>
       rows(data).map((row): SearchWorkspace => {
         const item = record(row);
-        return { id: text(item.id), path: text(item.path) };
+        const name = text(item.name).trim();
+        if (!name) throw new Error("search.invalid_response");
+        return { id: text(item.id), name, path: text(item.path) };
       }),
   });
 }

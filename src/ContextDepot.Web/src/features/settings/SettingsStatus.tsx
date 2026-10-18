@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { CopyIcon } from "lucide-react";
+import { CheckIcon, CopyIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import {
   StatusBadge,
   type StatusTone,
@@ -56,28 +57,43 @@ export function CopySetting({
   onCopyError?: () => void;
 }) {
   const { t } = useTranslation();
+  const [copiedValue, setCopiedValue] = useState<string>();
+  const reset = useRef<number | undefined>(undefined);
+  const copied = copiedValue === value;
+  useEffect(() => () => window.clearTimeout(reset.current), []);
   return (
     <Button
       variant="outline"
       size={showLabel ? "default" : "icon"}
       type="button"
       aria-label={label}
-      title={label}
+      title={copied ? t("settingsCopied") : label}
+      data-copied={copied || undefined}
       onClick={() => {
-        void (async () => {
-          try {
-            if (!(await copyToClipboard(value)))
-              throw new Error("Clipboard unavailable");
-            toast.success(t("settingsCopied"));
-          } catch {
-            onCopyError?.();
-            toast.error(t("settingsCopyError"));
-          }
-        })();
+        window.clearTimeout(reset.current);
+        try {
+          if (!copyToClipboard(value)) throw new Error("Clipboard unavailable");
+          setCopiedValue(value);
+          reset.current = window.setTimeout(
+            () => setCopiedValue(undefined),
+            2000,
+          );
+        } catch {
+          setCopiedValue(undefined);
+          onCopyError?.();
+          toast.error(t("settingsCopyError"));
+        }
       }}
     >
-      <CopyIcon aria-hidden="true" />
+      {copied ? (
+        <CheckIcon data-icon="inline-start" aria-hidden="true" />
+      ) : (
+        <CopyIcon data-icon="inline-start" aria-hidden="true" />
+      )}
       {showLabel && label}
+      <span className="sr-only" role="status">
+        {copied ? t("settingsCopied") : ""}
+      </span>
     </Button>
   );
 }

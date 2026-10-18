@@ -3,6 +3,7 @@ using ContextDepot.Application.Shared.Runtime.Contracts;
 using ContextDepot.Application.Shared.Safety.Contracts;
 using ContextDepot.Application.Shared.Exceptions;
 using Moq;
+using ContextDepot.Domain.Contexts.Enums;
 
 namespace ContextDepot.Application.Tests.Overview;
 
@@ -104,6 +105,32 @@ public sealed class OverviewAppServiceTests
         var service = CreateService();
         await service.ListWorkspacesAsync(3, "-activityAt", default);
         await service.ListKnowledgeAsync(3, "-updatedAt", default);
+        repository.VerifyAll();
+    }
+
+    [Theory]
+    [InlineData(0, null, null)]
+    [InlineData(21, null, null)]
+    [InlineData(20, "unknown", null)]
+    [InlineData(20, "all", "unknown")]
+    [InlineData(20, "all", "1")]
+    [InlineData(20, "documents", "decision")]
+    public async Task InvalidRecentConditionsDoNotReachPersistence(int limit, string? type, string? kind)
+    {
+        var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() =>
+            CreateService().ListRecentKnowledgeAsync(limit, null, type, kind, default));
+        Assert.Equal(ApplicationErrorCodes.InvalidResourceQuery, error.ErrorCode);
+        repository.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task RecentConditionsUseExactScopeCategoryDepotClockAndCancellation()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var expected = new RecentKnowledgeFilter("root/child", "contexts", ContextKind.Decision);
+        repository.Setup(x => x.ListRecentKnowledgeAsync(depotId, 20, expected, now, cancellation.Token))
+            .ReturnsAsync(new ResourceCollection<KnowledgeSummary>(now, [], false));
+        await CreateService().ListRecentKnowledgeAsync(20, " root/child ", "contexts", "Decision", cancellation.Token);
         repository.VerifyAll();
     }
 }

@@ -1,4 +1,11 @@
 import { useTranslation } from "react-i18next";
+import { ChevronDownIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
 
 export function EmbeddingDimensionsHelp({ id }: { id: string }) {
   const { t } = useTranslation();
@@ -26,10 +33,22 @@ export function EmbeddingDimensionsHelp({ id }: { id: string }) {
         </div>
       </dl>
       <p>{t("settingsDimensionsOtherModels")}</p>
-      <details open>
-        <summary>{t("settingsDimensionsMore")}</summary>
-        <p>{t("settingsDimensionsChangeHint")}</p>
-      </details>
+      <Collapsible defaultOpen className="inference-dimensions-details">
+        <CollapsibleTrigger asChild>
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            className="settings-disclosure-trigger"
+          >
+            {t("settingsDimensionsMore")}
+            <ChevronDownIcon data-icon="inline-end" aria-hidden="true" />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <p>{t("settingsDimensionsChangeHint")}</p>
+        </CollapsibleContent>
+      </Collapsible>
     </aside>
   );
 }

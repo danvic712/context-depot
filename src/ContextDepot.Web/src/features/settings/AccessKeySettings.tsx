@@ -1,24 +1,25 @@
 import { useState } from "react";
-import {
-  KeyRoundIcon,
-  PlusIcon,
-  PencilIcon,
-  RotateCwIcon,
-  Trash2Icon,
-} from "lucide-react";
+import { KeyRoundIcon, PlusIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+} from "@/components/ui/empty";
 import { SettingsSection } from "@/pages/settings/SettingsSection";
 import { SettingsResourceState } from "./SettingsResourceState";
-import { SettingsStatus } from "./SettingsStatus";
+import { AccessKeyCard } from "./AccessKeyCard";
 import { getAccessKeys, type AccessKey } from "./settings-api";
 import { useSettingsResource } from "./use-settings-resource";
 import { AccessKeyDialog, type KeyAction } from "./AccessKeyDialog";
 import { SettingsRefreshButton } from "./SettingsConflictRecovery";
 
 export function AccessKeySettings() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const resource = useSettingsResource(getAccessKeys);
   const [action, setAction] = useState<KeyAction>();
   const [selected, setSelected] = useState<AccessKey>();
@@ -64,92 +65,25 @@ export function AccessKeySettings() {
             </p>
           )}
           {!items.length && (
-            <div className="settings-empty">
-              <KeyRoundIcon aria-hidden="true" />
-              <div>
-                <h3>{t("settingsNoKeys")}</h3>
-                <p>{t("settingsNoKeysWhy")}</p>
-              </div>
-            </div>
+            <Empty className="settings-empty border">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <KeyRoundIcon aria-hidden="true" />
+                </EmptyMedia>
+                <EmptyTitle>{t("settingsNoKeys")}</EmptyTitle>
+                <EmptyDescription>{t("settingsNoKeysWhy")}</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           )}
           <div className="settings-key-list">
             {items.map((key) => (
-              <div
-                className="settings-key-row"
+              <AccessKeyCard
                 key={key.id}
-                data-revoked={!!key.revokedAt || undefined}
-              >
-                <div className="settings-key-copy">
-                  <div className="settings-key-name">
-                    <h3>{key.name}</h3>
-                    <SettingsStatus
-                      state={key.revokedAt ? "revoked" : "active"}
-                    />
-                  </div>
-                  <code>{key.prefix}.••••••••</code>
-                  <p>
-                    {t(
-                      key.canCreateRootWorkspaces
-                        ? "settingsCreationEnabled"
-                        : "settingsCreationDisabled",
-                    )}
-                  </p>
-                  <p>
-                    {t("settingsLastUsed")}:{" "}
-                    {key.lastUsedAt
-                      ? new Intl.DateTimeFormat(i18n.language, {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        }).format(new Date(key.lastUsedAt))
-                      : t("settingsNeverUsed")}
-                  </p>
-                  <div className="settings-grant-tags">
-                    {key.workspaceIds.map((id) => (
-                      <span key={id}>
-                        {workspaces.find((workspace) => workspace.id === id)
-                          ?.path ?? t("settingsMissingWorkspace")}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                {!key.revokedAt && (
-                  <div className="settings-key-actions">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={resource.pending || !!resource.error}
-                      onClick={() => open("grants", key)}
-                      aria-label={t("settingsEditGrantsFor", {
-                        name: key.name,
-                      })}
-                    >
-                      <PencilIcon aria-hidden="true" />
-                      {t("settingsEditGrants")}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon-sm"
-                      disabled={resource.pending || !!resource.error}
-                      onClick={() => open("rotate", key)}
-                      aria-label={t("settingsRotateFor", { name: key.name })}
-                      title={t("settingsRotate")}
-                    >
-                      <RotateCwIcon aria-hidden="true" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon-sm"
-                      className="settings-danger"
-                      disabled={resource.pending || !!resource.error}
-                      onClick={() => open("revoke", key)}
-                      aria-label={t("settingsRevokeFor", { name: key.name })}
-                      title={t("settingsRevoke")}
-                    >
-                      <Trash2Icon aria-hidden="true" />
-                    </Button>
-                  </div>
-                )}
-              </div>
+                accessKey={key}
+                workspaces={workspaces}
+                disabled={resource.pending || !!resource.error}
+                onAction={open}
+              />
             ))}
           </div>
           {revoked.length > 0 && (

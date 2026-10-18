@@ -98,6 +98,10 @@
 .theme-option-label .theme-option-check {
   width: 12px;
   height: 12px;
+  visibility: hidden;
+}
+.settings-theme-options [data-state="on"] .theme-option-check {
+  visibility: visible;
 }
 @media (max-width: 380px) {
   .settings-theme-options [data-slot="toggle-group-item"] {

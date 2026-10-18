@@ -73,28 +73,57 @@ function Highlight({ text, query }: { text: string; query: string }) {
 export function SearchResultText({
   hit,
   query = "",
+  plainMetadata = false,
+  workspaceName,
 }: {
   hit: SearchHit;
   query?: string;
+  plainMetadata?: boolean;
+  workspaceName?: string;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   return (
     <div className="search-result-text">
       <strong>
         <Highlight text={hit.title} query={query} />
       </strong>
       <div className="search-result-meta">
-        <Badge variant="outline">{t(knowledgeTypes[hit.type].label)}</Badge>
-        {hit.type === "context" && (
+        {plainMetadata ? (
+          <span>
+            {t(
+              hit.type === "context" ? `${hit.kind}Kind` : "searchDocumentType",
+              { defaultValue: hit.kind },
+            )}
+          </span>
+        ) : (
+          <Badge variant="outline">{t(knowledgeTypes[hit.type].label)}</Badge>
+        )}
+        {!plainMetadata && hit.type === "context" && (
           <span>{t(`${hit.kind}Kind`, { defaultValue: hit.kind })}</span>
         )}
-        <span className="search-hit-path" title={hit.workspace}>
-          {hit.workspace}
+        {plainMetadata && <span aria-hidden="true">·</span>}
+        <span
+          className="search-hit-space"
+          title={workspaceName ?? hit.workspace}
+        >
+          {workspaceName ?? hit.workspace}
         </span>
+        {hit.updatedAt && (
+          <time dateTime={hit.updatedAt}>
+            {t("searchUpdated", {
+              date: new Intl.DateTimeFormat(
+                i18n.resolvedLanguage === "zh" ? "zh-CN" : "en-US",
+                { month: "short", day: "numeric" },
+              ).format(new Date(hit.updatedAt)),
+            })}
+          </time>
+        )}
       </div>
-      <p>
-        <Highlight text={hit.excerpt} query={query} />
-      </p>
+      {hit.excerpt && (
+        <p>
+          <Highlight text={hit.excerpt} query={query} />
+        </p>
+      )}
     </div>
   );
 }

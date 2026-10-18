@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Link } from "react-router";
 import {
   CheckIcon,
+  InfoIcon,
   KeyRoundIcon,
   PlusIcon,
   RotateCwIcon,
@@ -15,7 +16,13 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog } from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
 import {
   Field,
   FieldLabel,
@@ -27,6 +34,7 @@ import {
 import { FormDialog } from "@/components/content/FormDialog";
 import { SubmitButton } from "@/components/content/SubmitButton";
 import { CopySetting } from "./SettingsStatus";
+import { AccessKeyWorkspacePicker } from "./AccessKeyWorkspacePicker";
 import {
   getAccessKeys,
   createAccessKey,
@@ -164,7 +172,51 @@ export function AccessKeyDialog({
     >
       <FormDialog
         variant="wide"
-        title={t(issued ? "settingsKeyIssued" : titleKeys[action])}
+        className={
+          editsGrants && !issued
+            ? "settings-key-dialog settings-key-dialog-compact"
+            : "settings-key-dialog"
+        }
+        title={
+          <>
+            <span className="settings-key-dialog-title-text">
+              {t(issued ? "settingsKeyIssued" : titleKeys[action])}
+            </span>
+            {action === "grants" && !issued && accessKey && (
+              <>
+                <span
+                  className="settings-key-title-name"
+                  title={accessKey.name}
+                >
+                  {accessKey.name}
+                </span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      disabled={pending}
+                      className="settings-key-title-info"
+                      aria-label={t("settingsKeyIdentifier")}
+                    >
+                      <InfoIcon aria-hidden="true" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="settings-space-details"
+                    align="start"
+                    collisionPadding={16}
+                    aria-label={t("settingsKeyIdentifier")}
+                  >
+                    <strong>{accessKey.name}</strong>
+                    <code>{accessKey.prefix}.••••</code>
+                  </PopoverContent>
+                </Popover>
+              </>
+            )}
+          </>
+        }
         titleIcon={KeyRoundIcon}
         description={t(
           issued
@@ -175,7 +227,7 @@ export function AccessKeyDialog({
                 ? "settingsRevokeWhy"
                 : action === "create"
                   ? "settingsCreateKeyWhy"
-                  : "settingsGrantsWhy",
+                  : "settingsGrantsExact",
         )}
         closeLabel={t("cancel")}
         pending={pending}
@@ -184,6 +236,37 @@ export function AccessKeyDialog({
         showCloseButton={!issued}
         formRef={form}
         onSubmit={issued ? undefined : (event) => void submit(event)}
+        bodyFooter={
+          editsGrants && !issued ? (
+            <Field
+              orientation="horizontal"
+              className="settings-key-creation"
+              data-disabled={pending}
+            >
+              <Checkbox
+                id="key-create-root"
+                checked={canCreateRootWorkspaces}
+                disabled={pending}
+                onCheckedChange={(checked) => {
+                  setCanCreateRootWorkspaces(checked === true);
+                  if (checked === true)
+                    setInvalid((previous) =>
+                      previous.filter((field) => field !== "grants"),
+                    );
+                }}
+                aria-describedby="key-create-root-description"
+              />
+              <FieldContent>
+                <FieldLabel htmlFor="key-create-root">
+                  {t("settingsCanCreateRootWorkspaces")}
+                </FieldLabel>
+                <FieldDescription id="key-create-root-description">
+                  {t("settingsCreationPermissionCompact")}
+                </FieldDescription>
+              </FieldContent>
+            </Field>
+          ) : undefined
+        }
         footer={
           issued ? (
             <Button ref={done} onClick={onClose}>
@@ -255,8 +338,15 @@ export function AccessKeyDialog({
               <strong>{issued.key.name}</strong>
             </p>
             <div className="settings-secret">
+              <span className="settings-secret-label">
+                {t("settingsFullKey")}
+              </span>
               <code>{issued.secret}</code>
-              <CopySetting value={issued.secret} label={t("settingsCopyKey")} />
+              <CopySetting
+                value={issued.secret}
+                label={t("settingsCopyKey")}
+                showLabel
+              />
             </div>
             <p className="settings-inline-note">{t("settingsKeyUse")}</p>
           </div>
@@ -296,10 +386,10 @@ export function AccessKeyDialog({
                 )}
               </Field>
             )}
-            {accessKey && (
+            {accessKey && !editsGrants && (
               <p className="settings-selected-key">
                 <strong>{accessKey.name}</strong>
-                <code>{accessKey.prefix}.••••••••</code>
+                <code>{accessKey.prefix}.••••</code>
               </p>
             )}
             {editsGrants && (
@@ -309,10 +399,13 @@ export function AccessKeyDialog({
                 data-invalid={invalid.includes("grants")}
                 data-disabled={pending}
               >
-                <FieldLegend variant="label">
+                <FieldLegend variant="label" className="sr-only">
                   {t("settingsGrantedWorkspaces")}
                 </FieldLegend>
-                <FieldDescription id="key-grants-description">
+                <FieldDescription
+                  id="key-grants-description"
+                  className="sr-only"
+                >
                   {t("settingsGrantsExact")}
                 </FieldDescription>
                 {!workspaces.length && (
@@ -322,39 +415,19 @@ export function AccessKeyDialog({
                   </p>
                 )}
                 {!!workspaces.length && (
-                  <div className="settings-workspace-options">
-                    {workspaces.map((workspace, index) => (
-                      <label key={workspace.id}>
-                        <input
-                          type="checkbox"
-                          checked={grants.includes(workspace.id)}
-                          aria-invalid={
-                            index === 0 && invalid.includes("grants")
-                          }
-                          aria-describedby={
-                            invalid.includes("grants")
-                              ? "key-grants-description key-grants-error"
-                              : "key-grants-description"
-                          }
-                          onChange={(event) => {
-                            setGrants((previous) =>
-                              event.target.checked
-                                ? [...previous, workspace.id]
-                                : previous.filter((id) => id !== workspace.id),
-                            );
-                            if (event.target.checked)
-                              setInvalid((previous) =>
-                                previous.filter((field) => field !== "grants"),
-                              );
-                          }}
-                        />
-                        <span>
-                          <strong>{workspace.name}</strong>
-                          <code>{workspace.path}</code>
-                        </span>
-                      </label>
-                    ))}
-                  </div>
+                  <AccessKeyWorkspacePicker
+                    workspaces={workspaces}
+                    grants={grants}
+                    disabled={pending}
+                    invalid={invalid.includes("grants")}
+                    onChange={(next) => {
+                      setGrants(next);
+                      if (next.length)
+                        setInvalid((previous) =>
+                          previous.filter((field) => field !== "grants"),
+                        );
+                    }}
+                  />
                 )}
                 {invalid.includes("grants") && (
                   <p id="key-grants-error" className="settings-field-error">
@@ -362,36 +435,6 @@ export function AccessKeyDialog({
                   </p>
                 )}
               </FieldSet>
-            )}
-            {editsGrants && (
-              <Field
-                orientation="horizontal"
-                className="settings-key-creation"
-                data-disabled={pending}
-              >
-                <input
-                  id="key-create-root"
-                  type="checkbox"
-                  checked={canCreateRootWorkspaces}
-                  disabled={pending}
-                  onChange={(event) => {
-                    setCanCreateRootWorkspaces(event.target.checked);
-                    if (event.target.checked)
-                      setInvalid((previous) =>
-                        previous.filter((field) => field !== "grants"),
-                      );
-                  }}
-                  aria-describedby="key-create-root-description"
-                />
-                <FieldContent>
-                  <FieldLabel htmlFor="key-create-root">
-                    {t("settingsCanCreateRootWorkspaces")}
-                  </FieldLabel>
-                  <FieldDescription id="key-create-root-description">
-                    {t("settingsCreationPermissionWhy")}
-                  </FieldDescription>
-                </FieldContent>
-              </Field>
             )}
           </>
         )}

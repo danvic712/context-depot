@@ -32,10 +32,6 @@ export function SetupFrame({
       <main id="main-content" tabIndex={-1} className="page setup-main">
         {children}
       </main>
-      <footer>
-        <span>ContextDepot</span>
-        <span>{t("footerTagline")}</span>
-      </footer>
     </div>
   );
 }

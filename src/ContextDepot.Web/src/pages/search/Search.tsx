@@ -1,11 +1,9 @@
 import { useTranslation } from "react-i18next";
-import { RequestFeedback } from "@/components/feedback/RequestFeedback";
 import { SearchBox } from "@/features/knowledge/SearchBox";
 import { SearchFilters } from "@/features/knowledge/SearchFilters";
 import { SearchResults } from "@/features/knowledge/SearchResults";
 import { SearchPreview } from "@/features/knowledge/SearchPreview";
 import { useSearchPage } from "@/features/knowledge/use-search-page";
-import { PageHeader } from "@/components/content/PageHeader";
 import "@/styles/search.css";
 
 export function Search() {
@@ -15,7 +13,11 @@ export function Search() {
     <div
       className="search-workbench"
       data-reading={page.reading || undefined}
+      data-list-only={
+        (!page.hits.length && !page.resource.pending) || undefined
+      }
       onKeyDown={(event) => {
+        if (event.nativeEvent.isComposing || event.keyCode === 229) return;
         if (
           event.key === "Escape" &&
           page.paneRef.current?.contains(event.target as Node)
@@ -34,46 +36,33 @@ export function Search() {
         }
       }}
     >
-      <PageHeader
-        eyebrow={t("searchKicker")}
-        title={t("searchTitle")}
-        description={t("searchSub")}
-      />
-      <SearchBox
-        value={page.query}
-        onChange={(value) => page.changeQuery(value)}
-        onSearch={(value) => page.changeQuery(value, true)}
-      />
-      <SearchFilters
-        params={page.params}
-        hits={page.resource.data?.items}
-        spaces={page.spaces.data}
-        pending={page.spaces.pending}
-        onFilter={page.filter}
-        onReset={page.reset}
-      />
-      {page.spaces.error && (
-        <RequestFeedback
-          title={t("dialogWorkspaceError")}
-          failure={page.spaces.error}
-          description={t("dialogWorkspaceErrorWhy")}
-          pending={page.spaces.pending}
-          stale={!!page.spaces.data}
-          onRetry={page.retrySpaces}
-          compact
-        />
-      )}
-      {page.degraded && (
-        <RequestFeedback
-          tone="warning"
-          title={t("dialogDegradedTitle")}
-          description={t("dialogDegraded")}
-          compact
-        />
-      )}
+      <h1 className="sr-only">{t("searchTitle")}</h1>
       <div className="search-panes">
+        <SearchFilters
+          params={page.params}
+          spaces={page.spaces.data}
+          pending={page.spaces.pending}
+          error={page.spaces.error}
+          onRetry={page.retrySpaces}
+          onFilter={page.filter}
+          onReset={page.reset}
+        >
+          <SearchBox
+            sidebar
+            value={page.query}
+            onChange={(value) => page.changeQuery(value)}
+            onSearch={(value) => page.changeQuery(value, true)}
+          />
+        </SearchFilters>
         <SearchResults
+          recent={page.recent}
           resource={page.resource}
+          degraded={page.degraded}
+          spaces={
+            page.spaces.error?.retryable === false
+              ? undefined
+              : page.spaces.data
+          }
           hits={page.hits}
           query={page.query}
           selected={
@@ -81,13 +70,7 @@ export function Search() {
           }
           onSelect={page.select}
           onRetry={page.retrySearch}
-          onReset={
-            page.params.has("type") ||
-            page.params.has("kind") ||
-            page.params.has("workspace")
-              ? page.reset
-              : undefined
-          }
+          onReset={page.activeFilterCount ? page.reset : undefined}
           scopeMissing={
             page.params.has("workspace") &&
             page.resource.error?.kind === "notFound"
@@ -98,26 +81,15 @@ export function Search() {
         <SearchPreview
           item={page.selected}
           resource={page.detail}
-          searchPending={page.resource.pending && !!page.query.trim()}
+          workspace={(page.spaces.error?.retryable === false
+            ? undefined
+            : page.spaces.data
+          )?.find((space) => space.path === page.detail.data?.workspace)}
+          searchPending={page.resource.pending}
           onBack={page.back}
           onRetry={page.retryPreview}
           paneRef={page.paneRef}
         />
-      </div>
-      <div className="search-keyboard-hints" aria-hidden="true">
-        <span>
-          <kbd>↑</kbd>
-          <kbd>↓</kbd>
-          {t("dialogNavigate")}
-        </span>
-        <span>
-          <kbd>Enter</kbd>
-          {t("dialogPreview")}
-        </span>
-        <span>
-          <kbd>Esc</kbd>
-          {t("dialogBack")}
-        </span>
       </div>
     </div>
   );
