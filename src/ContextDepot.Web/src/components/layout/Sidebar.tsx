@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { Link, useLocation, useMatches, useNavigation } from "react-router";
 import type { NavigationItem, PageHandle } from "@/hooks/use-app-context";
 import { cn } from "@/lib/utils";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useRef } from "react";
+import { useNavigationIndicatorMotion } from "@/hooks/use-navigation-indicator-motion";
 import { Brand } from "../Brand";
 import { Skeleton } from "../ui/skeleton";
 import { FeatureBoundary } from "../feedback/FeatureBoundary";
@@ -40,6 +41,12 @@ export function Sidebar() {
   ) {
     active = state.navigation;
   }
+  const destination = items.find(
+    ({ path }) => navigation.location?.pathname === path,
+  )?.item;
+  const target = destination ?? active;
+  const nav = useRef<HTMLElement>(null);
+  useNavigationIndicatorMotion(nav, target);
 
   return (
     <aside className="rail">
@@ -53,17 +60,21 @@ export function Sidebar() {
           <Brand />
         </Link>
       </div>
-      <nav className="rail-links" aria-label={t("primaryNavigation")}>
+      <nav ref={nav} className="rail-links" aria-label={t("primaryNavigation")}>
+        <span className="rail-selection" aria-hidden="true" />
+        <span className="rail-selection-mark" aria-hidden="true" />
         {items.map(({ item, path, Icon }) => {
           const pending = navigation.location?.pathname === path;
           return (
             <Link
               key={item}
               to={path}
+              data-navigation-item={item}
               aria-current={active === item ? "page" : undefined}
+              data-navigation-target={target === item ? "" : undefined}
               className={cn(
                 "rail-link",
-                active === item && "selected",
+                target === item && "selected",
                 pending && "pending",
                 item === "settings" && "rail-settings",
               )}
@@ -83,7 +94,9 @@ export function Sidebar() {
         fallback={<div className="rail-status">{t("homeUnknown")}</div>}
       >
         <Suspense
-          fallback={<div className="rail-status">{t("homeUnknown")}</div>}
+          fallback={
+            <div className="rail-status">{t("homeReadinessChecking")}</div>
+          }
         >
           <ReadinessStatus />
         </Suspense>

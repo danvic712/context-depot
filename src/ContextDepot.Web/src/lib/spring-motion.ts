@@ -4,8 +4,9 @@ export function advanceSpring(
   velocity: number,
   target: number,
   seconds: number,
+  response = 0.3,
 ) {
-  const frequency = (2 * Math.PI) / 0.3;
+  const frequency = (2 * Math.PI) / response;
   const displacement = position - target;
   const impulse = velocity + frequency * displacement;
   const decay = Math.exp(-frequency * seconds);
@@ -15,7 +16,11 @@ export function advanceSpring(
   };
 }
 
-export function createSpring(initial: number, paint: (value: number) => void) {
+export function createSpring(
+  initial: number,
+  paint: (value: number) => void,
+  response = 0.3,
+) {
   let position = initial,
     velocity = 0,
     target = initial,
@@ -30,6 +35,7 @@ export function createSpring(initial: number, paint: (value: number) => void) {
       velocity,
       target,
       Math.max(0, time - previous) / 1000,
+      response,
     ));
     previous = time;
   }

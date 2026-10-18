@@ -146,6 +146,7 @@ export function Settings() {
             <a
               key={id}
               href={`#${id}`}
+              data-navigation-item={id}
               aria-current={active === id ? "location" : undefined}
               onClick={() => setActive(id)}
             >

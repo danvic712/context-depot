@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore, type ReactNode } from "react";
+import { useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Collapsible,
@@ -84,6 +84,7 @@ export function SearchFilters({
   );
   const [expanded, setExpanded] = useState(false);
   const [spaceQuery, setSpaceQuery] = useState("");
+  const pane = useRef<HTMLElement>(null);
   const type = params.get("type") ?? "all";
   const workspace = params.get("workspace");
   const activeCount = activeSearchFilters(params);
@@ -102,8 +103,17 @@ export function SearchFilters({
     (space) => space.path === workspace || matches.includes(space),
   );
   return (
-    <Collapsible asChild open={!compact || expanded} onOpenChange={setExpanded}>
+    <Collapsible
+      asChild
+      open={!compact || expanded}
+      onOpenChange={(open) => {
+        if (compact && !open)
+          pane.current?.scrollIntoView({ block: "start", behavior: "auto" });
+        setExpanded(open);
+      }}
+    >
       <aside
+        ref={pane}
         className="search-controls-pane"
         aria-label={t("searchConditions")}
       >

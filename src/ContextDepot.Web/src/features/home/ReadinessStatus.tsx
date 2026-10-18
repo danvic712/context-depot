@@ -1,8 +1,13 @@
 import "@/styles/status.css";
-import { useCallback, useEffect, useRef, useState } from "react";
+import "@/styles/readiness-status.css";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Popover } from "radix-ui";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
+import { RefreshCwIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/content/SubmitButton";
+import { usePopoverMotion } from "@/hooks/use-popover-motion";
 import { getReadiness, type Readiness } from "./home-api";
 
 const labels = {
@@ -12,8 +17,19 @@ const labels = {
   unknown: "homeUnknown",
 } as const;
 
+const descriptions = {
+  healthy: "homeReadinessHealthyDetail",
+  degraded: "homeReadinessDegradedDetail",
+  unhealthy: "homeReadinessUnhealthyDetail",
+  unknown: "homeReadinessUnknownDetail",
+} as const;
+
 export function ReadinessStatus() {
   const { t } = useTranslation();
+  const { open, present, onOpenChange, ref: popoverRef } = usePopoverMotion();
+  const titleId = useId();
+  const descriptionId = useId();
+  const trigger = useRef<HTMLButtonElement>(null);
   const [status, setStatus] = useState<Readiness>("unknown");
   const [pending, setPending] = useState(true);
   const request = useRef<AbortController | null>(null);
@@ -46,48 +62,97 @@ export function ReadinessStatus() {
     setPending(true);
     void fetchReadiness();
   }
+  const tone =
+    status === "healthy"
+      ? "success"
+      : status === "degraded"
+        ? "warning"
+        : status === "unhealthy"
+          ? "danger"
+          : "neutral";
+  const label = t(
+    pending && status === "unknown" ? "homeReadinessChecking" : labels[status],
+  );
   return (
-    <Popover.Root>
+    <Popover.Root open={open} onOpenChange={onOpenChange}>
       <Popover.Trigger asChild>
         <button
+          ref={trigger}
           type="button"
           className="rail-status"
-          data-tone={
-            status === "healthy"
-              ? "success"
-              : status === "degraded"
-                ? "warning"
-                : status === "unhealthy"
-                  ? "danger"
-                  : "neutral"
-          }
-          aria-label={`${t("homeReadinessHint")}: ${t(labels[status])}`}
+          data-tone={tone}
+          aria-label={`${t("homeReadinessHint")}: ${label}`}
         >
           <span className="status-dot" aria-hidden="true" />
-          <span role="status">{t(labels[status])}</span>
+          <span role="status">{label}</span>
         </button>
       </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content
-          side="right"
-          align="end"
-          sideOffset={16}
-          className="z-50 max-w-72 rounded-lg border bg-popover p-5 text-sm shadow-lg"
-        >
-          <h2 className="font-semibold">{t(labels[status])}</h2>
-          <p className="my-3 leading-relaxed text-muted-foreground">
-            {t("homeReadinessDetail")}
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void refresh()}
-            disabled={pending}
+      {present && (
+        <Popover.Portal forceMount>
+          <Popover.Content
+            ref={popoverRef}
+            forceMount
+            side="right"
+            align="end"
+            sideOffset={20}
+            collisionPadding={12}
+            className="readiness-popover"
+            data-tone={tone}
+            aria-labelledby={titleId}
+            aria-describedby={descriptionId}
+            aria-hidden={!open || undefined}
+            inert={!open || undefined}
+            onEscapeKeyDown={() =>
+              trigger.current?.focus({ preventScroll: true })
+            }
           >
-            {t(pending ? "loading" : "retry")}
-          </Button>
-        </Popover.Content>
-      </Popover.Portal>
+            <div className="readiness-heading">
+              <span className="status-dot" aria-hidden="true" />
+              <h2 id={titleId}>{label}</h2>
+              <Popover.Close asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="readiness-close"
+                  aria-label={t("homeReadinessClose")}
+                  onClick={() =>
+                    trigger.current?.focus({ preventScroll: true })
+                  }
+                >
+                  <XIcon aria-hidden="true" />
+                </Button>
+              </Popover.Close>
+            </div>
+            <p id={descriptionId} className="readiness-description">
+              {t(
+                pending && status === "unknown"
+                  ? "homeReadinessCheckingDetail"
+                  : descriptions[status],
+              )}
+            </p>
+            <div className="readiness-actions">
+              <SubmitButton
+                type="button"
+                variant="outline"
+                size="sm"
+                className="readiness-refresh"
+                onClick={() => void refresh()}
+                pending={pending}
+                label={t("homeReadinessRefresh")}
+                pendingLabel={t("homeReadinessChecking")}
+                icon={RefreshCwIcon}
+              />
+              {(status === "degraded" || status === "unhealthy") && (
+                <Button asChild size="sm" className="readiness-settings">
+                  <Link to="/settings" onClick={() => onOpenChange(false)}>
+                    {t("homeReadinessSettings")}
+                  </Link>
+                </Button>
+              )}
+            </div>
+          </Popover.Content>
+        </Popover.Portal>
+      )}
     </Popover.Root>
   );
 }

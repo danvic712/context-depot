@@ -98,14 +98,6 @@ export function AppLoading({
         >
           <RouteSkeleton pathname={pathname} search={search} />
         </main>
-        {!spaces && (
-          <footer aria-hidden="true">
-            <Skeleton className="h-3 w-24" />
-            <span>
-              <Skeleton className="h-3 w-44" />
-            </span>
-          </footer>
-        )}
       </div>
     </div>
   );

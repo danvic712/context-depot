@@ -389,7 +389,11 @@ describe("Sidebar navigation", () => {
       ).toContain('class="search-workbench"');
       const navigation = router.navigate("/settings");
       const html = renderToStaticMarkup(<RouterProvider router={router} />);
-      expect(menu(html)).toContain("rail-link pending rail-settings");
+      expect(menu(html)).toContain(
+        'data-navigation-target="" class="rail-link selected pending rail-settings"',
+      );
+      expect(selected(html, "/search")).toBe(true);
+      expect(selected(html, "/settings")).toBe(false);
       expect(menu(html)).toContain('role="status"');
       expect(html).toContain('aria-busy="true"');
       expect(html).toContain('data-slot="skeleton"');
@@ -399,6 +403,38 @@ describe("Sidebar navigation", () => {
       const loaded = renderToStaticMarkup(<RouterProvider router={router} />);
       expect(selected(loaded, "/settings")).toBe(true);
       expect(menu(loaded)).not.toContain("pending");
+    } finally {
+      release();
+      router.dispose();
+    }
+  });
+
+  test("a replacement destination wins over an unfinished menu navigation", async () => {
+    await english();
+    let release!: () => void;
+    const deferred = new Promise<null>((resolve) => {
+      release = () => resolve(null);
+    });
+    const routes = appRoutes.map((route) => ({
+      ...route,
+      children: route.children?.map((child) =>
+        child.id === "settings" ? { ...child, loader: () => deferred } : child,
+      ),
+    }));
+    const router = createMemoryRouter(routes, { initialEntries: ["/"] });
+    try {
+      await ready(router);
+      const first = router.navigate("/settings");
+      await router.navigate("/search");
+      release();
+      await first;
+      const html = renderToStaticMarkup(<RouterProvider router={router} />);
+      expect(router.state.location.pathname).toBe("/search");
+      expect(selected(html, "/search")).toBe(true);
+      expect(menu(html)).toContain(
+        'data-navigation-target="" class="rail-link selected" href="/search"',
+      );
+      expect(menu(html)).not.toContain("pending");
     } finally {
       release();
       router.dispose();
@@ -603,7 +639,7 @@ describe("Recoverable route states", () => {
       expect(html).toContain("Return home");
       expect(menu(html)).toContain('href="/settings"');
       expect(html).toContain('class="topbar"');
-      expect(html).toContain("<footer>");
+      expect(html).not.toMatch(/<footer\b/);
       await router.navigate("/");
       expect(router.state.errors).toBeNull();
       expect(router.state.matches.at(-1)?.route.id).toBe("home");
