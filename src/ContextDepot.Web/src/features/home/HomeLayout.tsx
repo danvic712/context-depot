@@ -12,6 +12,7 @@ export function HomeHeroLayout({
     <div className="home-hero">
       <div className="home-hero-copy">{children}</div>
       {search}
+      <div className="home-hero-art" aria-hidden="true" />
     </div>
   );
 }
