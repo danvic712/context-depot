@@ -5,6 +5,8 @@ import {
 } from "../../src/features/knowledge/reader-sheet-motion";
 import { createSpring } from "../../src/lib/spring-motion";
 import { createFilterDisclosureMotion } from "../../src/features/knowledge/filter-disclosure-motion";
+import { createSearchDialogMotion } from "../../src/features/knowledge/search-dialog-motion";
+import { createPreviewSwitchMotion } from "../../src/features/knowledge/preview-switch-motion";
 
 const names = [
   "window",
@@ -178,6 +180,232 @@ test("shared surface springs apply reduced motion immediately and ignore targets
   spring.to(0);
   expect(value).toBe(1);
   expect(callbacks.size).toBe(0);
+});
+
+test("preview changes keep the current opacity and scroll position until new content arrives", () => {
+  const parent = { scrollTop: 0 };
+  const node = { style: { opacity: "" }, parentElement: parent };
+  const controller = createPreviewSwitchMotion(node as unknown as HTMLElement);
+  try {
+    controller.update(false, "document:a");
+    parent.scrollTop = 420;
+    controller.update(true);
+    tick(32);
+    const before = node.style.opacity;
+    expect(Number(before)).toBeLessThan(1);
+    expect(parent.scrollTop).toBe(420);
+    controller.update(false, "document:b");
+    expect(node.style.opacity).toBe(before);
+    expect(parent.scrollTop).toBe(0);
+    tick(16);
+    expect(Number(node.style.opacity)).toBeLessThan(Number(before));
+    tick(1000);
+    expect(node.style.opacity).toBe("1");
+    parent.scrollTop = 100;
+    controller.update(false, "document:b");
+    expect(parent.scrollTop).toBe(100);
+  } finally {
+    controller.dispose();
+  }
+});
+
+test("preview motion respects reduced motion immediately and cleans up interrupted frames", () => {
+  const node = { style: { opacity: "" } } as unknown as HTMLElement;
+  const controller = createPreviewSwitchMotion(node);
+  try {
+    controller.update(true);
+    tick(16);
+    preference.matches = true;
+    preference.dispatchEvent(new Event("change"));
+    expect(node.style.opacity).toBe("0.2");
+    controller.update(false, "document:b");
+    expect(node.style.opacity).toBe("1");
+    expect(callbacks.size).toBe(0);
+    preference.matches = false;
+    controller.update(true);
+    controller.dispose();
+    tick(1000);
+    expect(callbacks.size).toBe(0);
+  } finally {
+    controller.dispose();
+  }
+});
+
+test("preview loading fades reverse from their current value and preserve velocity", () => {
+  const node = { style: { opacity: "" } } as unknown as HTMLElement;
+  const status = { style: { opacity: "" } } as unknown as HTMLElement;
+  const controller = createPreviewSwitchMotion(node, status);
+  try {
+    expect(status.style.opacity).toBe("0");
+    controller.update(false, undefined, true);
+    tick(32);
+    const entering = Number(status.style.opacity);
+    expect(entering).toBeGreaterThan(0);
+    expect(entering).toBeLessThan(1);
+    expect(node.style.opacity).toBe("1");
+    controller.update(false, "document:a", false);
+    expect(Number(status.style.opacity)).toBe(entering);
+    tick(16);
+    expect(Number(status.style.opacity)).toBeGreaterThan(entering);
+    tick(1000);
+    expect(status.style.opacity).toBe("0");
+    controller.update(true, undefined, true);
+    tick(1000);
+    expect(status.style.opacity).toBe("1");
+    expect(node.style.opacity).toBe("0.2");
+    controller.update(false, "document:b", false);
+    controller.dispose();
+    tick(1000);
+    expect(callbacks.size).toBe(0);
+  } finally {
+    controller.dispose();
+  }
+});
+
+test("preview loading remains static with reduced motion and hides on completion", () => {
+  preference.matches = true;
+  const node = { style: { opacity: "" } } as unknown as HTMLElement;
+  const status = { style: { opacity: "" } } as unknown as HTMLElement;
+  const controller = createPreviewSwitchMotion(node, status);
+  try {
+    controller.update(true);
+    expect(status.style.opacity).toBe("1");
+    controller.update(false, "document:a");
+    expect(status.style.opacity).toBe("0");
+    expect(node.style.opacity).toBe("1");
+    expect(callbacks.size).toBe(0);
+  } finally {
+    controller.dispose();
+  }
+});
+
+function searchDialogSurface() {
+  let measurements = 0;
+  let expandedHeight = 620;
+  const compact = {
+    get offsetHeight() {
+      measurements++;
+      return 400;
+    },
+  };
+  const expanded = {
+    get offsetHeight() {
+      measurements++;
+      return expandedHeight;
+    },
+  };
+  const node = {
+    style: { height: "", opacity: "", transform: "" },
+    querySelector: (selector: string) =>
+      selector.includes("compact") ? compact : expanded,
+  };
+  return {
+    node,
+    surface: node as unknown as HTMLElement,
+    measurements: () => measurements,
+    resize: (value: number) => {
+      expandedHeight = value;
+    },
+  };
+}
+
+test("search dialog resize reverses from its current height and keeps layout reads off animation frames", () => {
+  const dialog = searchDialogSurface();
+  const controller = createSearchDialogMotion(
+    dialog.surface,
+    overlay,
+    false,
+    () => closed++,
+  );
+  try {
+    controller.setExpanded(true);
+    const reads = dialog.measurements();
+    tick(32);
+    const before = parseFloat(dialog.node.style.height);
+    expect(before).toBeGreaterThan(400);
+    expect(before).toBeLessThan(620);
+    expect(dialog.measurements()).toBe(reads);
+    controller.setExpanded(false);
+    expect(parseFloat(dialog.node.style.height)).toBe(before);
+    tick(16);
+    expect(parseFloat(dialog.node.style.height)).toBeGreaterThan(before);
+    controller.setExpanded(true);
+    tick(1000);
+    expect(dialog.node.style.height).toBe("620px");
+    expect(dialog.node.style.opacity).toBe("1");
+    expect(closed).toBe(0);
+  } finally {
+    controller.dispose();
+  }
+});
+
+test("search dialog reopening cancels dismissal and restores the same surface and overlay", () => {
+  const dialog = searchDialogSurface();
+  const controller = createSearchDialogMotion(
+    dialog.surface,
+    overlay,
+    false,
+    () => closed++,
+  );
+  try {
+    tick(1000);
+    controller.close();
+    tick(32);
+    const opacity = dialog.node.style.opacity;
+    controller.open();
+    expect(dialog.node.style.opacity).toBe(opacity);
+    tick(1000);
+    expect(dialog.node.style.opacity).toBe("1");
+    expect(overlay.style.opacity).toBe("1");
+    expect(closed).toBe(0);
+    controller.close();
+    tick(1000);
+    expect(closed).toBe(1);
+  } finally {
+    controller.dispose();
+  }
+});
+
+test("search dialog viewport changes respect reduced motion and disposal cancels pending work", () => {
+  let resize = () => {};
+  Object.defineProperty(globalThis, "ResizeObserver", {
+    configurable: true,
+    value: class {
+      constructor(callback: () => void) {
+        resize = callback;
+      }
+      observe() {}
+      disconnect() {}
+    },
+  });
+  preference.matches = true;
+  const dialog = searchDialogSurface();
+  const controller = createSearchDialogMotion(
+    dialog.surface,
+    overlay,
+    true,
+    () => closed++,
+  );
+  try {
+    expect(dialog.node.style.height).toBe("620px");
+    expect(dialog.node.style.opacity).toBe("1");
+    dialog.resize(500);
+    resize();
+    expect(dialog.node.style.height).toBe("500px");
+    controller.setExpanded(false);
+    expect(dialog.node.style.height).toBe("400px");
+    expect(callbacks.size).toBe(0);
+    preference.matches = false;
+    controller.setExpanded(true);
+    controller.close();
+    controller.dispose();
+    resize();
+    tick(1000);
+    expect(closed).toBe(0);
+    expect(callbacks.size).toBe(0);
+  } finally {
+    controller.dispose();
+  }
 });
 
 test("filter disclosure can reverse mid-flight without measuring layout on every frame", () => {

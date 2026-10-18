@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router";
 import { SearchFilters } from "../../src/features/knowledge/SearchFilters";
 import { SearchResults } from "../../src/features/knowledge/SearchResults";
 import { SearchPreview } from "../../src/features/knowledge/SearchPreview";
+import { SearchDialogPreview } from "../../src/features/knowledge/SearchDialogPreview";
 import { initializeI18n } from "../../src/lib/i18n";
 import type { SearchHit } from "../../src/features/knowledge/search-api";
 import {
@@ -73,6 +74,51 @@ function filters(
 }
 
 describe("Search workbench", () => {
+  test("dialog preview shows a centered status during initial search and detail loading", () => {
+    for (const item of [undefined, hits[0]]) {
+      const html = renderToStaticMarkup(
+        <SearchDialogPreview
+          item={item}
+          detail={{ pending: !!item }}
+          searchPending={!item}
+          workspaceNames={new Map()}
+          onRetry={() => {}}
+          onBack={() => {}}
+        />,
+      );
+      expect(html).toContain('class="search-preview-region"');
+      expect(html).toContain('class="search-preview-loading"');
+      expect(html).toContain('role="status"');
+      expect(html).toContain(item ? "Opening" : "Searching");
+      if (item) expect(html).toContain(item.title);
+      expect(html).not.toContain("Choose a result to start reading");
+    }
+  });
+
+  test("dialog preview keeps an error visible during retry and never presents old body content as success", () => {
+    const html = renderToStaticMarkup(
+      <SearchDialogPreview
+        item={hits[0]}
+        detail={{
+          pending: true,
+          error: { kind: "forbidden", retryable: false },
+          data: {
+            ...hits[0]!,
+            content: "Previously readable body",
+            updatedAt: "2026-10-17T00:00:00Z",
+          },
+        }}
+        workspaceNames={new Map()}
+        onRetry={() => {}}
+        onBack={() => {}}
+      />,
+    );
+    expect(html).toContain("Could not open this item");
+    expect(html).not.toContain("Previously readable body");
+    expect(html).not.toContain('class="search-preview-skeleton"');
+    expect(html).toContain('class="search-preview-loading" aria-hidden="true"');
+  });
+
   test("explicit all choices retain both resource types without reporting an active filter", () => {
     expect(filterSearchHits(hits, "all")).toEqual(hits);
     expect(filterSearchHits(hits, "contexts")).toEqual([hits[1]!]);

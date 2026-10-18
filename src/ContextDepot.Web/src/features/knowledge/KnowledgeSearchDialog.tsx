@@ -20,15 +20,12 @@ import {
 } from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
 import { AppSelect } from "@/components/ui/AppSelect";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { SearchDialogTypeFilter } from "./SearchDialogTypeFilter";
 import { RequestFeedback } from "@/components/feedback/RequestFeedback";
 import { cn } from "@/lib/utils";
-import {
-  SearchEmpty,
-  SearchSkeleton,
-  SearchResultText,
-  SearchPreviewContent,
-} from "./SearchContent";
+import { useSearchDialogMotion } from "./use-search-dialog-motion";
+import { SearchDialogPreview } from "./SearchDialogPreview";
+import { SearchEmpty, SearchSkeleton, SearchResultText } from "./SearchContent";
 import { knowledgeKey } from "@/features/knowledge/knowledge-models";
 import { type KnowledgeType } from "@/features/knowledge/knowledge-models";
 import {
@@ -54,7 +51,6 @@ export default function KnowledgeSearchDialog({
   }) => void;
 }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(true);
   const [workspaceRetry, setWorkspaceRetry] = useState(0);
   const [query, setQuery] = useState(initialQuery);
   const [workspace, setWorkspace] = useState<string>();
@@ -66,6 +62,13 @@ export default function KnowledgeSearchDialog({
   const input = useRef<HTMLInputElement>(null);
   const resource = useKnowledgeSearch(query, workspace, retry);
   const workspaces = useSearchWorkspaces(workspaceRetry);
+  const expanded = !!query.trim() || !!workspaces.error;
+  const {
+    ref: dialogMotionRef,
+    overlayRef,
+    open: reopen,
+    close: closeDialog,
+  } = useSearchDialogMotion(expanded, onClose);
   const workspaceNames = new Map(
     (workspaces.error?.retryable === false ? [] : (workspaces.data ?? [])).map(
       (space) => [space.path, space.name],
@@ -84,27 +87,62 @@ export default function KnowledgeSearchDialog({
   };
   const retrySearch = () => setRetry((value) => value + 1);
   function changeQuery(value: string) {
+    reopen();
     setQuery(value);
     setMobilePreview(false);
   }
+  function backToResults() {
+    setMobilePreview(false);
+    input.current?.focus({ preventScroll: true });
+  }
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open
+      onOpenChange={(value) => {
+        if (!value) closeDialog();
+      }}
+    >
       <DialogContent
+        ref={dialogMotionRef}
         className="knowledge-search-dialog"
+        data-empty={!expanded}
         showCloseButton={false}
         overlayClassName="knowledge-search-overlay"
+        overlayProps={{ ref: overlayRef }}
+        onPointerDownCapture={() => reopen()}
+        onKeyDownCapture={(event) => {
+          if (
+            (event.metaKey || event.ctrlKey) &&
+            event.key.toLowerCase() === "k"
+          ) {
+            event.preventDefault();
+            event.stopPropagation();
+            reopen();
+            input.current?.focus({ preventScroll: true });
+          }
+        }}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
           input.current?.focus();
         }}
         onCloseAutoFocus={(event) => {
           event.preventDefault();
-          onClose();
           onRestoreFocus();
         }}
       >
+        <div
+          className="search-dialog-size"
+          data-dialog-size="compact"
+          aria-hidden="true"
+        />
+        <div
+          className="search-dialog-size"
+          data-dialog-size="expanded"
+          aria-hidden="true"
+        />
         <Command
           shouldFilter={false}
+          disablePointerSelection
           value={item ? knowledgeKey(item) : ""}
           onValueChange={(value) => {
             setSelected(value);
@@ -115,17 +153,18 @@ export default function KnowledgeSearchDialog({
           <DialogHeader className="knowledge-search-header">
             <div className="search-dialog-heading">
               <div>
-                <DialogTitle className="text-lg font-semibold">
+                <DialogTitle className="search-dialog-title">
                   {t("dialogSearchTitle")}
                 </DialogTitle>
-                <DialogDescription>
+                <DialogDescription className="sr-only">
                   {t("dialogSearchDescription")}
                 </DialogDescription>
               </div>
               <DialogClose asChild>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="icon-sm"
+                  className="search-dialog-close"
                   aria-label={t("dialogClose")}
                   title={t("dialogClose")}
                 >
@@ -133,44 +172,41 @@ export default function KnowledgeSearchDialog({
                 </Button>
               </DialogClose>
             </div>
-            <CommandInput
-              ref={input}
-              value={query}
-              onValueChange={changeQuery}
-              placeholder={t("searchPlaceholder")}
-              aria-label={t("dialogSearchTitle")}
-              maxLength={4000}
-            />
+            <div className="search-dialog-query">
+              <CommandInput
+                ref={input}
+                value={query}
+                onValueChange={changeQuery}
+                placeholder={t("searchPlaceholder")}
+                aria-label={t("dialogSearchTitle")}
+                maxLength={4000}
+              />
+              {query && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="search-dialog-clear"
+                  aria-label={t("searchClearQuery")}
+                  onClick={() => {
+                    changeQuery("");
+                    input.current?.focus();
+                  }}
+                >
+                  <XIcon aria-hidden="true" />
+                </Button>
+              )}
+            </div>
           </DialogHeader>
           <div className="search-dialog-filters">
-            <ToggleGroup
-              type="single"
-              variant="outline"
-              size="sm"
+            <SearchDialogTypeFilter
               value={type}
-              onValueChange={(value) => {
-                if (value) {
-                  setType(value as typeof type);
-                  setMobilePreview(false);
-                }
+              counts={resource.data ? counts : undefined}
+              onChange={(value) => {
+                setType(value);
+                setMobilePreview(false);
               }}
-              aria-label={t("typeLabel")}
-            >
-              {(["all", "context", "document"] as const).map((value) => (
-                <ToggleGroupItem key={value} value={value}>
-                  {t(
-                    value === "all"
-                      ? "dialogAll"
-                      : value === "context"
-                        ? "dialogContexts"
-                        : "dialogDocuments",
-                  )}
-                  {resource.data && (
-                    <span className="search-count">{counts[value]}</span>
-                  )}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
+            />
             <AppSelect
               label={t("workspaceLabel")}
               value={workspace === undefined ? "all" : `space:${workspace}`}
@@ -214,6 +250,7 @@ export default function KnowledgeSearchDialog({
             />
           )}
           <div
+            data-preview={!!query.trim() && (pending || !!item)}
             className={cn(
               "search-dialog-body",
               mobilePreview && "show-preview",
@@ -225,7 +262,7 @@ export default function KnowledgeSearchDialog({
               aria-busy={pending}
             >
               <div
-                className="search-pane-label"
+                className={cn("search-pane-label", !query.trim() && "sr-only")}
                 role="status"
                 aria-live="polite"
               >
@@ -288,6 +325,7 @@ export default function KnowledgeSearchDialog({
                           <SearchResultText
                             hit={hit}
                             query={query}
+                            plainMetadata
                             workspaceName={
                               workspaceNames.get(hit.workspace) ??
                               t("searchUnknownSpace")
@@ -316,44 +354,21 @@ export default function KnowledgeSearchDialog({
                   className="search-back"
                   variant="outline"
                   size="sm"
-                  onClick={() => setMobilePreview(false)}
+                  onClick={backToResults}
                 >
                   <ArrowLeftIcon data-icon="inline-start" />
                   {t("dialogBack")}
                 </Button>
               </div>
-              <div className="search-preview-scroll">
-                {!item ? (
-                  <SearchEmpty
-                    title={t("dialogSelect")}
-                    description={t("dialogSelectWhy")}
-                  />
-                ) : detail.error ? (
-                  <RequestFeedback
-                    title={t("dialogPreviewError")}
-                    failure={detail.error}
-                    pending={detail.pending}
-                    onRetry={() => setPreviewRetry((value) => value + 1)}
-                    recoveryAction={{
-                      label: t("dialogBack"),
-                      onClick: () => setMobilePreview(false),
-                    }}
-                  />
-                ) : !detail.data ? (
-                  <SearchSkeleton />
-                ) : (
-                  <>
-                    <SearchPreviewContent
-                      detail={detail.data}
-                      workspaceName={
-                        workspaceNames.get(detail.data.workspace) ??
-                        detail.data.workspaceName ??
-                        t("searchUnknownSpace")
-                      }
-                    />
-                  </>
-                )}
-              </div>
+              <SearchDialogPreview
+                key={JSON.stringify([query.trim(), workspace, type])}
+                item={item}
+                detail={detail}
+                searchPending={pending}
+                workspaceNames={workspaceNames}
+                onRetry={() => setPreviewRetry((value) => value + 1)}
+                onBack={backToResults}
+              />
             </section>
           </div>
           <div className="search-dialog-footer">
@@ -372,18 +387,22 @@ export default function KnowledgeSearchDialog({
                 {t("dialogClose")}
               </span>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onOpenPage({ query, workspace, type })}
-            >
-              {t("searchOpenPage")}
-              <ArrowUpRightIcon data-icon="inline-end" />
-            </Button>
-            <KnowledgeCopyButton
-              detail={detail.error ? undefined : detail.data}
-              pending={detail.pending || pending}
-            />
+            <div className="search-dialog-actions">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onOpenPage({ query, workspace, type })}
+              >
+                {t("searchOpenPage")}
+                <ArrowUpRightIcon data-icon="inline-end" />
+              </Button>
+              {query.trim() && detail.data && !detail.error && (
+                <KnowledgeCopyButton
+                  detail={detail.data}
+                  pending={detail.pending || pending}
+                />
+              )}
+            </div>
           </div>
         </Command>
       </DialogContent>
