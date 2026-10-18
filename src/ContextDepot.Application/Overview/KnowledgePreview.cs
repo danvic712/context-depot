@@ -21,5 +21,6 @@ namespace ContextDepot.Application.Overview;
 /// <param name="UpdatedAt">
 /// The precise observed revision required for revision-checked deletion.
 /// </param>
+/// <param name="WorkspaceName">The readable owning workspace's display name, when available.</param>
 public sealed record KnowledgePreview(Guid Id, string Type, string Title, string Workspace,
-    string Content, DateTimeOffset UpdatedAt);
+    string Content, DateTimeOffset UpdatedAt, string? WorkspaceName = null);

@@ -5,6 +5,7 @@ using ContextDepot.Domain.Documents.Enums;
 using ContextDepot.Domain.Workspaces;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using ContextDepot.Application.Shared.Exceptions;
 
 namespace ContextDepot.Infrastructure.Repositories;
 
@@ -44,17 +45,38 @@ public sealed partial class OverviewRepository(ContextDepotDbContext db) : IOver
             paths[x.Id], x.ContextCount, x.DocumentCount, x.ActivityAt)).ToArray(), rows.Length > limit);
     }
 
-    public async Task<ResourceCollection<KnowledgeSummary>> ListKnowledgeAsync(Guid depotId, int limit, DateTimeOffset asOf, CancellationToken cancellationToken)
+    public Task<ResourceCollection<KnowledgeSummary>> ListKnowledgeAsync(Guid depotId, int limit, DateTimeOffset asOf, CancellationToken cancellationToken) =>
+        ListRecentKnowledgeAsync(depotId, limit, new(null, null, null), asOf, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<ResourceCollection<KnowledgeSummary>> ListRecentKnowledgeAsync(Guid depotId, int limit,
+        RecentKnowledgeFilter filter, DateTimeOffset asOf, CancellationToken cancellationToken)
     {
-        var contexts = await db.ContextItems.AsNoTracking().Where(x => x.DepotId == depotId).WhereRetrievableAt(asOf)
+        var paths = await LoadPathsAsync(depotId, cancellationToken);
+        Guid? workspaceId = null;
+        if (filter.Workspace is not null)
+        {
+            workspaceId = paths.Where(x => x.Value == filter.Workspace).Select(x => (Guid?)x.Key).FirstOrDefault();
+            if (workspaceId is null) throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspaceNotFound);
+        }
+        var contextQuery = db.ContextItems.AsNoTracking().Where(x => x.DepotId == depotId).WhereRetrievableAt(asOf);
+        var documentQuery = db.Documents.AsNoTracking().Where(x => x.DepotId == depotId && x.Status == DocumentStatus.Active);
+        if (workspaceId is not null)
+        {
+            contextQuery = contextQuery.Where(x => x.WorkspaceId == workspaceId);
+            documentQuery = documentQuery.Where(x => x.WorkspaceId == workspaceId);
+        }
+        if (filter.Type == "documents") contextQuery = contextQuery.Where(_ => false);
+        if (filter.Type == "contexts" || filter.Kind is not null) documentQuery = documentQuery.Where(_ => false);
+        if (filter.Kind is not null) contextQuery = contextQuery.Where(x => x.Kind == filter.Kind);
+        var contexts = await contextQuery
             .OrderByDescending(x => x.UpdatedAt).ThenBy(x => x.Id).Take(limit + 1)
             .Select(x => new { x.Id, x.Kind, x.Title, x.Key, x.Content, x.WorkspaceId, x.UpdatedAt })
             .ToArrayAsync(cancellationToken);
-        var documents = await db.Documents.AsNoTracking().Where(x => x.DepotId == depotId && x.Status == DocumentStatus.Active)
+        var documents = await documentQuery
             .OrderByDescending(x => x.UpdatedAt).ThenBy(x => x.Id).Take(limit + 1)
             .Select(x => new { x.Id, x.Title, x.Path, x.WorkspaceId, x.UpdatedAt, x.IndexStatus })
             .ToArrayAsync(cancellationToken);
-        var paths = await LoadPathsAsync(depotId, cancellationToken);
         var merged = contexts.Select(x => new KnowledgeSummary(x.Id, "context", x.Kind,
                 ContextTitle(x.Title, x.Key, x.Content), new(x.WorkspaceId, paths[x.WorkspaceId]), x.UpdatedAt, null))
             .Concat(documents.Select(x => new KnowledgeSummary(x.Id, "document", null,

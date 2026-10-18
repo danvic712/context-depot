@@ -21,6 +21,14 @@ export function knowledgeReturnTarget(
   )
     return fallback;
   const pathname = from.split(/[?#]/, 1)[0];
+  if (spaceId) {
+    const spacePath = `/spaces/${encodeURIComponent(spaceId)}`;
+    // Entering a space makes it the current reading context. Dismissing its
+    // reader returns to that space, even when the entry point was Search.
+    return pathname === spacePath || pathname === `${spacePath}/archived`
+      ? { to: from, label: "knowledgeBackSpaces" as const }
+      : fallback;
+  }
   if (pathname === "/")
     return { to: from, label: "knowledgeBackHome" } as const;
   if (pathname === "/search")

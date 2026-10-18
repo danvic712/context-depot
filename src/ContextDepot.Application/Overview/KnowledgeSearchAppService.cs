@@ -91,16 +91,16 @@ public sealed class KnowledgeSearchAppService(
     /// Cancels the asynchronous operation.
     /// </param>
     /// <returns>
-    /// A task whose result contains visible workspace identifiers and full paths, ordered by path.
+    /// A task whose result contains readable workspace identifiers, names and full paths, ordered by path.
     /// </returns>
     /// <exception cref="OperationCanceledException">
     /// The operation was canceled before completion.
     /// </exception>
-    public async Task<IReadOnlyList<KnowledgeWorkspace>> ListWorkspacesAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<KnowledgeSearchWorkspace>> ListWorkspacesAsync(CancellationToken cancellationToken)
     {
-        var topology = await workspaces.LoadTopologyAsync(cancellationToken);
-        return topology.Paths.OrderBy(pair => pair.Value, StringComparer.Ordinal)
-            .Select(pair => new KnowledgeWorkspace(pair.Key, pair.Value)).ToArray();
+        var visible = await workspaces.ListVisibleAsync(cancellationToken);
+        return visible.OrderBy(workspace => workspace.Path, StringComparer.Ordinal)
+            .Select(workspace => new KnowledgeSearchWorkspace(workspace.Id, workspace.Name, workspace.Path)).ToArray();
     }
 
     /// <summary>
@@ -139,8 +139,9 @@ public sealed class KnowledgeSearchAppService(
                 ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.ContextNotFound);
             if (workspaceId is not null && context.WorkspaceId != workspaceId)
                 throw new ContextDepotApplicationException(ApplicationErrorCodes.ContextNotFound);
+            var owner = await workspaces.GetAsync(context.WorkspaceId, cancellationToken);
             return new(context.Id, type, context.Title ?? context.Key ?? context.Kind.ToString(),
-                context.Workspace, context.Content, context.UpdatedAt);
+                context.Workspace, context.Content, context.UpdatedAt, owner?.Name);
         }
 
         if (type == "document")
@@ -149,9 +150,10 @@ public sealed class KnowledgeSearchAppService(
                 ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.DocumentNotFound);
             if (workspaceId is not null && document.Metadata.WorkspaceId != workspaceId)
                 throw new ContextDepotApplicationException(ApplicationErrorCodes.DocumentNotFound);
+            var owner = await workspaces.GetAsync(document.Metadata.WorkspaceId, cancellationToken);
             return new(document.Metadata.Id, type,
                 string.IsNullOrWhiteSpace(document.Metadata.Title) ? document.Metadata.Path : document.Metadata.Title,
-                document.Metadata.Workspace, document.Content, document.Metadata.UpdatedAt);
+                document.Metadata.Workspace, document.Content, document.Metadata.UpdatedAt, owner?.Name);
         }
 
         throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidResourceQuery);

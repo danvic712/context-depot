@@ -13,6 +13,9 @@ public interface IWorkspaceRepository
 
     Task<IReadOnlyList<WorkspacePathLookup>> ListWithPathsAsync(Guid depotId, string? parentPath, CancellationToken cancellationToken);
 
+    /// <summary>Loads every readable workspace in the depot with its resolved path.</summary>
+    Task<IReadOnlyList<WorkspacePathLookup>> ListVisibleWithPathsAsync(Guid depotId, CancellationToken cancellationToken);
+
     Task<WorkspaceTopology> LoadVisibleTopologyAsync(Guid depotId, CancellationToken cancellationToken);
 
     Task<WorkspaceWriteSnapshot> LoadEnsureSnapshotAsync(Guid depotId, WorkspaceSubject? subject,

@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using ContextDepot.Application.Shared.Runtime.Contracts;
 using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Application.Shared.Safety.Contracts;
+using ContextDepot.Domain.Contexts.Enums;
 
 namespace ContextDepot.Application.Overview;
 
@@ -22,6 +23,32 @@ public sealed partial class OverviewAppService(
     {
         ValidateQuery(limit, 20, sort, "-updatedAt");
         return repository.ListKnowledgeAsync(currentDepot.DepotId, limit, timeProvider.GetUtcNow(), cancellationToken);
+    }
+
+    /// <summary>Lists recently updated knowledge within the search page's current conditions.</summary>
+    /// <param name="limit">The requested limit, between one and twenty.</param>
+    /// <param name="workspace">An optional exact workspace path.</param>
+    /// <param name="type">All, contexts or documents.</param>
+    /// <param name="kind">An optional context category.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The most recently updated matching knowledge.</returns>
+    public Task<ResourceCollection<KnowledgeSummary>> ListRecentKnowledgeAsync(int limit, string? workspace,
+        string? type, string? kind, CancellationToken cancellationToken)
+    {
+        ValidateQuery(limit, 20, "-updatedAt", "-updatedAt");
+        type = string.IsNullOrWhiteSpace(type) || type == "all" ? null : type;
+        if (type is not null and not "contexts" and not "documents")
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidResourceQuery);
+        ContextKind? selectedKind = null;
+        if (!string.IsNullOrWhiteSpace(kind))
+        {
+            if (!Enum.TryParse<ContextKind>(kind, true, out var parsed) || !Enum.IsDefined(parsed) ||
+                !string.Equals(parsed.ToString(), kind, StringComparison.OrdinalIgnoreCase) || type == "documents")
+                throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidResourceQuery);
+            selectedKind = parsed;
+        }
+        var filter = new RecentKnowledgeFilter(string.IsNullOrWhiteSpace(workspace) ? null : workspace.Trim(), type, selectedKind);
+        return repository.ListRecentKnowledgeAsync(currentDepot.DepotId, limit, filter, timeProvider.GetUtcNow(), cancellationToken);
     }
 
     public async Task<WorkspaceSummary> CreateWorkspaceAsync(CreateWorkspaceRequest request, CancellationToken cancellationToken)

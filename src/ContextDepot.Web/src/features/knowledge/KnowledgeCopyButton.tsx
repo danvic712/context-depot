@@ -47,7 +47,11 @@ export function KnowledgeCopyButton({
       ) : (
         <CopyIcon data-icon="inline-start" aria-hidden="true" />
       )}
-      {!iconOnly && t(done ? "dialogCopied" : "dialogCopy")}
+      {!iconOnly && (
+        <span className="knowledge-copy-label">
+          {t(done ? "dialogCopied" : "dialogCopy")}
+        </span>
+      )}
     </Button>
   );
 }

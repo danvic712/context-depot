@@ -4,6 +4,7 @@ import {
   createReaderSheetMotion,
 } from "../../src/features/knowledge/reader-sheet-motion";
 import { createSpring } from "../../src/lib/spring-motion";
+import { createFilterDisclosureMotion } from "../../src/features/knowledge/filter-disclosure-motion";
 
 const names = [
   "window",
@@ -177,4 +178,84 @@ test("shared surface springs apply reduced motion immediately and ignore targets
   spring.to(0);
   expect(value).toBe(1);
   expect(callbacks.size).toBe(0);
+});
+
+test("filter disclosure can reverse mid-flight without measuring layout on every frame", () => {
+  let measurements = 0;
+  const node = {
+    hidden: false,
+    style: { height: "", opacity: "" },
+    firstElementChild: {
+      getBoundingClientRect: () => {
+        measurements++;
+        return { height: 240 };
+      },
+    },
+    getBoundingClientRect: () => ({
+      height:
+        node.style.height === "auto" ? 240 : parseFloat(node.style.height),
+    }),
+  };
+  const disclosure = createFilterDisclosureMotion(
+    node as unknown as HTMLDivElement,
+    false,
+  );
+  try {
+    expect(node.hidden).toBe(true);
+    disclosure.setOpen(true);
+    const measured = measurements;
+    tick(32);
+    tick(16);
+    expect(measurements).toBe(measured);
+    const current = node.style.height;
+    disclosure.setOpen(false);
+    expect(node.style.height).toBe(current);
+    tick(16);
+    disclosure.setOpen(true);
+    tick(2000);
+    expect(node.hidden).toBe(false);
+    expect(node.style.height).toBe("auto");
+    disclosure.setOpen(false);
+    tick(2000);
+    expect(node.hidden).toBe(true);
+    expect(node.style.opacity).toBe("0");
+  } finally {
+    disclosure.dispose();
+  }
+});
+
+test("filter disclosure starts from changed auto height and reduced motion settles synchronously", () => {
+  let contentHeight = 240;
+  const node = {
+    hidden: false,
+    style: { height: "", opacity: "" },
+    firstElementChild: {
+      getBoundingClientRect: () => ({ height: contentHeight }),
+    },
+    getBoundingClientRect: () => ({
+      height:
+        node.style.height === "auto"
+          ? contentHeight
+          : parseFloat(node.style.height),
+    }),
+  };
+  const disclosure = createFilterDisclosureMotion(
+    node as unknown as HTMLDivElement,
+    true,
+  );
+  try {
+    contentHeight = 400;
+    disclosure.setOpen(false);
+    expect(node.style.height).toBe("400px");
+    preference.matches = true;
+    preference.dispatchEvent(new Event("change"));
+    expect(node.hidden).toBe(true);
+    expect(callbacks.size).toBe(0);
+    disclosure.setOpen(true);
+    expect(node.hidden).toBe(false);
+    expect(node.style.height).toBe("auto");
+    expect(callbacks.size).toBe(0);
+  } finally {
+    disclosure.dispose();
+  }
 });

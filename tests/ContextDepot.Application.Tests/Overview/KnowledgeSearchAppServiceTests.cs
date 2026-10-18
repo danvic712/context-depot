@@ -7,6 +7,7 @@ using ContextDepot.Application.Retrieval;
 using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Application.Workspaces;
 using ContextDepot.Application.Workspaces.Contracts;
+using ContextDepot.Application.Workspaces.Dtos;
 using ContextDepot.Domain.Documents.Enums;
 using ContextDepot.Domain.Contexts.Enums;
 using MatchType = ContextDepot.Application.Retrieval.Enums.MatchType;
@@ -91,15 +92,21 @@ public sealed class KnowledgeSearchAppServiceTests
     }
 
     [Fact]
-    public async Task WorkspaceChoicesUseFullVisiblePathsIncludingNestedSpaces()
+    public async Task WorkspaceChoicesExposeDisplayNamesWhilePreservingNestedScopePathsAndCancellation()
     {
         var root = Guid.NewGuid();
         var child = Guid.NewGuid();
-        workspaces.Setup(x => x.LoadTopologyAsync(default)).ReturnsAsync(new WorkspaceTopology([
-            new(root, null, "projects"), new(child, root, "notes")]));
-        var result = await Create().ListWorkspacesAsync(default);
+        using var cancellation = new CancellationTokenSource();
+        var now = DateTimeOffset.UtcNow;
+        workspaces.Setup(x => x.ListVisibleAsync(cancellation.Token)).ReturnsAsync(new WorkspaceModel[] {
+            new(child, Guid.Empty, "projects/notes", "研究笔记", null, "{}", now, now),
+            new(root, Guid.Empty, "projects", "研发项目", null, "{}", now, now) });
+        var result = await Create().ListWorkspacesAsync(cancellation.Token);
         Assert.Equal(new[] { "projects", "projects/notes" }, result.Select(x => x.Path));
+        Assert.Equal(new[] { "研发项目", "研究笔记" }, result.Select(x => x.Name));
         Assert.Equal(child, result[1].Id);
+        workspaces.Verify(x => x.ListVisibleAsync(cancellation.Token), Times.Once);
+        workspaces.VerifyNoOtherCalls();
     }
 
     [Theory]
@@ -120,10 +127,13 @@ public sealed class KnowledgeSearchAppServiceTests
         var now = DateTimeOffset.UtcNow;
         var metadata = new DocumentModel(id, Guid.NewGuid(), Guid.NewGuid(), "projects/notes", "notes.md", "Notes", "hash", "hash", DocumentStatus.Active, DocumentIndexStatus.Indexed, now, now, []);
         documents.Setup(x => x.GetAsync(id, default)).ReturnsAsync(new DocumentContentModel(metadata, "# Complete Markdown\n\nNot a search excerpt.", "hash"));
+        workspaces.Setup(x => x.GetAsync(metadata.WorkspaceId, default)).ReturnsAsync(new WorkspaceModel(
+            metadata.WorkspaceId, metadata.DepotId, metadata.Workspace, "研究笔记", null, "{}", now, now));
         var result = await Create().GetAsync("document", id, default);
         Assert.Equal("# Complete Markdown\n\nNot a search excerpt.", result.Content);
         Assert.Equal(now, result.UpdatedAt);
         Assert.Equal("projects/notes", result.Workspace);
+        Assert.Equal("研究笔记", result.WorkspaceName);
         Assert.Equal(result, await Create().GetAsync("document", id, default, metadata.WorkspaceId));
         var wrongSpace = await Assert.ThrowsAsync<ContextDepotApplicationException>(() =>
             Create().GetAsync("document", id, default, Guid.CreateVersion7()));

@@ -66,6 +66,11 @@ export default function KnowledgeSearchDialog({
   const input = useRef<HTMLInputElement>(null);
   const resource = useKnowledgeSearch(query, workspace, retry);
   const workspaces = useSearchWorkspaces(workspaceRetry);
+  const workspaceNames = new Map(
+    (workspaces.error?.retryable === false ? [] : (workspaces.data ?? [])).map(
+      (space) => [space.path, space.name],
+    ),
+  );
   const hits = resource.data?.items ?? [];
   const visible = hits.filter((item) => type === "all" || item.type === type);
   const item =
@@ -178,7 +183,7 @@ export default function KnowledgeSearchDialog({
                 { value: "all", label: t("allSpaces") },
                 ...(workspaces.data ?? []).map((space) => ({
                   value: `space:${space.path}`,
-                  label: space.path,
+                  label: space.name,
                 })),
               ]}
             />
@@ -280,7 +285,14 @@ export default function KnowledgeSearchDialog({
                           className="search-result-item"
                         >
                           <KnowledgeTypeIcon type={hit.type} />
-                          <SearchResultText hit={hit} query={query} />
+                          <SearchResultText
+                            hit={hit}
+                            query={query}
+                            workspaceName={
+                              workspaceNames.get(hit.workspace) ??
+                              t("searchUnknownSpace")
+                            }
+                          />
                         </CommandItem>
                       ))}
                     </CommandGroup>
@@ -331,7 +343,14 @@ export default function KnowledgeSearchDialog({
                   <SearchSkeleton />
                 ) : (
                   <>
-                    <SearchPreviewContent detail={detail.data} />
+                    <SearchPreviewContent
+                      detail={detail.data}
+                      workspaceName={
+                        workspaceNames.get(detail.data.workspace) ??
+                        detail.data.workspaceName ??
+                        t("searchUnknownSpace")
+                      }
+                    />
                   </>
                 )}
               </div>

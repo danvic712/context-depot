@@ -1,16 +1,31 @@
 import { KnowledgeTypeIcon } from "./KnowledgeTypeIcon";
 import type { RefObject } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronRightIcon } from "lucide-react";
+import { ChevronRightIcon, InfoIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTitle,
+  PopoverDescription,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { RequestFeedback } from "@/components/feedback/RequestFeedback";
 import type { Resource } from "@/hooks/use-request-resource";
-import { type SearchHit, type SearchResponse } from "./search-api";
+import {
+  type SearchHit,
+  type SearchResponse,
+  type SearchWorkspace,
+} from "./search-api";
 import { knowledgeKey } from "@/features/knowledge/knowledge-models";
 import { SearchEmpty, SearchResultText } from "./SearchContent";
 import { SearchResultsSkeleton } from "./SearchSkeleton";
 
 export function SearchResults({
   resource,
+  recent = false,
+  degraded,
+  spaces,
   hits,
   query,
   selected,
@@ -22,6 +37,9 @@ export function SearchResults({
   onClearScope,
 }: {
   resource: Resource<SearchResponse>;
+  recent?: boolean;
+  degraded?: boolean;
+  spaces?: SearchWorkspace[];
   hits: SearchHit[];
   query: string;
   selected: string;
@@ -33,6 +51,9 @@ export function SearchResults({
   scrollRef: RefObject<HTMLDivElement | null>;
 }) {
   const { t } = useTranslation();
+  const names = new Map(
+    (spaces ?? []).map((space) => [space.path, space.name]),
+  );
   function move(index: number, direction: string) {
     const next =
       direction === "Home"
@@ -54,26 +75,59 @@ export function SearchResults({
   return (
     <section
       className="search-results-pane"
+      data-recent={recent || undefined}
       aria-labelledby="search-results-title"
       aria-busy={resource.pending}
     >
       <div className="search-pane-toolbar">
-        <h2 id="search-results-title">{t("dialogResults")}</h2>
-        <span role="status" aria-live="polite">
-          {resource.pending
-            ? t("loading")
-            : resource.data
-              ? t("searchDisplayed", { count: hits.length })
-              : ""}
-        </span>
+        <h2 id="search-results-title">
+          {t(recent ? "searchRecent" : "dialogResults")}
+        </h2>
+        <div className="search-results-status">
+          <span role="status" aria-live="polite">
+            {resource.pending
+              ? t("loading")
+              : resource.data
+                ? t("searchDisplayed", { count: hits.length })
+                : ""}
+          </span>
+          {degraded && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  aria-label={t("dialogDegradedTitle")}
+                >
+                  <InfoIcon data-icon="inline-start" aria-hidden="true" />
+                  {t("searchKeywordMode")}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end">
+                <PopoverTitle>{t("dialogDegradedTitle")}</PopoverTitle>
+                <PopoverDescription>{t("dialogDegraded")}</PopoverDescription>
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
       </div>
       <div className="search-results-scroll" ref={scrollRef}>
         {resource.error && (
           <RequestFeedback
-            title={t(scopeMissing ? "searchScopeMissing" : "dialogSearchError")}
+            title={t(
+              scopeMissing
+                ? "searchScopeMissing"
+                : recent
+                  ? "searchRecentError"
+                  : "dialogSearchError",
+            )}
             failure={scopeMissing ? undefined : resource.error}
             description={t(
-              scopeMissing ? "searchScopeMissingWhy" : "dialogSearchErrorWhy",
+              scopeMissing
+                ? "searchScopeMissingWhy"
+                : recent
+                  ? "searchRecentErrorWhy"
+                  : "dialogSearchErrorWhy",
             )}
             pending={resource.pending}
             stale={!!resource.data}
@@ -87,7 +141,7 @@ export function SearchResults({
             }
           />
         )}
-        {!query.trim() ? (
+        {!query.trim() && !recent ? (
           <SearchEmpty
             title={t("dialogStart")}
             description={t("dialogStartWhy")}
@@ -100,8 +154,9 @@ export function SearchResults({
             <ul className="search-result-rows">
               {hits.map((hit, index) => (
                 <li key={knowledgeKey(hit)}>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
                     className="search-result-row"
                     data-selected={knowledgeKey(hit) === selected || undefined}
                     aria-current={
@@ -126,19 +181,38 @@ export function SearchResults({
                     <span className="search-result-icon">
                       <KnowledgeTypeIcon type={hit.type} />
                     </span>
-                    <SearchResultText hit={hit} query={query} />
+                    <SearchResultText
+                      hit={hit}
+                      query={query}
+                      plainMetadata
+                      workspaceName={
+                        names.get(hit.workspace) ?? t("searchUnknownSpace")
+                      }
+                    />
                     <ChevronRightIcon
                       className="search-row-chevron"
                       aria-hidden="true"
                     />
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>
           ) : (
             <SearchEmpty
-              title={t("dialogNoResults")}
-              description={t("dialogNoResultsWhy")}
+              title={t(
+                recent
+                  ? onReset
+                    ? "searchRecentFilteredEmpty"
+                    : "searchRecentEmpty"
+                  : "dialogNoResults",
+              )}
+              description={t(
+                recent
+                  ? onReset
+                    ? "searchRecentFilteredEmptyWhy"
+                    : "searchRecentEmptyWhy"
+                  : "dialogNoResultsWhy",
+              )}
               onReset={onReset}
             />
           ))
@@ -146,7 +220,9 @@ export function SearchResults({
       </div>
       {resource.data && (
         <p className="search-batch-note">
-          {t("searchBatchLimit", { count: resource.data.limit })}
+          {t(recent ? "searchRecentLimit" : "searchBatchLimit", {
+            count: resource.data.limit,
+          })}
         </p>
       )}
     </section>

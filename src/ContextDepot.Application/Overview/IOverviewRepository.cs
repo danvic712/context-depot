@@ -57,6 +57,16 @@ public interface IOverviewRepository
     /// </exception>
     Task<ResourceCollection<KnowledgeSummary>> ListKnowledgeAsync(Guid depotId, int limit, DateTimeOffset asOf, CancellationToken cancellationToken);
 
+    /// <summary>Lists recent readable knowledge after applying the requested scope and categories.</summary>
+    /// <param name="depotId">The server-selected depot.</param>
+    /// <param name="limit">The validated collection limit.</param>
+    /// <param name="filter">The validated search conditions.</param>
+    /// <param name="asOf">The time used to evaluate context visibility.</param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>The ordered recent collection and continuation indicator.</returns>
+    Task<ResourceCollection<KnowledgeSummary>> ListRecentKnowledgeAsync(Guid depotId, int limit,
+        RecentKnowledgeFilter filter, DateTimeOffset asOf, CancellationToken cancellationToken);
+
     /// <summary>
     /// Creates a root workspace without updating an existing workspace.
     /// </summary>

@@ -118,9 +118,7 @@ describe("Application routes", () => {
       const html = renderToStaticMarkup(<RouterProvider router={router} />);
       expect(html).toContain('value="notes"');
       expect(html).toContain('data-slot="skeleton"');
-      expect(html).toContain(
-        'aria-label="Filter types in this returned batch"',
-      );
+      expect(html).toContain('aria-label="Choose a content type"');
       expect(html).not.toContain("Working notes.md");
       expect(html).not.toContain("Architecture overview.md");
     } finally {
@@ -441,15 +439,13 @@ describe("Sidebar navigation", () => {
     }
   });
 
-  test("startup on Search preserves its filters and two-pane layout", () => {
+  test("startup on Search preserves the filter, result and reader columns", () => {
     const html = renderToStaticMarkup(<AppLoading pathname="/search" />);
     expect(html).toContain('class="page search"');
     expect(html).toContain("search-page-skeleton");
-    expect(html).toContain('class="page-heading"');
+    expect(html).not.toContain('class="search-page-heading"');
     expect(html).toContain('class="search-box"');
-    expect(html).toContain("search-type-field");
-    expect(html).toContain("search-kind-field");
-    expect(html).toContain("search-workspace-field");
+    expect(html).toContain('class="search-controls-pane"');
     expect(html).toContain('class="search-panes"');
     expect(html).toContain('class="search-results-pane"');
     expect(html).toContain('class="search-preview-pane"');

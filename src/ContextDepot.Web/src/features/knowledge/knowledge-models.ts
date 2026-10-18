@@ -15,6 +15,7 @@ export interface KnowledgePreview {
   type: KnowledgeType;
   title: string;
   workspace: string;
+  workspaceName?: string;
   content: string;
   updatedAt: string;
 }

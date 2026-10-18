@@ -6,6 +6,8 @@ import {
   searchKnowledge,
   getKnowledgePreview,
   getSearchWorkspaces,
+  parseRecentKnowledge,
+  getRecentKnowledge,
 } from "../../src/features/knowledge/search-api";
 import { knowledgeKey } from "../../src/features/knowledge/knowledge-models";
 
@@ -49,6 +51,66 @@ const detail = {
 };
 
 describe("Knowledge search API", () => {
+  test("recent knowledge uses real update dates and rejects malformed collections", () => {
+    const recent = {
+      asOf: detail.updatedAt,
+      hasMore: false,
+      items: [
+        {
+          ...detail,
+          kind: null,
+          workspace: { id: "space", path: "projects/notes" },
+          indexStatus: "pending",
+        },
+      ],
+    };
+    const parsed = parseRecentKnowledge(recent);
+    expect(parsed.items[0]?.updatedAt).toBe(detail.updatedAt);
+    expect(parsed.items[0]?.workspace).toBe("projects/notes");
+    expect(parsed.items[0]?.excerpt).toBe("");
+    expect(parsed.degraded).toBe(false);
+    expect(() => parseRecentKnowledge({ ...recent, asOf: "bad" })).toThrow();
+    expect(() => parseRecentKnowledge({ ...recent, hasMore: null })).toThrow();
+    expect(() =>
+      parseRecentKnowledge({
+        ...recent,
+        items: new Array(21).fill(recent.items[0]),
+      }),
+    ).toThrow();
+  });
+  test("recent requests send filters before the server applies its limit", async () => {
+    const paths: string[] = [];
+    const server = Bun.serve({
+      port: 0,
+      fetch(request) {
+        const url = new URL(request.url);
+        paths.push(url.pathname + url.search);
+        return Response.json({
+          asOf: detail.updatedAt,
+          items: [],
+          hasMore: false,
+        });
+      },
+    });
+    const interceptor = httpClient.interceptors.request.use((config) => ({
+      ...config,
+      baseURL: `${server.url}api`,
+    }));
+    try {
+      await getRecentKnowledge(
+        "projects/notes",
+        "contexts",
+        "decision",
+        new AbortController().signal,
+      );
+      expect(paths).toEqual([
+        "/api/knowledge/recent?workspace=projects%2Fnotes&type=contexts&kind=decision&limit=20",
+      ]);
+    } finally {
+      httpClient.interceptors.request.eject(interceptor);
+      server.stop(true);
+    }
+  });
   test("deduplicates document chunks without conflating IDs across types", () => {
     const result = parseSearch(response);
     expect(result.items).toHaveLength(2);
@@ -85,7 +147,13 @@ describe("Knowledge search API", () => {
           url.pathname.endsWith("/search")
             ? response
             : url.pathname.endsWith("/workspaces")
-              ? [{ id: "workspace", path: "projects/notes" }]
+              ? [
+                  {
+                    id: "workspace",
+                    name: "Project notes",
+                    path: "projects/notes",
+                  },
+                ]
               : detail,
         );
       },
@@ -104,6 +172,7 @@ describe("Knowledge search API", () => {
       const spaces = await getSearchWorkspaces();
       expect(document.content).toBe("# Full source");
       expect(spaces[0]!.path).toBe("projects/notes");
+      expect(spaces[0]!.name).toBe("Project notes");
       const first = new URL(paths[0]!, "http://localhost");
       expect(first.searchParams.get("query")).toBe("decision & notes");
       expect(first.searchParams.get("workspace")).toBe("projects/notes");
@@ -148,6 +217,26 @@ describe("Knowledge search API", () => {
         type: "document",
       });
       expect(result.id).toBe(returned.id);
+    } finally {
+      httpClient.defaults.baseURL = original;
+      await server.stop(true);
+    }
+  });
+  test("space choices require a usable display name without changing the scope path", async () => {
+    let name: unknown = "研究笔记";
+    const server = Bun.serve({
+      port: 0,
+      fetch: () =>
+        Response.json([{ id: "space", name, path: "projects/notes" }]),
+    });
+    const original = httpClient.defaults.baseURL;
+    httpClient.defaults.baseURL = `http://localhost:${server.port}/api`;
+    try {
+      expect(await getSearchWorkspaces()).toEqual([
+        { id: "space", name: "研究笔记", path: "projects/notes" },
+      ]);
+      for (name of [undefined, null, "   ", 42])
+        await expect(getSearchWorkspaces()).rejects.toThrow();
     } finally {
       httpClient.defaults.baseURL = original;
       await server.stop(true);

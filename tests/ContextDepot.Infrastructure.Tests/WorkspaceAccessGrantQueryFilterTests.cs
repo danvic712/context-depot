@@ -1,6 +1,7 @@
 using ContextDepot.Domain.Depots;
 using ContextDepot.Domain.Workspaces;
 using ContextDepot.Infrastructure.CurrentDepot;
+using ContextDepot.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
@@ -55,5 +56,13 @@ public sealed class WorkspaceAccessGrantQueryFilterTests
         Assert.Equal(grants.Select(item => item.WorkspaceId), joined.Select(item => item.WorkspaceId));
         Assert.DoesNotContain(grants, item => item.WorkspaceId == hidden.Id);
         Assert.All(joined, item => Assert.NotNull(item.Workspace));
+        var repository = new WorkspaceRepository(scoped, new GuidV7IdGenerator(), access,
+            new VisibleWorkspaceTopologyProvider(scoped));
+        var choices = await repository.ListVisibleWithPathsAsync(depot.Id, default);
+        var choice = Assert.Single(choices);
+        Assert.Equal(child.Id, choice.Workspace.Id);
+        Assert.Equal("Child", choice.Workspace.Name);
+        Assert.Equal("root/child", choice.Path);
+        Assert.DoesNotContain(choices, item => item.Workspace.Id == root.Id || item.Workspace.Id == hidden.Id);
     }
 }

@@ -7,6 +7,8 @@ using ContextDepot.Domain.Workspaces;
 using ContextDepot.Infrastructure.CurrentDepot;
 using ContextDepot.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
+using ContextDepot.Application.Overview;
+using ContextDepot.Application.Shared.Exceptions;
 
 namespace ContextDepot.Infrastructure.Tests;
 
@@ -76,6 +78,16 @@ public sealed class OverviewRepositoryTests
         Assert.False(all.HasMore);
         Assert.Equal("pending.md", all.Items.Single(x => x.Id == pending.Id).Title);
         Assert.DoesNotContain(all.Items, x => x.Workspace.Id == other.Id);
+        var scoped = await repository.ListRecentKnowledgeAsync(depot.Id, 1,
+            new RecentKnowledgeFilter("root/child", "documents", null), now, default);
+        Assert.Equal(pending.Id, Assert.Single(scoped.Items).Id);
+        var decisions = await repository.ListRecentKnowledgeAsync(depot.Id, 1,
+            new RecentKnowledgeFilter(null, null, ContextKind.Decision), now, default);
+        Assert.Equal(active.Id, Assert.Single(decisions.Items).Id);
+        Assert.False(decisions.HasMore);
+        var missing = await Assert.ThrowsAsync<ContextDepotApplicationException>(() =>
+            repository.ListRecentKnowledgeAsync(depot.Id, 1, new("missing", null, null), now, default));
+        Assert.Equal(ApplicationErrorCodes.WorkspaceNotFound, missing.ErrorCode);
         await transaction.RollbackAsync();
     }
 
