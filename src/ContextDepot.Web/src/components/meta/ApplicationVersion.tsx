@@ -5,15 +5,17 @@ export function ApplicationVersion({
   version,
   pending,
   failed,
+  showLabel = true,
 }: {
   version: string | null | undefined;
   pending: boolean;
   failed: boolean;
+  showLabel?: boolean;
 }) {
   const { t } = useTranslation();
   return (
     <span className="application-version" aria-live="polite">
-      {t("appVersion")}:{" "}
+      {showLabel && <>{t("appVersion")}: </>}
       {failed ? (
         t("appVersionUnavailable")
       ) : version ? (

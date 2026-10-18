@@ -37,8 +37,8 @@ describe("Application version", () => {
     await language("en");
     expect(render(undefined, true)).toContain("Loading");
     const failure = render("1.2.3-rc.1", false, true);
-    expect(failure).toContain("Temporarily unavailable");
+    expect(failure).toContain("Could not load");
     expect(failure).not.toContain("1.2.3-rc.1");
-    expect(render(null)).toContain("Not provided by server");
+    expect(render(null)).toContain("Not available");
   });
 });

@@ -6,13 +6,15 @@ export function SettingsSection({
   title,
   detail,
   icon: Icon,
+  visual,
   action,
   children,
 }: {
   id: string;
   title: string;
   detail: string;
-  icon: LucideIcon;
+  icon?: LucideIcon;
+  visual?: ReactNode;
   action?: ReactNode;
   children: ReactNode;
 }) {
@@ -21,11 +23,14 @@ export function SettingsSection({
       className="settings-section"
       id={id}
       aria-labelledby={`${id}-title`}
+      tabIndex={-1}
     >
       <div className="settings-section-header">
-        <span className="settings-section-icon">
-          <Icon aria-hidden="true" />
-        </span>
+        {(visual || Icon) && (
+          <span className="settings-section-icon">
+            {visual ?? (Icon && <Icon aria-hidden="true" />)}
+          </span>
+        )}
         <div className="settings-section-heading">
           <h2 id={`${id}-title`}>{title}</h2>
           <p>{detail}</p>

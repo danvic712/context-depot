@@ -67,9 +67,7 @@ export function ThemeOptions({
           <span className="theme-option-label">
             <Icon aria-hidden="true" />
             <span>{t(theme)}</span>
-            {value === theme && (
-              <CheckIcon className="theme-option-check" aria-hidden="true" />
-            )}
+            <CheckIcon className="theme-option-check" aria-hidden="true" />
           </span>
         </ToggleGroupItem>
       ))}

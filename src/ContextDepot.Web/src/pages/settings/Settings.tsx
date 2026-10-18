@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   MonitorIcon,
   DatabaseIcon,
@@ -10,16 +10,27 @@ import {
   ExternalLinkIcon,
   SparklesIcon,
   KeyRoundIcon,
+  ChevronRightIcon,
+  CheckIcon,
+  NetworkIcon,
+  ChevronDownIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAppContext } from "@/hooks/use-app-context";
-import type { Lang } from "@/lib/i18n";
 import { ThemeOptions } from "@/features/settings/ThemeOptions";
-import { AppSelect } from "@/components/ui/AppSelect";
+import { LanguageOptions } from "@/features/settings/LanguageOptions";
+import { useSettingsNavigationMotion } from "@/features/settings/use-settings-navigation-motion";
+import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
 import { PageHeader } from "@/components/content/PageHeader";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { AccessKeySettings } from "@/features/settings/AccessKeySettings";
+import { AboutSettings } from "@/features/settings/AboutSettings";
 import { InferenceSettings } from "@/features/settings/InferenceSettings";
 import { SettingsResourceState } from "@/features/settings/SettingsResourceState";
 import {
@@ -27,7 +38,6 @@ import {
   CopySetting,
 } from "@/features/settings/SettingsStatus";
 import { getSettingsOverview } from "@/features/settings/settings-api";
-import { ApplicationVersion } from "@/components/meta/ApplicationVersion";
 import { getApplicationMeta } from "@/lib/meta-api";
 import { useRequestResource } from "@/hooks/use-request-resource";
 import { useSettingsResource } from "@/features/settings/use-settings-resource";
@@ -35,7 +45,7 @@ import { SettingsSection } from "./SettingsSection";
 import "@/styles/settings.css";
 
 const sections = [
-  ["appearance", "general", MonitorIcon],
+  ["appearance", "appearance", MonitorIcon],
   ["storage", "storage", DatabaseIcon],
   ["retrieval", "retrieval", SearchIcon],
   ["inference", "settingsInferenceNav", SparklesIcon],
@@ -44,18 +54,14 @@ const sections = [
   ["about", "about", InfoIcon],
 ] as const;
 export function Settings() {
-  const {
-    theme,
-    language,
-    languagePending,
-    appearancePending,
-    onTheme,
-    onLanguage,
-  } = useAppContext();
+  const { theme, language, appearancePending, onTheme, onLanguage } =
+    useAppContext();
   const { t } = useTranslation();
   const resource = useSettingsResource(getSettingsOverview, true);
   const meta = useRequestResource("application-meta", 0, getApplicationMeta);
   const [active, setActive] = useState("appearance");
+  const navRef = useRef<HTMLElement>(null);
+  useSettingsNavigationMotion(navRef, active);
   const overview = resource.data;
   const endpoint = overview
     ? new URL(overview.mcpPath, window.location.href).href
@@ -70,14 +76,16 @@ export function Settings() {
         setActive("about");
         return;
       }
-      const offset = window.matchMedia("(max-width: 740px)").matches
-        ? 160
-        : 180;
+      const nav = document.querySelector(".section-nav");
+      const offset = window.matchMedia("(max-width: 1000px)").matches
+        ? (nav?.getBoundingClientRect().bottom ?? 144) + 24
+        : 120;
       let next: string = "appearance";
       for (const [id] of sections) {
         if (
           (document.getElementById(id)?.getBoundingClientRect().top ??
-            Infinity) <= offset
+            Infinity) <=
+          offset + 1
         )
           next = id;
       }
@@ -116,22 +124,24 @@ export function Settings() {
   }, []);
   useEffect(() => {
     const nav = document.querySelector<HTMLElement>(".section-nav");
-    const link = nav?.querySelector<HTMLElement>("[aria-current]");
-    if (nav && link && nav.scrollWidth > nav.clientWidth)
-      nav.scrollTo({
-        left: link.offsetLeft - (nav.clientWidth - link.offsetWidth) / 2,
-        behavior: "instant",
-      });
+    const revealActive = () => {
+      const link = nav?.querySelector<HTMLElement>("[aria-current]");
+      if (nav && link && nav.scrollWidth > nav.clientWidth)
+        nav.scrollTo({
+          left: link.offsetLeft - (nav.clientWidth - link.offsetWidth) / 2,
+          behavior: "instant",
+        });
+    };
+    revealActive();
+    window.addEventListener("resize", revealActive);
+    return () => window.removeEventListener("resize", revealActive);
   }, [active]);
   return (
-    <>
-      <PageHeader
-        eyebrow={t("settingsKicker")}
-        title={t("settingsTitle")}
-        description={t("settingsSub")}
-      />
-      <div className="settings-layout">
-        <nav className="section-nav" aria-label={t("settings")}>
+    <div className="settings-layout">
+      <div className="settings-sidebar">
+        <PageHeader title={t("settingsTitle")} description={t("settingsSub")} />
+        <nav ref={navRef} className="section-nav" aria-label={t("settings")}>
+          <span className="settings-nav-indicator" aria-hidden="true" />
           {sections.map(([id, label, Icon]) => (
             <a
               key={id}
@@ -140,185 +150,191 @@ export function Settings() {
               onClick={() => setActive(id)}
             >
               <Icon aria-hidden="true" />
-              {t(label)}
+              <span>{t(label)}</span>
+              <ChevronRightIcon
+                className="settings-nav-chevron"
+                aria-hidden="true"
+              />
             </a>
           ))}
         </nav>
-        <div className="settings-stack">
-          <SettingsSection
-            id="appearance"
-            title={t("appearance")}
-            detail={t("appearanceWhy")}
-            icon={MonitorIcon}
-          >
-            <div className="settings-appearance-grid">
-              <Field>
-                <FieldLabel>{t("theme")}</FieldLabel>
-                <ThemeOptions
-                  value={theme}
-                  pending={appearancePending}
-                  onChange={onTheme}
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="lang-select">{t("language")}</FieldLabel>
-                <AppSelect
-                  id="lang-select"
-                  label={t("language")}
-                  value={language}
-                  onChange={(value) => onLanguage(value as Lang)}
-                  disabled={appearancePending}
-                  options={[
-                    { value: "zh", label: "中文" },
-                    { value: "en", label: "English" },
-                  ]}
-                />
-                {languagePending && (
-                  <FieldDescription role="status">
-                    {t("loading")}
-                  </FieldDescription>
-                )}
-              </Field>
-            </div>
-          </SettingsSection>
-          <SettingsSection
-            id="storage"
-            title={t("storage")}
-            detail={t("storageWhy")}
-            icon={DatabaseIcon}
-          >
-            <SettingsResourceState
-              resource={resource}
-              onRetry={resource.refresh}
-            />
-            <div className="settings-storage-grid">
-              {(
-                [
-                  {
-                    title: "structured",
-                    why: "structuredWhy",
-                    icon: FolderIcon,
-                    storage: "PostgreSQL",
-                    state: overview?.databaseState,
-                  },
-                  {
-                    title: "documents",
-                    why: "documentsWhy",
-                    icon: FileTextIcon,
-                    storage: "Canonical Markdown",
-                    state: overview?.markdownState,
-                  },
-                ] as const
-              ).map((item) => (
-                <article className="settings-storage-tile" key={item.title}>
-                  <item.icon aria-hidden="true" />
-                  <div>
-                    <h3>{t(item.title)}</h3>
-                    <p>{t(item.why)}</p>
-                    <dl className="settings-definition-list">
-                      <div>
-                        <dt>{t("settingsStorageType")}</dt>
-                        <dd>{item.storage}</dd>
-                      </div>
-                      <div>
-                        <dt>{t("settingsStatus")}</dt>
-                        <dd>
-                          <SettingsStatus state={item.state ?? "unknown"} />
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>{t("settingsManagedBy")}</dt>
-                        <dd>{t("settingsDeployment")}</dd>
-                      </div>
-                    </dl>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </SettingsSection>
-          <SettingsSection
-            id="retrieval"
-            title={t("retrieval")}
-            detail={t("retrievalWhy")}
-            icon={SearchIcon}
-          >
-            <div className="settings-retrieval-grid">
+      </div>
+      <div className="settings-stack">
+        <SettingsSection
+          id="appearance"
+          title={t("appearance")}
+          detail={t("appearanceWhy")}
+          icon={MonitorIcon}
+          action={
+            <span className="settings-save-status" role="status">
+              {appearancePending ? (
+                <Spinner aria-hidden="true" />
+              ) : (
+                <CheckIcon aria-hidden="true" />
+              )}
+              {t(appearancePending ? "settingsSaving" : "settingsAutoSave")}
+            </span>
+          }
+        >
+          <FieldGroup className="settings-appearance-grid">
+            <Field>
+              <FieldLabel>{t("theme")}</FieldLabel>
+              <ThemeOptions
+                value={theme}
+                pending={appearancePending}
+                onChange={onTheme}
+              />
+            </Field>
+            <Field className="settings-language-field">
+              <FieldLabel>{t("language")}</FieldLabel>
+              <LanguageOptions
+                value={language}
+                onChange={onLanguage}
+                pending={appearancePending}
+              />
+            </Field>
+          </FieldGroup>
+        </SettingsSection>
+        <SettingsSection
+          id="storage"
+          title={t("storage")}
+          detail={t("storageWhy")}
+          icon={DatabaseIcon}
+        >
+          <SettingsResourceState
+            resource={resource}
+            onRetry={resource.refresh}
+          />
+          <div className="settings-storage-grid">
+            {(
+              [
+                {
+                  title: "structured",
+                  why: "structuredWhy",
+                  icon: FolderIcon,
+                  storage: "PostgreSQL",
+                  state: overview?.databaseState,
+                },
+                {
+                  title: "documents",
+                  why: "documentsWhy",
+                  icon: FileTextIcon,
+                  storage: t("settingsMarkdownFiles"),
+                  state: overview?.markdownState,
+                },
+              ] as const
+            ).map((item) => (
+              <article className="settings-storage-tile" key={item.title}>
+                <item.icon aria-hidden="true" />
+                <div>
+                  <h3>{t(item.title)}</h3>
+                  <p>{t(item.why)}</p>
+                  <dl className="settings-definition-list">
+                    <div>
+                      <dt>{t("settingsStorageType")}</dt>
+                      <dd>
+                        <span>{item.storage}</span>
+                        <SettingsStatus state={item.state ?? "unknown"} />
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+              </article>
+            ))}
+          </div>
+          <p className="settings-storage-note">
+            <InfoIcon aria-hidden="true" />
+            {t("settingsStorageManaged")}
+          </p>
+        </SettingsSection>
+        <SettingsSection
+          id="retrieval"
+          title={t("retrieval")}
+          detail={t("retrievalWhy")}
+          icon={SearchIcon}
+        >
+          <div className="settings-retrieval-grid">
+            <div className="settings-detail-row">
+              <SearchIcon className="settings-row-icon" aria-hidden="true" />
               <div>
-                <div className="settings-detail-row">
-                  <div>
-                    <h3>{t("keyword")}</h3>
-                    <p>{t("settingsKeywordWhy")}</p>
-                  </div>
-                  <SettingsStatus
-                    state={overview?.databaseState ?? "unknown"}
-                  />
-                </div>
-                <div className="settings-detail-row">
-                  <div>
-                    <h3>{t("semantic")}</h3>
-                    <p>{t("settingsSemanticWhy")}</p>
-                  </div>
-                  <SettingsStatus
-                    state={overview?.semanticState ?? "unknown"}
-                  />
-                </div>
+                <h3>{t("keyword")}</h3>
+                <p>{t("settingsKeywordWhy")}</p>
               </div>
-              <div>
-                <div className="settings-detail-row">
-                  <div>
-                    <h3>{t("embedding")}</h3>
-                    <p>{t("settingsEmbeddingLinkWhy")}</p>
-                  </div>
-                  <a className="settings-text-link" href="#inference">
-                    {t("settingsInferenceNav")} →
-                  </a>
-                </div>
-                <div className="settings-detail-row">
-                  <div>
-                    <h3>{t("index")}</h3>
-                    <p>
-                      {overview?.totalCount !== null &&
-                      overview?.totalCount !== undefined
-                        ? t("settingsIndexCoverage", {
-                            indexed: overview.indexedCount,
-                            total: overview.totalCount,
-                          })
-                        : t("settingsIndexWhy")}
-                    </p>
-                  </div>
-                  <SettingsStatus state={overview?.indexState ?? "unknown"} />
-                </div>
-              </div>
+              <SettingsStatus state={overview?.databaseState ?? "unknown"} />
             </div>
-          </SettingsSection>
-          <InferenceSettings onChanged={resource.refresh} />
-          <AccessKeySettings />
-          <SettingsSection
-            id="connections"
-            title={t("connections")}
-            detail={t("connectionsWhy")}
-            icon={LinkIcon}
-          >
-            <div className="settings-connections-grid">
+            <div className="settings-detail-row">
+              <NetworkIcon className="settings-row-icon" aria-hidden="true" />
               <div>
-                <h3>{t("endpoint")}</h3>
-                {endpoint ? (
-                  <div className="settings-endpoint">
-                    <code>{endpoint}</code>
-                    <CopySetting
-                      value={endpoint}
-                      label={t("settingsCopyEndpoint")}
-                    />
-                  </div>
-                ) : (
-                  <p>{t("addressMissing")}</p>
-                )}
-                <p className="settings-inline-note">
-                  {t("settingsHeaderName")} <code>X-ContextDepot-Key</code>
+                <h3>{t("semantic")}</h3>
+                <p>{t("settingsSemanticWhy")}</p>
+              </div>
+              <SettingsStatus state={overview?.semanticState ?? "unknown"} />
+              <a className="settings-text-link" href="#inference">
+                {t("settingsConfigureSearchModel")}{" "}
+                <ChevronRightIcon aria-hidden="true" />
+              </a>
+            </div>
+            <div className="settings-detail-row">
+              <FileTextIcon className="settings-row-icon" aria-hidden="true" />
+              <div>
+                <h3>{t("index")}</h3>
+                <p>
+                  {overview?.totalCount !== null &&
+                  overview?.totalCount !== undefined
+                    ? t("settingsIndexCoverage", {
+                        indexed: overview.indexedCount,
+                        total: overview.totalCount,
+                      })
+                    : t("settingsIndexWhy")}
                 </p>
-                {endpoint && (
-                  <details className="settings-connection-example">
-                    <summary>{t("settingsConnectionExample")}</summary>
+              </div>
+              <SettingsStatus state={overview?.indexState ?? "unknown"} />
+            </div>
+          </div>
+        </SettingsSection>
+        <InferenceSettings onChanged={resource.refresh} />
+        <AccessKeySettings />
+        <SettingsSection
+          id="connections"
+          title={t("connections")}
+          detail={t("connectionsWhy")}
+          icon={LinkIcon}
+        >
+          <div className="settings-connections-grid">
+            <div>
+              <h3>{t("endpoint")}</h3>
+              {endpoint ? (
+                <div className="settings-endpoint">
+                  <code>{endpoint}</code>
+                  <CopySetting
+                    value={endpoint}
+                    label={t("settingsCopyEndpoint")}
+                  />
+                </div>
+              ) : (
+                <p>{t("addressMissing")}</p>
+              )}
+              <p>{t("settingsConnectStep2")}</p>
+              <p className="settings-inline-note">
+                {t("settingsHeaderName")} <code>X-ContextDepot-Key</code>
+              </p>
+              {endpoint && (
+                <Collapsible className="settings-connection-example">
+                  <CollapsibleTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="settings-disclosure-trigger"
+                    >
+                      {t("settingsConnectionExample")}
+                      <ChevronDownIcon
+                        data-icon="inline-end"
+                        aria-hidden="true"
+                      />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
                     <p>{t("settingsConnectionReplace")}</p>
                     <pre>
                       {JSON.stringify(
@@ -334,58 +350,49 @@ export function Settings() {
                         2,
                       )}
                     </pre>
-                  </details>
-                )}
-              </div>
-              <div className="settings-connection-help">
-                <h3>{t("help")}</h3>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+            </div>
+            <Collapsible className="settings-connection-help">
+              <CollapsibleTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="settings-disclosure-trigger"
+                >
+                  {t("help")}
+                  <ChevronDownIcon data-icon="inline-end" aria-hidden="true" />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
                 <ol>
                   <li>{t("settingsConnectStep1")}</li>
                   <li>{t("settingsConnectStep2")}</li>
                   <li>{t("settingsConnectStep3")}</li>
                 </ol>
-                <a
-                  href="https://github.com/danvic712/context-depot#http-endpoints"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {t("settingsIntegrationGuide")}{" "}
-                  <ExternalLinkIcon size={13} aria-hidden="true" />
-                </a>
-              </div>
-            </div>
-          </SettingsSection>
-          <SettingsSection
-            id="about"
-            title="ContextDepot"
-            detail={t("aboutWhy")}
-            icon={InfoIcon}
-          >
-            <div className="settings-about-row">
-              {overview && (
-                <span>
-                  {t("settingsDepot")}: <strong>{overview.depotName}</strong>
-                </span>
-              )}
-              <ApplicationVersion
-                version={meta.data?.version}
-                pending={meta.pending}
-                failed={!!meta.error}
-              />
-              <Button variant="outline" size="sm" asChild>
-                <a
-                  href="https://github.com/danvic712/context-depot"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <ExternalLinkIcon aria-hidden="true" />
-                  {t("settingsRepository")}
-                </a>
-              </Button>
-            </div>
-          </SettingsSection>
-        </div>
+              </CollapsibleContent>
+            </Collapsible>
+            <a
+              className="settings-integration-guide"
+              href="https://github.com/danvic712/context-depot#3-connect-your-agent"
+              target="_blank"
+              rel="noreferrer"
+            >
+              {t("settingsIntegrationGuide")}{" "}
+              <ExternalLinkIcon size={13} aria-hidden="true" />
+            </a>
+          </div>
+        </SettingsSection>
+        <AboutSettings
+          version={meta.data?.version}
+          versionPending={meta.pending}
+          versionFailed={!!meta.error}
+          depotName={overview?.depotName}
+          depotPending={resource.pending}
+        />
       </div>
-    </>
+    </div>
   );
 }

@@ -15,6 +15,7 @@ import { EmbeddingDimensionsHelp } from "./EmbeddingDimensionsHelp";
 import type { Messages } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog } from "@/components/ui/dialog";
 import {
   Select,
@@ -28,6 +29,9 @@ import {
   FieldLabel,
   FieldDescription,
   FieldGroup,
+  FieldSet,
+  FieldLegend,
+  FieldContent,
 } from "@/components/ui/field";
 import { FormDialog } from "@/components/content/FormDialog";
 import { SubmitButton } from "@/components/content/SubmitButton";
@@ -471,27 +475,32 @@ export function InferenceProviderDialog({
               const supported =
                 capability === "chat" || preset.supportsEmbedding;
               return (
-                <fieldset
+                <FieldSet
                   key={capability}
                   className="settings-model-editor"
                   data-capability={capability}
-                  data-disabled={!supported}
+                  data-disabled={pending || !supported}
                   disabled={pending}
                 >
-                  <legend className="sr-only">
+                  <FieldLegend className="sr-only">
                     {t(
                       capability === "embedding"
                         ? "settingsEmbeddingTitle"
                         : "settingsChatTitle",
                     )}
-                  </legend>
-                  <label className="settings-model-toggle">
-                    <input
-                      type="checkbox"
-                      disabled={!supported}
+                  </FieldLegend>
+                  <Field
+                    orientation="horizontal"
+                    className="settings-model-toggle"
+                    data-disabled={pending || !supported}
+                  >
+                    <Checkbox
+                      id={`provider-${capability}-enabled`}
+                      aria-describedby={`provider-${capability}-description`}
+                      disabled={pending || !supported}
                       checked={draft[capability].enabled}
-                      onChange={(event) => {
-                        const enabled = event.target.checked;
+                      onCheckedChange={(checked) => {
+                        const enabled = checked === true;
                         if (!enabled)
                           setInvalid((value) =>
                             value.filter((key) => !key.startsWith(capability)),
@@ -505,15 +514,17 @@ export function InferenceProviderDialog({
                         }));
                       }}
                     />
-                    <span>
-                      <strong>
+                    <FieldContent>
+                      <FieldLabel htmlFor={`provider-${capability}-enabled`}>
                         {t(
                           capability === "embedding"
                             ? "settingsEmbeddingTitle"
                             : "settingsChatTitle",
                         )}
-                      </strong>
-                      <span>
+                      </FieldLabel>
+                      <FieldDescription
+                        id={`provider-${capability}-description`}
+                      >
                         {t(
                           !supported
                             ? "settingsProviderEmbeddingUnsupported"
@@ -521,9 +532,9 @@ export function InferenceProviderDialog({
                               ? "settingsEmbeddingWhy"
                               : "settingsChatWhy",
                         )}
-                      </span>
-                    </span>
-                  </label>
+                      </FieldDescription>
+                    </FieldContent>
+                  </Field>
                   {draft[capability].enabled && (
                     <>
                       <FieldGroup className="settings-model-fields">
@@ -632,7 +643,7 @@ export function InferenceProviderDialog({
                         {t("settingsProviderDisable")}
                       </p>
                     )}
-                </fieldset>
+                </FieldSet>
               );
             })}
           </div>
