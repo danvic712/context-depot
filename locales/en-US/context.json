@@ -13,5 +13,6 @@
   "InvalidSupersedeTarget": "Only an active context in the current workspace can be replaced.",
   "InvalidVerificationStatus": "This source does not allow that verification status.",
   "ContextTooLarge": "This context is too long. Shorten it and try again.",
-  "KnowledgeDeleteConflict": "This content changed. Refresh it before deleting."
+  "KnowledgeDeleteConflict": "This content changed. Refresh it before deleting.",
+  "ContextCreateOnlyCapacity": "Automatic creation is deferred because the workspace duplicate-check limit was reached."
 }

@@ -22,6 +22,8 @@ public sealed class ContextDepotDbContext(
 
     public IReadOnlyList<Guid> NavigableWorkspaceIds => workspaceAccessContext.NavigableWorkspaceIds;
 
+    public Guid? CurrentAccessKeyId => workspaceAccessContext.DepotAccessKeyId;
+
     public DbSet<Depot> Depots => Set<Depot>();
 
     public DbSet<DepotAccessKey> DepotAccessKeys => Set<DepotAccessKey>();

@@ -13,5 +13,6 @@
   "InvalidSupersedeTarget": "只能替换当前 Workspace 中正在生效的 Context。",
   "InvalidVerificationStatus": "当前来源不允许设置该验证状态。",
   "ContextTooLarge": "Context 内容过长，请精简后再试。",
-  "KnowledgeDeleteConflict": "内容已更新，请刷新后再删除。"
+  "KnowledgeDeleteConflict": "内容已更新，请刷新后再删除。",
+  "ContextCreateOnlyCapacity": "工作空间已达到查重数量限制，已推迟自动新增。"
 }

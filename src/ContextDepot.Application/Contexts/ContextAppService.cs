@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using ContextDepot.Application.Contexts.Contracts;
+using ContextDepot.Application.Contexts.Dtos;
 using ContextDepot.Application.Contexts.Enums;
 using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Application.Shared.Runtime.Contracts;
@@ -8,9 +9,8 @@ using ContextDepot.Application.Shared.Safety.Contracts;
 using ContextDepot.Application.Shared.Safety.Dtos;
 using ContextDepot.Application.Shared.Validation;
 using ContextDepot.Application.Workspaces.Contracts;
-using ContextDepot.Application.Contexts.Dtos;
-using ContextDepot.Domain.Contexts;
 using ContextDepot.Domain.Contexts.Enums;
+using ContextDepot.Domain.Contexts;
 
 namespace ContextDepot.Application.Contexts;
 
@@ -82,7 +82,11 @@ public sealed partial class ContextAppService(
             NormalizeOptional(provenance.SourceRef));
 
         ContextPersistenceResult result;
-        if (command.SupersedesId is Guid supersedesId)
+        if (command.WriteMode == ContextWriteMode.CreateOnly)
+        {
+            result = await repository.CreateOnlyAsync(context, cancellationToken);
+        }
+        else if (command.SupersedesId is Guid supersedesId)
         {
             result = await repository.SupersedeByIdAsync(context, supersedesId, now, cancellationToken);
         }
@@ -139,6 +143,10 @@ public sealed partial class ContextAppService(
 
     private static void Validate(SaveContextCommand command, string content)
     {
+        if (!Enum.IsDefined(command.WriteMode) || (command.WriteMode == ContextWriteMode.CreateOnly &&
+            (string.IsNullOrWhiteSpace(command.Key) || command.SupersedesId is not null)))
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidContextKey);
+
         if (!Enum.IsDefined(command.Kind) || command.Kind == ContextKind.Observation)
         {
             throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidContextKind);
