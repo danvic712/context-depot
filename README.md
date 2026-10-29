@@ -153,6 +153,8 @@ Run npx skills add danvic712/context-depot --skill context-depot --global to ins
 
 After installation, ask for retrieval or saving using the examples below. Automatic capture and space preparation require your explicit enablement; installing the Skill grants no additional write permissions. Document updates check the current version and read back the saved content.
 
+Session Memory (opt-in): [independent Session Tools and Codex integration](context-depot-session-memory-design.md), with an explicitly enabled workflow in the [ContextDepot Skill](skills/context-depot/SKILL.md).
+
 ### 4. Save and retrieve knowledge
 
 Ask your connected agent to save or retrieve knowledge with requests like these. Replace `my-project` with your space path and provide the content you want to save:

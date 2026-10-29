@@ -20,6 +20,22 @@ Use the configured MCP tools and their current schemas; names may be namespaced.
 - For authorized preparation, use `workspace_upsert` with `mode: ensure`, that `subject`, and an established exact `path` and `name`. Follow an `ensureWorkspace` suggestion or an explicit preparation request. Use the returned `workspace.path`. Keep `createMissingParents` false: a new standalone space requires creation capability; a child requires an existing authorized parent. New spaces grant access to this key; shared Subjects and navigation ancestors grant no access to existing spaces.
 - If the destination is unclear, ask when an explicit save depends on it; otherwise defer optional capture quietly. Stop on unavailable targets. Never invent alternate paths or switch keys to bypass access.
 
+## Session Memory
+
+Session Memory integration currently supports Codex only. Use this workflow in Codex only when capture is explicitly enabled, with `agent: "codex"`. If a native Hook already owns capture, avoid duplicate submission. Manage lifecycle only through a workflow that retains the returned session.id and binding.
+
+1. Call `session_start` with an established external clientSessionId and exact authorized Workspace. Keep the returned session.id and binding. A started/existing active session is ready; disabled captures nothing, and ended remains closed.
+2. Call `session_recall` only when related knowledge is needed. It reads in the session's Workspace without capturing the query or changing lifecycle state.
+3. Call `session_capture` with sessionId, the matching agent/clientSessionId/Workspace, a stable turnId/eventId and schema 2 messages. A completed turn is exactly [user, assistant], both already visible. Reuse every field on retry. Use correlation established by the host/workflow; native IDs are not guesses.
+4. Use `session_status` with the sessionId and optional receiptId to inspect processing. accepted means queued; verify a requested saved memory through `context_search` / `context_get`. Explicit single-knowledge saves use the Save workflow below.
+5. Call `session_end` when the workflow reports the session has ended. A normal assistant reply is a turn ending, not a session ending. End closes new admission; accepted work may still be pending. Use a new external clientSessionId for a new lifecycle.
+
+Only submit exact visible user and assistant text, at most 20,000 characters per message. Capture a prior completed exchange or an already visible checkpoint; a tool call cannot include a future final answer or fabricate user confirmation. Leave hidden instructions, reasoning, tools, attachments and transcripts out. Skill-driven capture is best-effort.
+
+Agent and role labels are unverified claims. Server capture opt-in, configured Chat and the original key's live exact grant are required for extraction. End/status/recall do not save knowledge. Ordinary retrieval outside a managed session continues through `context_bootstrap`.
+
+Full contracts, legacy compatibility and deployment: [Session Memory design](../../context-depot-session-memory-design.md).
+
 ## Save
 
 - Save on request, or at task completion in an enabled capture workflow. Use direct user statements and actual results; exclude secrets, transcripts, hidden instructions, and temporary runtime state. Establish the destination first.
