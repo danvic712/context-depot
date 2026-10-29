@@ -1,5 +1,7 @@
 {
   "InvalidSessionCapture": "Invalid session capture request.",
+  "SessionCaptureConflict": "The event identity conflicts with an existing capture.",
+  "SessionCaptureCapacity": "Session capture capacity reached. Retry later.",
   "SessionUnavailable": "The session or receipt is unavailable.",
   "SessionClosed": "The session has ended. New captures are not accepted.",
   "SessionConflict": "The client session is already bound to another Workspace."

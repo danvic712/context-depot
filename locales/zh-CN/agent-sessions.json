@@ -1,5 +1,7 @@
 {
   "InvalidSessionCapture": "会话捕获请求无效。",
+  "SessionCaptureConflict": "事件身份与已有捕获冲突。",
+  "SessionCaptureCapacity": "会话捕获已达到容量限制，请稍后重试。",
   "SessionUnavailable": "会话或收据不可用。",
   "SessionClosed": "会话已结束，不再接纳新消息。",
   "SessionConflict": "此客户端会话已绑定到其他 Workspace。"
