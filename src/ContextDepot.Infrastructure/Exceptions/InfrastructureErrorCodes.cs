@@ -3,6 +3,8 @@ namespace ContextDepot.Infrastructure.Exceptions;
 // Diagnostic codes stay language-neutral; unexpected failures are localized at the host boundary.
 public static class InfrastructureErrorCodes
 {
+    public const string SessionMemoryChatUnavailable = nameof(SessionMemoryChatUnavailable);
+    public const string SessionMemoryResponseInvalid = nameof(SessionMemoryResponseInvalid);
     public const string AppearanceSettingMissing = nameof(AppearanceSettingMissing);
     public const string AppearanceSettingsInvalid = nameof(AppearanceSettingsInvalid);
     public const string ApplicationSettingJsonInvalid = nameof(ApplicationSettingJsonInvalid);
