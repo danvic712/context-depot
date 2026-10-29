@@ -1,7 +1,8 @@
 using ContextDepot.Application.Shared.Runtime.Contracts;
+using ContextDepot.Domain.AgentSessions;
 using ContextDepot.Domain.Contexts;
-using ContextDepot.Domain.Documents;
 using ContextDepot.Domain.Depots;
+using ContextDepot.Domain.Documents;
 using ContextDepot.Domain.Inferences;
 using ContextDepot.Domain.Settings;
 using ContextDepot.Domain.Setup;
@@ -23,6 +24,10 @@ public sealed class ContextDepotDbContext(
     public IReadOnlyList<Guid> NavigableWorkspaceIds => workspaceAccessContext.NavigableWorkspaceIds;
 
     public Guid? CurrentAccessKeyId => workspaceAccessContext.DepotAccessKeyId;
+
+    public DbSet<AgentSession> AgentSessions => Set<AgentSession>();
+
+    public DbSet<SessionCaptureEvent> SessionCaptureEvents => Set<SessionCaptureEvent>();
 
     public DbSet<Depot> Depots => Set<Depot>();
 
@@ -57,6 +62,12 @@ public sealed class ContextDepotDbContext(
                 HasUnrestrictedWorkspaceAccess || NavigableWorkspaceIds.Contains(workspace.Id));
         modelBuilder.Entity<WorkspaceSubjectBinding>()
             .HasQueryFilter(binding => HasUnrestrictedWorkspaceAccess || AccessibleWorkspaceIds.Contains(binding.WorkspaceId));
+        modelBuilder.Entity<AgentSession>()
+            .HasQueryFilter(session => HasUnrestrictedWorkspaceAccess ||
+                (session.AccessKeyId == CurrentAccessKeyId && AccessibleWorkspaceIds.Contains(session.WorkspaceId)));
+        modelBuilder.Entity<SessionCaptureEvent>()
+            .HasQueryFilter(message => HasUnrestrictedWorkspaceAccess ||
+                (message.AccessKeyId == CurrentAccessKeyId && AccessibleWorkspaceIds.Contains(message.WorkspaceId)));
         modelBuilder.Entity<ContextItem>()
             .HasQueryFilter(context =>
                 HasUnrestrictedWorkspaceAccess || AccessibleWorkspaceIds.Contains(context.WorkspaceId));
