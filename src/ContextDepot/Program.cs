@@ -100,6 +100,7 @@ try
         .AddMcpServer(options => options.ServerInstructions = ContextDepotMCPInstructions.Text)
         .WithHttpTransport(options => options.SessionMode = HttpServerSessionMode.Stateless)
         .WithTools<ContextTools>(mcpJsonOptions)
+        .WithTools<SessionTools>(mcpJsonOptions)
         .WithTools<DocumentTools>(mcpJsonOptions)
         .WithTools<WorkspaceTools>(mcpJsonOptions)
         .WithTools<DepotTools>(mcpJsonOptions);
