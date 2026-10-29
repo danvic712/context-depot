@@ -150,13 +150,13 @@ public sealed class ContextTools(MCPToolExecutor executor, ILogger<ContextTools>
         UseStructuredContent = true)]
     [Description(
         "Archive a known Context ID in the current depot scope. Archived data is retained but excluded from ordinary bootstrap retrieval.")]
-    public async Task<object> ArchiveAsync(IContextAppService service, Guid contextId,
+    public async Task<ArchiveContextResult> ArchiveAsync(IContextAppService service, Guid contextId,
         CancellationToken cancellationToken = default)
     {
         return await executor.ExecuteAsync(async () =>
         {
             await service.ArchiveAsync(contextId, cancellationToken);
-            return (object)new { archived = true, contextId };
+            return new ArchiveContextResult(true, contextId);
         }, logger);
     }
 

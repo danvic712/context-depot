@@ -47,13 +47,13 @@ public sealed class DocumentTools(MCPToolExecutor executor, ILogger<DocumentTool
     [McpServerTool(Name = "document_archive", Title = "Archive Markdown", Destructive = true,
         UseStructuredContent = true)]
     [Description("Archive a known Markdown document in the current depot scope without deleting its canonical file.")]
-    public async Task<object> ArchiveAsync(IDocumentAppService service, Guid documentId,
+    public async Task<ArchiveDocumentResult> ArchiveAsync(IDocumentAppService service, Guid documentId,
         CancellationToken cancellationToken = default)
     {
         return await executor.ExecuteAsync(async () =>
         {
             await service.ArchiveAsync(documentId, cancellationToken);
-            return (object)new { archived = true, documentId };
+            return new ArchiveDocumentResult(true, documentId);
         }, logger);
     }
 }
