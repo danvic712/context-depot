@@ -1,3 +1,6 @@
 {
-  "InvalidSessionCapture": "Invalid session capture request."
+  "InvalidSessionCapture": "Invalid session capture request.",
+  "SessionUnavailable": "The session or receipt is unavailable.",
+  "SessionClosed": "The session has ended. New captures are not accepted.",
+  "SessionConflict": "The client session is already bound to another Workspace."
 }

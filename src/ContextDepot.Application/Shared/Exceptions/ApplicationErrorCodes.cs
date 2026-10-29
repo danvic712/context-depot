@@ -76,6 +76,9 @@ public static class ApplicationErrorCodes
     public const string IndexRepairRequestInvalid = "IndexRepairRequestInvalid";
     public const string VectorSearchFailed = "VectorSearchFailed";
     public const string ContextCreateOnlyCapacity = "ContextCreateOnlyCapacity";
+    public const string SessionUnavailable = "SessionUnavailable";
+    public const string SessionClosed = "SessionClosed";
+    public const string SessionConflict = "SessionConflict";
     public const string InvalidSessionCapture = "InvalidSessionCapture";
     public const string InvalidSearchQuery = "InvalidSearchQuery";
 }

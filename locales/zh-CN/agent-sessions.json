@@ -1,3 +1,6 @@
 {
-  "InvalidSessionCapture": "会话捕获请求无效。"
+  "InvalidSessionCapture": "会话捕获请求无效。",
+  "SessionUnavailable": "会话或收据不可用。",
+  "SessionClosed": "会话已结束，不再接纳新消息。",
+  "SessionConflict": "此客户端会话已绑定到其他 Workspace。"
 }
