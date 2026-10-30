@@ -153,7 +153,7 @@ npx skills add danvic712/context-depot --skill context-depot --global
 
 安装后，可按下面的示例要求检索或保存。自动保存和空间准备需由你明确启用，安装 Skill 不会增加写入权限。文档更新会检查当前版本，保存后读回确认正文。
 
-Session Memory（默认关闭）：[独立 Session Tools 与 Codex 接入设计](context-depot-session-memory-design.md)，通过 [ContextDepot Skill](skills/context-depot/SKILL.md) 显式启用会话工作流。
+Session Memory（默认关闭）提供独立的会话生命周期、捕获、检索和状态工具，通过 [ContextDepot Skill](skills/context-depot/SKILL.md) 显式启用 Codex 会话工作流。
 
 ### 4. 保存和读取知识
 

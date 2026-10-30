@@ -34,8 +34,6 @@ Only submit exact visible user and assistant text, at most 20,000 characters per
 
 Agent and role labels are unverified claims. Server capture opt-in, configured Chat and the original key's live exact grant are required for extraction. End/status/recall do not save knowledge. Ordinary retrieval outside a managed session continues through `context_bootstrap`.
 
-Full contracts, legacy compatibility and deployment: [Session Memory design](../../context-depot-session-memory-design.md).
-
 ## Save
 
 - Save on request, or at task completion in an enabled capture workflow. Use direct user statements and actual results; exclude secrets, transcripts, hidden instructions, and temporary runtime state. Establish the destination first.
