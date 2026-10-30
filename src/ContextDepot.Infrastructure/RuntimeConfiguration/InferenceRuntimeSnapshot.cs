@@ -1,40 +1,7 @@
-using ContextDepot.Infrastructure.Exceptions;
 namespace ContextDepot.Infrastructure.RuntimeConfiguration;
-
-public sealed record EmbeddingRouteRuntimeSnapshot(
-    string ProviderName,
-    string ProtocolCode,
-    Uri Endpoint,
-    string ApiKey,
-    string ModelName,
-    int Dimensions,
-    int TimeoutSeconds,
-    string ProfileFingerprint)
-{
-    public override string ToString() => $"{nameof(EmbeddingRouteRuntimeSnapshot)} {{ ApiKey = [REDACTED] }}";
-}
 
 public sealed record InferenceRuntimeSnapshot(
     EmbeddingRouteRuntimeSnapshot? Embedding,
     InferenceRuntimeState State,
-    string? DegradedReason);
-
-public sealed class InferenceRuntimeSnapshotAccessor
-{
-    private InferenceRuntimeSnapshot? current;
-
-    public InferenceRuntimeSnapshot Current =>
-        Volatile.Read(ref current)
-        ?? throw new InvalidOperationException(InfrastructureErrorCodes.InferenceRuntimeSnapshotNotLoaded);
-
-    public void Publish(InferenceRuntimeSnapshot snapshot)
-    {
-        ArgumentNullException.ThrowIfNull(snapshot);
-        Volatile.Write(ref current, snapshot);
-    }
-}
-
-public sealed class ScopedInferenceRuntimeSnapshot(InferenceRuntimeSnapshot value)
-{
-    public InferenceRuntimeSnapshot Value { get; } = value;
-}
+    string? DegradedReason,
+    ChatRouteRuntimeSnapshot? Chat = null);

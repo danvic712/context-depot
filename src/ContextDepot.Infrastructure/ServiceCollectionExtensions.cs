@@ -1,27 +1,30 @@
-using ContextDepot.Infrastructure.Exceptions;
-using ContextDepot.Application.Embeddings;
+using ContextDepot.Application.AgentSessions.Contracts;
 using ContextDepot.Application.Bootstrap.Contracts;
 using ContextDepot.Application.Contexts.Contracts;
 using ContextDepot.Application.Depots.Contracts;
 using ContextDepot.Application.Documents.Contracts;
+using ContextDepot.Application.Embeddings;
 using ContextDepot.Application.IndexRepair.Contracts;
 using ContextDepot.Application.SemanticRetrieval.Contracts;
-using ContextDepot.Application.Shared.Exceptions;
-using ContextDepot.Application.Shared.Runtime.Contracts;
-using ContextDepot.Application.Workspaces.Contracts;
-using ContextDepot.Application.VectorIndex.Contracts;
 using ContextDepot.Application.Settings.Contracts;
 using ContextDepot.Application.Setup.Contracts;
+using ContextDepot.Application.Shared.Exceptions;
+using ContextDepot.Application.Shared.Runtime.Contracts;
+using ContextDepot.Application.VectorIndex.Contracts;
+using ContextDepot.Application.Workspaces.Contracts;
+using ContextDepot.Infrastructure.AgentSessions;
 using ContextDepot.Infrastructure.Contracts;
-using ContextDepot.Infrastructure.RuntimeConfiguration;
 using ContextDepot.Infrastructure.CurrentDepot;
+using ContextDepot.Infrastructure.Exceptions;
 using ContextDepot.Infrastructure.HealthChecks;
 using ContextDepot.Infrastructure.Jobs;
 using ContextDepot.Infrastructure.Markdown;
 using ContextDepot.Infrastructure.Options;
 using ContextDepot.Infrastructure.Repositories;
+using ContextDepot.Infrastructure.RuntimeConfiguration;
 using ContextDepot.Infrastructure.VectorStore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -63,6 +66,26 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IConfigureOptions<EmbeddingOptions>, ConfigureEmbeddingOptionsFromInferenceSnapshot>();
         services.AddSingleton<ContextDepotStartupInitializer>();
         services.AddSingleton<IndexRepairCycleRunner>();
+        services.AddSingleton<SessionCaptureCycleRunner>();
+        services.AddSingleton<ISessionContentProtector,
+            SessionContentProtector>();
+        services.AddScoped<ISessionRepository, SessionRepository>();
+        services.AddScoped<ISessionCaptureRepository, SessionCaptureRepository>();
+        services.AddScoped<ISessionCaptureAuthorization,
+            SessionCaptureAuthorization>();
+        services.AddScoped<IMemoryExtractionService,
+            AgentFrameworkMemoryExtractor>();
+        services.AddScoped<IChatClient>(sp =>
+        {
+            var chat = sp.GetRequiredService<ScopedInferenceRuntimeSnapshot>().Value.Chat;
+            if (chat is null)
+            {
+                throw new InvalidOperationException(InfrastructureErrorCodes.SessionMemoryChatUnavailable);
+            }
+            var client = new OpenAI.OpenAIClient(new System.ClientModel.ApiKeyCredential(chat.ApiKey),
+                new OpenAI.OpenAIClientOptions { Endpoint = chat.Endpoint, NetworkTimeout = TimeSpan.FromSeconds(chat.TimeoutSeconds) });
+            return client.GetChatClient(chat.ModelName).AsIChatClient();
+        });
 
         services.AddDbContext<ContextDepotDbContext>(options =>
             options.UseNpgsql(connectionString, npgsql => npgsql.MigrationsHistoryTable("ef_migrations", "public")));

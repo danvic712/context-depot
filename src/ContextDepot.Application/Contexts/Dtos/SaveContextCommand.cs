@@ -1,5 +1,6 @@
-using ContextDepot.Domain.Contexts;
+using ContextDepot.Application.Contexts.Enums;
 using ContextDepot.Domain.Contexts.Enums;
+using ContextDepot.Domain.Contexts;
 
 namespace ContextDepot.Application.Contexts.Dtos;
 
@@ -22,4 +23,5 @@ public sealed record SaveContextCommand(
     DateTimeOffset? ValidUntil = null,
     DateTimeOffset? ExpiresAt = null,
     string MetadataJson = "{}",
-    bool IsTrustedServer = false);
+    bool IsTrustedServer = false,
+    ContextWriteMode WriteMode = ContextWriteMode.Upsert);

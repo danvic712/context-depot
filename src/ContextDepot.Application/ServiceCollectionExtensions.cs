@@ -1,28 +1,30 @@
-using ContextDepot.Application.Contexts;
-using ContextDepot.Application.AgentContext;
 using ContextDepot.Application.AgentContext.Contracts;
-using ContextDepot.Application.Documents;
-using ContextDepot.Application.Bootstrap;
+using ContextDepot.Application.AgentContext;
+using ContextDepot.Application.AgentSessions.Contracts;
+using ContextDepot.Application.AgentSessions;
 using ContextDepot.Application.Bootstrap.Contracts;
+using ContextDepot.Application.Bootstrap;
 using ContextDepot.Application.Contexts.Contracts;
+using ContextDepot.Application.Contexts;
 using ContextDepot.Application.Documents.Contracts;
+using ContextDepot.Application.Documents;
 using ContextDepot.Application.Embeddings;
-using ContextDepot.Application.IndexRepair;
 using ContextDepot.Application.IndexRepair.Contracts;
-using ContextDepot.Application.Settings;
+using ContextDepot.Application.IndexRepair;
+using ContextDepot.Application.Retrieval;
+using ContextDepot.Application.SemanticRetrieval;
 using ContextDepot.Application.Settings.Contracts;
 using ContextDepot.Application.Settings.Dtos;
 using ContextDepot.Application.Settings.Validators;
-using ContextDepot.Application.Setup;
+using ContextDepot.Application.Settings;
 using ContextDepot.Application.Setup.Contracts;
-using FluentValidation;
-using ContextDepot.Application.Retrieval;
-using ContextDepot.Application.SemanticRetrieval;
-using ContextDepot.Application.Shared.Safety;
+using ContextDepot.Application.Setup;
 using ContextDepot.Application.Shared.Runtime.Contracts;
 using ContextDepot.Application.Shared.Safety.Contracts;
-using ContextDepot.Application.Workspaces;
+using ContextDepot.Application.Shared.Safety;
 using ContextDepot.Application.Workspaces.Contracts;
+using ContextDepot.Application.Workspaces;
+using FluentValidation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -37,6 +39,16 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(configuration);
         services.AddSingleton(TimeProvider.System);
+        services.AddOptions<SessionCaptureOptions>()
+            .Bind(configuration.GetSection("AgentSessions"))
+            .Validate(o => o.PollIntervalSeconds is >= 1 and <= 300 && o.MaxAttempts is >= 1 and <= 5 &&
+                o.RetentionHours is >= 1 and <= 168 && o.MaxCallsPerHour is >= 1 and <= 300 &&
+                o.MaxPendingEventsPerKey is >= 2 and <= 10000 && o.ExtractionTimeoutSeconds is >= 1 and <= 120,
+                ContextDepot.Application.Shared.Exceptions.ApplicationErrorCodes.InvalidSessionCapture).ValidateOnStart();
+        services.AddScoped<ISessionAppService, SessionAppService>();
+        services.AddScoped<ISessionCaptureAppService,
+            SessionCaptureAppService>();
+        services.AddScoped<MemoryCaptureProcessor>();
         services.AddOptions<SetupOptions>().Bind(configuration.GetSection("ContextDepot:Web"));
         services.AddScoped<ISetupAppService, SetupAppService>();
         services.AddSingleton<DocumentWriteCoordinator>();

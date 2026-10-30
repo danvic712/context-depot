@@ -1,8 +1,8 @@
-using ContextDepot.Infrastructure.Exceptions;
-using ContextDepot.Application.DataProtection;
 using ContextDepot.Application.DataProtection.Enums;
+using ContextDepot.Application.DataProtection;
 using ContextDepot.Domain.Inferences;
 using ContextDepot.Infrastructure.Embeddings;
+using ContextDepot.Infrastructure.Exceptions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -27,7 +27,21 @@ public sealed class InferenceRuntimeSnapshotLoader(
             throw new InvalidOperationException(InfrastructureErrorCodes.EmbeddingRouteCountInvalid);
         }
 
-        return BuildSnapshot(embeddingRoutes[0]);
+        var chatRoute = await db.InferenceRoutes.AsNoTracking().Include(route => route.Provider)
+            .SingleOrDefaultAsync(route => route.Capability == "chat", cancellationToken);
+        return BuildSnapshot(embeddingRoutes[0]) with { Chat = BuildChat(chatRoute) };
+    }
+
+    private ChatRouteRuntimeSnapshot? BuildChat(InferenceRoute? route)
+    {
+        var provider = route?.Provider;
+        if (route is null || provider is null || provider.ProtocolCode != "openai-compatible" ||
+            !InferenceProviderKinds.IsSupported(provider.Kind) || string.IsNullOrWhiteSpace(route.ModelName) ||
+            route.TimeoutSeconds is < 1 or > 300 || !Uri.TryCreate(provider.BaseUrl, UriKind.Absolute, out var endpoint) ||
+            endpoint.Scheme is not ("https" or "http") || !InferenceProviderKinds.IsValidEndpoint(provider.Kind, endpoint) ||
+            string.IsNullOrWhiteSpace(provider.ProtectedApiKey)) return null;
+        apiKeyProtector.TryUnprotect(provider.ProtectedApiKey, SecretProtectionPurpose.InferenceProviderApiKey, out var key);
+        return string.IsNullOrWhiteSpace(key) ? null : new(endpoint, key, route.ModelName, route.TimeoutSeconds);
     }
 
     private InferenceRuntimeSnapshot BuildSnapshot(InferenceRoute route)

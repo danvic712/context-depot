@@ -8,6 +8,8 @@ public interface IContextRepository
 {
     Task<ContextItem?> GetByIdAsync(Guid depotId, Guid contextId, CancellationToken cancellationToken);
 
+    Task<ContextPersistenceResult> CreateOnlyAsync(ContextItem candidate, CancellationToken cancellationToken);
+
     Task<ContextPersistenceResult> SaveKeyedAsync(ContextItem candidate, DateTimeOffset now, CancellationToken cancellationToken);
 
     Task<ContextPersistenceResult> SaveUnkeyedAsync(ContextItem candidate, UnkeyedDuplicatePolicy duplicatePolicy, DateTimeOffset now, CancellationToken cancellationToken);

@@ -1,17 +1,17 @@
-using ContextDepot.Application.Workspaces.Enums;
-using ContextDepot.Application.AgentContext.Enums;
-using System.Globalization;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using ContextDepot.Application.AgentContext.Contracts;
 using ContextDepot.Application.AgentContext.Dtos;
+using ContextDepot.Application.AgentContext.Enums;
 using ContextDepot.Application.Bootstrap.Contracts;
 using ContextDepot.Application.Bootstrap.Dtos;
 using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Application.Shared.Runtime.Contracts;
 using ContextDepot.Application.Shared.Safety.Contracts;
-using ContextDepot.Application.Workspaces;
 using ContextDepot.Application.Workspaces.Contracts;
 using ContextDepot.Application.Workspaces.Dtos;
+using ContextDepot.Application.Workspaces.Enums;
+using ContextDepot.Application.Workspaces;
 
 namespace ContextDepot.Application.AgentContext;
 
@@ -21,7 +21,7 @@ public sealed class AgentContextAppService(IContextBootstrapAppService bootstrap
     private static readonly HashSet<string> DepotOperations = new(StringComparer.Ordinal)
     {
         "context_bootstrap", "context_activity", "context_search",
-        "context_get", "context_save", "context_archive", "document_upsert", "document_get", "document_archive",
+        "session_start", "session_capture", "session_recall", "session_end", "session_status", "context_get", "context_save", "context_archive", "document_upsert", "document_get", "document_archive",
         "workspace_list", "workspace_upsert", "depot_get"
     };
 

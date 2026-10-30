@@ -1,18 +1,18 @@
-using ContextDepot.Application.Contexts;
 using ContextDepot.Application.Contexts.Contracts;
 using ContextDepot.Application.Contexts.Dtos;
+using ContextDepot.Application.Contexts.Enums;
+using ContextDepot.Application.Contexts;
 using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Application.Shared.Runtime.Contracts;
-using ContextDepot.Application.Shared.Safety;
 using ContextDepot.Application.Shared.Safety.Contracts;
 using ContextDepot.Application.Shared.Safety.Dtos;
-using ContextDepot.Application.Workspaces;
-using ContextDepot.Application.Workspaces.Dtos;
-using ContextDepot.Domain.Contexts;
-using ContextDepot.Domain.Contexts.Enums;
-using ContextDepot.Domain.Workspaces;
+using ContextDepot.Application.Shared.Safety;
 using ContextDepot.Application.Workspaces.Contracts;
-using ContextDepot.Application.Contexts.Enums;
+using ContextDepot.Application.Workspaces.Dtos;
+using ContextDepot.Application.Workspaces;
+using ContextDepot.Domain.Contexts.Enums;
+using ContextDepot.Domain.Contexts;
+using ContextDepot.Domain.Workspaces;
 using Moq;
 
 namespace ContextDepot.Application.Tests.Contexts;
@@ -21,6 +21,32 @@ public sealed class ContextAppServiceTests
 {
     private static readonly Guid DepotId = Guid.Parse("0199c000-0000-7000-8000-000000000001");
     private static readonly Guid WorkspaceId = Guid.Parse("0199c000-0000-7000-8000-000000000002");
+
+    [Fact]
+    public async Task Create_only_reuses_existing_context_without_upsert_or_supersede()
+    {
+        var existing = new ContextItem(Guid.CreateVersion7(), DepotId, WorkspaceId, ContextKind.Decision,
+            "project.database", null, "SQLite", DateTimeOffset.UtcNow);
+        var repository = new Mock<IContextRepository>();
+        repository.Setup(x => x.CreateOnlyAsync(It.IsAny<ContextItem>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ContextPersistenceResult(existing, ContextPersistenceOutcome.ReusedExisting));
+        var result = await CreateService(repository).SaveAsync(new SaveContextCommand("projects/context-depot",
+            ContextKind.Decision, "PostgreSQL", "project.database", WriteMode: ContextWriteMode.CreateOnly), default);
+        Assert.Equal(SaveContextOutcome.ReusedExisting, result.Outcome);
+        Assert.Equal("SQLite", result.Context.Content);
+        repository.Verify(x => x.CreateOnlyAsync(It.IsAny<ContextItem>(), It.IsAny<CancellationToken>()), Times.Once);
+        repository.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task Create_only_rejects_explicit_supersede()
+    {
+        var repository = new Mock<IContextRepository>();
+        await Assert.ThrowsAsync<ContextDepotApplicationException>(() => CreateService(repository).SaveAsync(
+            new SaveContextCommand("projects/context-depot", ContextKind.Decision, "PostgreSQL", "project.database",
+                SupersedesId: Guid.CreateVersion7(), WriteMode: ContextWriteMode.CreateOnly), default));
+        repository.VerifyNoOtherCalls();
+    }
 
     [Fact]
     public async Task Keyed_save_delegates_replacement_to_atomic_repository()

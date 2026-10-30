@@ -1,18 +1,44 @@
 using System.Data;
-using System.Data.Common;
 using ContextDepot.Application.Contexts.Contracts;
 using ContextDepot.Application.Contexts.Dtos;
 using ContextDepot.Application.Contexts.Enums;
+using ContextDepot.Application.Contexts;
 using ContextDepot.Application.Shared.Exceptions;
-using ContextDepot.Domain.Contexts;
 using ContextDepot.Domain.Contexts.Enums;
+using ContextDepot.Domain.Contexts;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace ContextDepot.Infrastructure.Repositories;
 
 public sealed class ContextRepository(ContextDepotDbContext db) : IContextRepository
 {
+    public async Task<ContextPersistenceResult> CreateOnlyAsync(ContextItem candidate, CancellationToken cancellationToken)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        if (db.CurrentAccessKeyId is not Guid keyId || string.IsNullOrWhiteSpace(candidate.Key))
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspaceUnavailable);
+        // FOR SHARE prevents revoke/grant deletion from racing the subsequent business write.
+        var authorized = await db.DepotAccessKeys.FromSqlInterpolated($"""
+            SELECT k.* FROM public.depot_access_keys k
+            JOIN public.workspace_access_grants g ON g.depot_access_key_id = k.id AND g.depot_id = k.depot_id
+            WHERE k.id = {keyId} AND k.depot_id = {candidate.DepotId} AND k.revoked_at IS NULL
+              AND g.workspace_id = {candidate.WorkspaceId} FOR SHARE OF k, g
+            """).AsNoTracking().ToArrayAsync(cancellationToken);
+        if (authorized.Length != 1)
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspaceUnavailable);
+        await LockWorkspaceAsync(candidate.DepotId, candidate.WorkspaceId, cancellationToken);
+        var existing = await db.ContextItems.AsNoTracking().Where(x => x.DepotId == candidate.DepotId &&
+            x.WorkspaceId == candidate.WorkspaceId && x.Status == ContextStatus.Active)
+            .OrderBy(x => x.Id).Take(ContextCreateOnlyPolicy.MaxComparisonCount + 1).ToArrayAsync(cancellationToken);
+        var duplicate = ContextCreateOnlyPolicy.FindExisting(candidate, existing);
+        if (duplicate is not null)
+            return new(duplicate, ContextPersistenceOutcome.ReusedExisting, duplicate.Id);
+        db.ContextItems.Add(candidate);
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return new(candidate, ContextPersistenceOutcome.Created);
+    }
+
     public Task<ContextItem?> GetByIdAsync(Guid depotId, Guid contextId, CancellationToken cancellationToken) =>
         db.ContextItems.AsNoTracking()
             .SingleOrDefaultAsync(x => x.DepotId == depotId && x.Id == contextId, cancellationToken);
@@ -189,37 +215,11 @@ public sealed class ContextRepository(ContextDepotDbContext db) : IContextReposi
 
     private async Task LockWorkspaceAsync(Guid depotId, Guid workspaceId, CancellationToken cancellationToken)
     {
-        var connection = db.Database.GetDbConnection();
-        var openedHere = connection.State != ConnectionState.Open;
-        if (openedHere)
-        {
-            await connection.OpenAsync(cancellationToken);
-        }
-
-        try
-        {
-            await using var command = connection.CreateCommand();
-            command.Transaction = db.Database.CurrentTransaction?.GetDbTransaction();
-            command.CommandText =
-                "SELECT id FROM public.workspaces WHERE id = @workspace_id AND depot_id = @depot_id FOR UPDATE";
-            AddParameter(command, "@workspace_id", workspaceId);
-            AddParameter(command, "@depot_id", depotId);
-            await command.ExecuteScalarAsync(cancellationToken);
-        }
-        finally
-        {
-            if (openedHere)
-            {
-                await connection.CloseAsync();
-            }
-        }
-    }
-
-    private static void AddParameter(DbCommand command, string name, Guid value)
-    {
-        var parameter = command.CreateParameter();
-        parameter.ParameterName = name;
-        parameter.Value = value;
-        command.Parameters.Add(parameter);
+        var locked = await db.Database.SqlQuery<Guid>($"""
+            SELECT id AS "Value" FROM public.workspaces
+            WHERE id = {workspaceId} AND depot_id = {depotId} FOR UPDATE
+            """).ToArrayAsync(cancellationToken);
+        if (locked.Length != 1)
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspaceUnavailable);
     }
 }

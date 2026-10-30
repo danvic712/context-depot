@@ -1,21 +1,21 @@
-using System.Text.Json;
 using System.Text.Json.Serialization;
-using ContextDepot;
-using ContextDepot.Application;
+using System.Text.Json;
 using ContextDepot.Application.DataProtection;
 using ContextDepot.Application.Shared.Exceptions;
+using ContextDepot.Application;
 using ContextDepot.BackgroundServices;
 using ContextDepot.Extensions;
-using ContextDepot.Infrastructure;
-using ContextDepot.Infrastructure.Embeddings;
 using ContextDepot.Infrastructure.DataProtection;
-using ContextDepot.MCP;
+using ContextDepot.Infrastructure.Embeddings;
+using ContextDepot.Infrastructure;
 using ContextDepot.MCP.Tools;
+using ContextDepot.MCP;
 using ContextDepot.Middlewares;
-using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using ContextDepot;
 using Microsoft.AspNetCore.DataProtection;
-using ModelContextProtocol;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using ModelContextProtocol.AspNetCore;
+using ModelContextProtocol;
 using Serilog;
 
 // Load the same configuration before the host is built so bootstrap failures
@@ -88,6 +88,7 @@ try
     builder.Services.AddContextDepotEmbeddingProvider();
     builder.Services.AddContextDepotInfrastructure(builder.Configuration);
     builder.Services.AddHostedService<IndexRepairHostedService>();
+    builder.Services.AddHostedService<SessionCaptureHostedService>();
     builder.Services.AddHostedService<DatabaseApplicationSettingsReloadService>();
     builder.Services.AddHostedService<InferenceRuntimeReloadService>();
 
@@ -99,6 +100,7 @@ try
         .AddMcpServer(options => options.ServerInstructions = ContextDepotMCPInstructions.Text)
         .WithHttpTransport(options => options.SessionMode = HttpServerSessionMode.Stateless)
         .WithTools<ContextTools>(mcpJsonOptions)
+        .WithTools<SessionTools>(mcpJsonOptions)
         .WithTools<DocumentTools>(mcpJsonOptions)
         .WithTools<WorkspaceTools>(mcpJsonOptions)
         .WithTools<DepotTools>(mcpJsonOptions);

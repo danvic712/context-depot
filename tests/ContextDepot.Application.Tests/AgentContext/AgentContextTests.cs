@@ -1,9 +1,8 @@
-using ContextDepot.Application.Workspaces.Enums;
-using ContextDepot.Application.AgentContext.Enums;
-using System.Text;
 using System.Text.Json;
-using ContextDepot.Application.AgentContext;
+using System.Text;
 using ContextDepot.Application.AgentContext.Dtos;
+using ContextDepot.Application.AgentContext.Enums;
+using ContextDepot.Application.AgentContext;
 using ContextDepot.Application.Bootstrap.Contracts;
 using ContextDepot.Application.Bootstrap.Dtos;
 using ContextDepot.Application.Bootstrap.Enums;
@@ -12,6 +11,7 @@ using ContextDepot.Application.Shared.Runtime.Contracts;
 using ContextDepot.Application.Shared.Safety.Contracts;
 using ContextDepot.Application.Workspaces.Contracts;
 using ContextDepot.Application.Workspaces.Dtos;
+using ContextDepot.Application.Workspaces.Enums;
 using ContextDepot.Domain.Workspaces;
 using Moq;
 
@@ -147,6 +147,7 @@ public sealed class AgentContextTests
 
     [Theory]
     [InlineData("context_save", true, AgentRetrievalStatus.Skipped, 0)]
+    [InlineData("session_capture", true, AgentRetrievalStatus.Skipped, 0)]
     [InlineData("shell", false, AgentRetrievalStatus.Skipped, 0)]
     [InlineData("shell", true, AgentRetrievalStatus.NotRequested, 1)]
     public void Activity_is_pure_and_canonical_operations_prevent_reminder_loops(string tool, bool capture, AgentRetrievalStatus status, int actions)
