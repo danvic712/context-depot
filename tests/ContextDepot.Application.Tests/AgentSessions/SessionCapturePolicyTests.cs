@@ -26,8 +26,8 @@ public sealed class SessionCapturePolicyTests
     [Fact]
     public void Hourly_budget_defers_the_pair_without_consuming_an_attempt()
     {
-        var user = new SessionCaptureEvent();
-        var assistant = new SessionCaptureEvent { Phase = "assistant" };
+        var user = new SessionCaptureEvent { CreatedAt = Now };
+        var assistant = new SessionCaptureEvent { Phase = "assistant", CreatedAt = Now };
         var lease = SessionCapturePolicy.TryClaim([user, assistant], Options.MaxCallsPerHour, Options, Now);
         Assert.Null(lease);
         Assert.Equal("pending", user.Status);
@@ -41,8 +41,8 @@ public sealed class SessionCapturePolicyTests
     [Fact]
     public void Claiming_a_pair_assigns_the_same_lease_and_increments_each_attempt()
     {
-        var user = new SessionCaptureEvent();
-        var assistant = new SessionCaptureEvent { Phase = "assistant" };
+        var user = new SessionCaptureEvent { CreatedAt = Now };
+        var assistant = new SessionCaptureEvent { Phase = "assistant", CreatedAt = Now };
         var lease = SessionCapturePolicy.TryClaim([user, assistant], 0, Options, Now);
         Assert.True(lease > Now);
         Assert.Equal(lease, user.LeaseUntil);
@@ -89,7 +89,7 @@ public sealed class SessionCapturePolicyTests
     {
         var message = new SessionCaptureEvent
         {
-            Status = "processing", AttemptCount = 3, LeaseUntil = Now.AddMinutes(-1), EncryptedContent = "encrypted"
+            Status = "processing", CreatedAt = Now, AttemptCount = 3, LeaseUntil = Now.AddMinutes(-1), EncryptedContent = "encrypted"
         };
         Assert.True(SessionCapturePolicy.RequiresCleanup(Options, Now).Compile()(message));
         SessionCapturePolicy.Cleanup(message, true, Options, Now);

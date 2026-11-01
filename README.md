@@ -153,7 +153,11 @@ Run npx skills add danvic712/context-depot --skill context-depot --global to ins
 
 After installation, ask for retrieval or saving using the examples below. Automatic capture and space preparation require your explicit enablement; installing the Skill grants no additional write permissions. Document updates check the current version and read back the saved content.
 
-Session Memory (opt-in) provides independent tools for session lifecycle, capture, recall, and status. Explicitly enable the Codex workflow through the [ContextDepot Skill](skills/context-depot/SKILL.md).
+Session Memory (opt-in) provides independent tools for session lifecycle, capture, recall, and status. Turn on **Settings → Session memory → Enable session memory**, configure a Chat model under inference settings, and explicitly enable the Codex workflow through the [ContextDepot Skill](skills/context-depot/SKILL.md). The switch alone does not connect or capture every agent automatically.
+
+The switch is application-wide, stored in the existing settings database, and defaults to off on both new installations and upgrades. `AgentSessions__Enabled` no longer controls it; deployments that previously enabled capture through that environment variable must enable it again in the UI. Saving applies without a restart on the current instance; other instances reload settings on their existing five-second polling cycle.
+
+Turning it off rejects new sessions and captures and pauses unclaimed extraction work. Already claimed work may finish. Cleanup and retention deadlines still apply; re-enabling only resumes unexpired work. Saved memories are not deleted, and session end, status, and recall remain available.
 
 ### 4. Save and retrieve knowledge
 

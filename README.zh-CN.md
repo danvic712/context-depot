@@ -153,7 +153,11 @@ npx skills add danvic712/context-depot --skill context-depot --global
 
 安装后，可按下面的示例要求检索或保存。自动保存和空间准备需由你明确启用，安装 Skill 不会增加写入权限。文档更新会检查当前版本，保存后读回确认正文。
 
-Session Memory（默认关闭）提供独立的会话生命周期、捕获、检索和状态工具，通过 [ContextDepot Skill](skills/context-depot/SKILL.md) 显式启用 Codex 会话工作流。
+Session Memory（默认关闭）提供独立的会话生命周期、捕获、检索和状态工具。在 **设置 → 会话记忆 → 启用会话记忆** 中打开开关，在推理设置中配置 Chat 模型，并通过 [ContextDepot Skill](skills/context-depot/SKILL.md) 显式启用 Codex 会话工作流。打开开关不会自动接入或记录所有 agent。
+
+开关对整个应用生效，保存在现有设置表中，新安装和升级后均默认关闭。`AgentSessions__Enabled` 不再控制此开关；曾通过该环境变量启用捕获的部署需要在 UI 重新开启。保存后当前实例无需重启即可生效；其他实例沿用现有的五秒轮询周期刷新配置。
+
+关闭后不再接收新会话和新捕获，并暂停尚未领取的提取任务；已领取的任务可能完成。清理和保留期限仍然生效，重新启用后仅恢复未过期任务。已有记忆不会删除，会话结束、状态查询和检索仍可使用。
 
 ### 4. 保存和读取知识
 

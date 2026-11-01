@@ -23,7 +23,8 @@ public static class SessionCapturePolicy
     {
         var expired = now.AddHours(-options.RetentionHours);
         return message =>
-            (message.Status == "pending" && message.CreatedAt < expired) ||
+            (message.CreatedAt < expired && (message.Status == "pending" ||
+                (message.Status == "processing" && message.LeaseUntil < now))) ||
             ((message.Status == "completed" || message.Status == "failed") &&
                 message.ProcessedAt < expired && message.EncryptedContent != null) ||
             (message.Status == "processing" && message.LeaseUntil < now && message.AttemptCount >= options.MaxAttempts);
@@ -33,7 +34,8 @@ public static class SessionCapturePolicy
         SessionCaptureOptions options, DateTimeOffset now)
     {
         var expired = now.AddHours(-options.RetentionHours);
-        if (message.Status == "pending" && message.CreatedAt < expired)
+        if (message.CreatedAt < expired && (message.Status == "pending" ||
+            (message.Status == "processing" && message.LeaseUntil < now)))
         {
             Complete(message, hasPartner ? "skipped_expired" : "skipped_incomplete", SessionCaptureDisposition.Completed, options.MaxAttempts, now);
             message.EncryptedContent = null;
@@ -52,9 +54,19 @@ public static class SessionCapturePolicy
         }
     }
 
+    public static Expression<Func<SessionCaptureEvent, bool>> WithinRetention(
+        SessionCaptureOptions options, DateTimeOffset now)
+    {
+        var cutoff = now.AddHours(-options.RetentionHours);
+        return message => message.CreatedAt >= cutoff;
+    }
+
     public static DateTimeOffset? TryClaim(IReadOnlyList<SessionCaptureEvent> messages, int recentAttempts,
         SessionCaptureOptions options, DateTimeOffset now)
     {
+        var cutoff = now.AddHours(-options.RetentionHours);
+        if (messages.Any(message => message.CreatedAt < cutoff)) return null;
+
         if (recentAttempts >= options.MaxCallsPerHour)
         {
             foreach (var message in messages)

@@ -4,7 +4,7 @@ using Microsoft.Extensions.Options;
 
 namespace ContextDepot.BackgroundServices;
 
-public sealed class SessionCaptureHostedService(IOptions<SessionCaptureOptions> options,
+public sealed class SessionCaptureHostedService(IOptionsMonitor<SessionCaptureOptions> options,
     SessionCaptureCycleRunner runner, ILogger<SessionCaptureHostedService> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -13,7 +13,7 @@ public sealed class SessionCaptureHostedService(IOptions<SessionCaptureOptions> 
         {
             try
             {
-                await Task.Delay(TimeSpan.FromSeconds(options.Value.PollIntervalSeconds), stoppingToken);
+                await Task.Delay(TimeSpan.FromSeconds(options.CurrentValue.PollIntervalSeconds), stoppingToken);
                 await runner.RunAsync(stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }

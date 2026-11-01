@@ -1,5 +1,32 @@
 import { httpRequest } from "@/lib/http-client";
 
+export interface AgentSessionSettings {
+  enabled: boolean;
+}
+export function parseAgentSessionSettings(data: unknown): AgentSessionSettings {
+  return { enabled: boolean(object(data).enabled) };
+}
+export function getAgentSessionSettings(signal: AbortSignal) {
+  return httpRequest({
+    url: "/settings/agent-sessions",
+    signal,
+    parse: parseAgentSessionSettings,
+  });
+}
+export function saveAgentSessionSettings(
+  enabled: boolean,
+  signal: AbortSignal,
+) {
+  return httpRequest({
+    method: "PUT",
+    headers: { "X-ContextDepot-Management": "web" },
+    url: "/settings/agent-sessions",
+    data: { enabled },
+    signal,
+    parse: parseAgentSessionSettings,
+  });
+}
+
 export interface SettingsOverview {
   depotName: string;
   databaseState: string;

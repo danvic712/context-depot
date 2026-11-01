@@ -63,6 +63,8 @@ public static class ServiceCollectionExtensions
             .Bind(configuration.GetSection("ContextDepot:IndexRepair"), binder => binder.ErrorOnUnknownConfiguration = true)
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<IndexRepairOptions>, IndexRepairOptionsValidator>();
+        services.AddScoped<AgentSessionSettingsAppService>();
+        services.AddScoped<IValidator<SaveAgentSessionSettingsRequest>, SaveAgentSessionSettingsRequestValidator>();
         services.AddScoped<IAppearanceSettingsAppService, AppearanceSettingsAppService>();
         services.AddScoped<IAccessKeyAppService, AccessKeyAppService>();
         services.AddScoped<SettingsOverviewAppService>();

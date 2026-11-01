@@ -321,5 +321,19 @@
   "settingsSpaceDetailsFor": "查看 {{name}} 的完整名称和标识",
   "settingsCreationPermissionCompact": "仅自动授权由这把密钥创建的新空间。",
   "settingsSelectShownShort": "选择当前结果",
-  "settingsDeselectShownShort": "取消选择当前结果"
+  "settingsDeselectShownShort": "取消选择当前结果",
+  "settingsSessionMemoryTitle": "会话记忆",
+  "settingsSessionMemoryWhy": "从 AI 助手发送的对话中，整理并保存值得记住的信息。",
+  "settingsSessionMemoryEnable": "启用会话记忆",
+  "settingsSessionMemoryOn": "当前已启用",
+  "settingsSessionMemoryOff": "当前已关闭",
+  "settingsSessionMemoryUnknown": "正在确认是否已启用",
+  "settingsSessionMemoryScope": "保存后立即生效，所有连接到这里的应用都会使用此设置，无需重新启动。",
+  "settingsSessionMemoryDisabledTitle": "关闭后",
+  "settingsSessionMemoryRequirementsTitle": "使用前",
+  "settingsSessionMemoryDisabledWhy": "关闭后不再记录新的对话，尚未整理的内容会暂停处理。已经开始整理的内容可能仍会保存，已有记忆不会删除。重新启用后，会继续整理尚未超过保存期限的内容；暂停期间，保存期限不会延长。",
+  "settingsSessionMemoryRequirements": "请先在“模型服务”中设置对话模型，并在支持此功能的 AI 助手中开启对话记录。只打开这里的开关，助手不会自动开始记录。",
+  "settingsSessionMemoryInference": "设置对话模型",
+  "settingsSessionMemorySaveError": "暂时无法确认是否保存成功",
+  "settingsSessionMemoryReconcile": "设置可能已经保存。请点击重试，确认当前设置后再修改。"
 }

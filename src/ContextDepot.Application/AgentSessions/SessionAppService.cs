@@ -9,13 +9,13 @@ using Microsoft.Extensions.Options;
 
 namespace ContextDepot.Application.AgentSessions;
 
-public sealed class SessionAppService(IOptions<SessionCaptureOptions> options, ICurrentDepotContext depot,
+public sealed class SessionAppService(IOptionsMonitor<SessionCaptureOptions> options, ICurrentDepotContext depot,
     IWorkspaceAccessContext access, IWorkspaceAppService workspaces, ISessionRepository repository,
     IContextBootstrapAppService bootstrap, IIdGenerator ids, TimeProvider clock) : ISessionAppService
 {
     public async Task<SessionStartResult> StartAsync(SessionStartRequest request, CancellationToken cancellationToken)
     {
-        if (!options.Value.Enabled) return new("disabled", null);
+        if (!options.CurrentValue.Enabled) return new("disabled", null);
         SessionLifecyclePolicy.ValidateStart(request);
         var keyId = CurrentKey();
         var workspace = await workspaces.ResolveAsync(request.Workspace, cancellationToken);

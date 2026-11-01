@@ -23,6 +23,8 @@ public sealed class SessionCaptureAppServiceTests
     private readonly Mock<ISessionContentProtector> protector = new();
     private static SessionCaptureRequest Request => new(1, "codex", "session-1", "turn-1", "user", "event-1", "project", "我决定在第一版使用 PostgreSQL 数据库。");
 
+    private readonly Mock<IOptionsMonitor<SessionCaptureOptions>> options = new();
+
     private SessionCaptureAppService Create(bool enabled = true)
     {
         var depot = new Mock<ICurrentDepotContext>();
@@ -34,8 +36,25 @@ public sealed class SessionCaptureAppServiceTests
         var ids = new Mock<IIdGenerator>();
         ids.Setup(x => x.NewId()).Returns(() => Guid.CreateVersion7());
         protector.Setup(x => x.Protect(It.IsAny<string>())).Returns("encrypted");
-        return new(Options.Create(new SessionCaptureOptions { Enabled = enabled }), depot.Object, access.Object,
+        options.SetupGet(o => o.CurrentValue).Returns(new SessionCaptureOptions { Enabled = enabled });
+        return new(options.Object, depot.Object, access.Object,
             workspaces.Object, repository.Object, protector.Object, ids.Object, TimeProvider.System, sessions.Object);
+    }
+
+    [Fact]
+    public async Task Capture_observes_live_enable_disable_enable_on_same_service()
+    {
+        var service = Create(false);
+        repository.Setup(r => r.EnqueueAsync(It.IsAny<SessionCaptureEvent>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SessionCaptureReceipt("accepted", Guid.CreateVersion7()));
+        Assert.Equal("disabled", (await service.CaptureAsync(Request, default)).Status);
+        options.SetupGet(o => o.CurrentValue).Returns(new SessionCaptureOptions { Enabled = true });
+        Assert.Equal("accepted", (await service.CaptureAsync(Request, default)).Status);
+        options.SetupGet(o => o.CurrentValue).Returns(new SessionCaptureOptions { Enabled = false });
+        Assert.Equal("disabled", (await service.CaptureAsync(Request, default)).Status);
+        options.SetupGet(o => o.CurrentValue).Returns(new SessionCaptureOptions { Enabled = true });
+        Assert.Equal("accepted", (await service.CaptureAsync(Request, default)).Status);
+        repository.Verify(r => r.EnqueueAsync(It.IsAny<SessionCaptureEvent>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 
     [Fact]

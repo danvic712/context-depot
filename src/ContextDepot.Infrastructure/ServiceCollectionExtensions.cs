@@ -108,6 +108,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<VectorCollectionInitializer>();
         services.AddScoped<VectorCoverageSnapshotProvider>();
         services.AddSingleton<VectorCoverageComputationGate>();
+        services.AddScoped<IAgentSessionSettingsRepository, AgentSessionSettingsRepository>();
         services.AddScoped<IAppearanceSettingsRepository, AppearanceSettingsRepository>();
         services.AddScoped<ISetupRepository, SetupRepository>();
         services.AddScoped<IAccessKeyRepository, AccessKeyRepository>();

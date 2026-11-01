@@ -15,7 +15,7 @@ using Npgsql;
 namespace ContextDepot.Infrastructure.AgentSessions;
 
 public sealed class SessionCaptureCycleRunner(IServiceScopeFactory scopes,
-    IOptions<SessionCaptureOptions> options, ILogger<SessionCaptureCycleRunner> logger)
+    IOptionsMonitor<SessionCaptureOptions> options, ILogger<SessionCaptureCycleRunner> logger)
 {
     public async Task RunAsync(CancellationToken cancellationToken)
     {
@@ -23,14 +23,14 @@ public sealed class SessionCaptureCycleRunner(IServiceScopeFactory scopes,
         queueScope.ServiceProvider.GetRequiredService<CurrentDepotAccessContext>().AllowInternalAccess();
         var queue = queueScope.ServiceProvider.GetRequiredService<ISessionCaptureRepository>();
         await queue.CleanupAsync(cancellationToken);
-        if (!options.Value.Enabled) return;
+        if (!options.CurrentValue.Enabled) return;
         var turn = await queue.ClaimAsync(cancellationToken);
         if (turn is null) return;
         try
         {
             await using var processingScope = scopes.CreateAsyncScope();
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeout.CancelAfter(TimeSpan.FromSeconds(options.Value.ExtractionTimeoutSeconds));
+            timeout.CancelAfter(TimeSpan.FromSeconds(options.CurrentValue.ExtractionTimeoutSeconds));
             var result = await processingScope.ServiceProvider.GetRequiredService<MemoryCaptureProcessor>()
                 .ProcessAsync(turn, timeout.Token);
             await queue.FinishAsync(turn, result, SessionCaptureDisposition.Completed, cancellationToken);

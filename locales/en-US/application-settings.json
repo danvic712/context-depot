@@ -321,5 +321,19 @@
   "settingsSpaceDetailsFor": "View the full name and identifier for {{name}}",
   "settingsCreationPermissionCompact": "Only spaces created with this key are granted automatically.",
   "settingsSelectShownShort": "Select shown",
-  "settingsDeselectShownShort": "Deselect shown"
+  "settingsDeselectShownShort": "Deselect shown",
+  "settingsSessionMemoryTitle": "Session memory",
+  "settingsSessionMemoryWhy": "Keep useful information from conversations shared by your AI assistant.",
+  "settingsSessionMemoryEnable": "Enable session memory",
+  "settingsSessionMemoryOn": "Currently enabled",
+  "settingsSessionMemoryOff": "Currently disabled",
+  "settingsSessionMemoryUnknown": "Checking whether this is enabled",
+  "settingsSessionMemoryScope": "Changes apply right away to every app connected here. No restart is needed.",
+  "settingsSessionMemoryDisabledTitle": "When disabled",
+  "settingsSessionMemoryRequirementsTitle": "Before you start",
+  "settingsSessionMemoryDisabledWhy": "New conversations will no longer be recorded, and anything waiting to be turned into memories will be paused. Work already started may still save memories. Existing memories will not be deleted. When you enable this again, only conversations still within their storage time limit will be used. Pausing does not extend that limit.",
+  "settingsSessionMemoryRequirements": "First, set up a Chat model under Model services and turn on conversation recording in an AI assistant that supports it. This switch alone will not make your assistant start recording.",
+  "settingsSessionMemoryInference": "Set up chat model",
+  "settingsSessionMemorySaveError": "Could not confirm whether your change was saved",
+  "settingsSessionMemoryReconcile": "Your change may already be saved. Select Retry to check the current setting before changing it again."
 }

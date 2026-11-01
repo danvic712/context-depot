@@ -116,8 +116,10 @@ public sealed class SessionCaptureRepository(ContextDepotDbContext db, ISessionC
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         // Claims are short; a transaction advisory lock gives pair-atomic claiming across replicas.
         await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(75201901)", cancellationToken);
-        var pending = db.SessionCaptureEvents.Where(e =>
-            (e.Status == "pending" && e.NextAttemptAt <= now) || (e.Status == "processing" && e.LeaseUntil < now));
+        var pending = db.SessionCaptureEvents
+            .Where(SessionCapturePolicy.WithinRetention(options.Value, now))
+            .Where(e => (e.Status == "pending" && e.NextAttemptAt <= now) ||
+                (e.Status == "processing" && e.LeaseUntil < now));
         var pair = await (from user in pending
                           from assistant in pending
                           where user.Phase == "user" && assistant.Phase == "assistant" &&

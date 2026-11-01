@@ -10,14 +10,14 @@ using Microsoft.Extensions.Options;
 
 namespace ContextDepot.Application.AgentSessions;
 
-public sealed class SessionCaptureAppService(IOptions<SessionCaptureOptions> options,
+public sealed class SessionCaptureAppService(IOptionsMonitor<SessionCaptureOptions> options,
     ICurrentDepotContext depot, IWorkspaceAccessContext access, IWorkspaceAppService workspaces,
     ISessionCaptureRepository repository, ISessionContentProtector protector, IIdGenerator ids,
     TimeProvider clock, ISessionRepository sessions) : ISessionCaptureAppService
 {
     public async Task<SessionCaptureReceipt> CaptureAsync(SessionCaptureRequest request, CancellationToken cancellationToken)
     {
-        if (!options.Value.Enabled) return new("disabled");
+        if (!options.CurrentValue.Enabled) return new("disabled");
         var capture = SessionCaptureProtocol.Normalize(request);
         if (access.DepotAccessKeyId is not Guid keyId || depot.DepotId == Guid.Empty)
             throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspaceUnavailable);

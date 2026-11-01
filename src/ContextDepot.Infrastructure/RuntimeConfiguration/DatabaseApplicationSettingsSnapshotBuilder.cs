@@ -28,7 +28,8 @@ public sealed class DatabaseApplicationSettingsSnapshotBuilder
             ["ContextDepot:IndexRepair:MaxBatchesPerCycle"] = "ContextDepot:IndexRepair:MaxBatchesPerCycle",
             ["ContextDepot:VectorCoverage:CacheDurationSeconds"] = "ContextDepot:VectorCoverage:CacheDurationSeconds",
             ["ContextDepot:Appearance:Language"] = "ContextDepot:Appearance:Language",
-            ["ContextDepot:Appearance:Theme"] = "ContextDepot:Appearance:Theme"
+            ["ContextDepot:Appearance:Theme"] = "ContextDepot:Appearance:Theme",
+            ["AgentSessions:Enabled"] = "AgentSessions:Enabled"
         };
 
     public IReadOnlyDictionary<string, string?> Build(IEnumerable<ApplicationSetting> records)
@@ -66,6 +67,12 @@ public sealed class DatabaseApplicationSettingsSnapshotBuilder
         try
         {
             using var document = JsonDocument.Parse(valueJson);
+            if (key.Equals("AgentSessions:Enabled", StringComparison.OrdinalIgnoreCase) &&
+                document.RootElement.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+            {
+                throw new InvalidOperationException(InfrastructureErrorCodes.ApplicationSettingValueInvalid) { Data = { ["key"] = key } };
+            }
+
             return document.RootElement.ValueKind switch
             {
                 JsonValueKind.String => document.RootElement.GetString()!,

@@ -46,6 +46,7 @@
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
     "babel-plugin-react-compiler": "^1.0.0",
+    "happy-dom": "^21.0.4",
     "oxlint": "^1.81.0",
     "prettier": "3.9.9",
     "typescript": "~6.0.2",
