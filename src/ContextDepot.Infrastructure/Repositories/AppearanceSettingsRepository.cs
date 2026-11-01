@@ -14,8 +14,8 @@ public sealed class AppearanceSettingsRepository(
     TimeProvider timeProvider,
     DatabaseApplicationSettingsSnapshotLoader snapshotLoader) : IAppearanceSettingsRepository
 {
-    private const string ThemeKey = "ContextDepot:Appearance:Theme";
-    private const string LanguageKey = "ContextDepot:Appearance:Language";
+    private const string ThemeKey = "Appearance:Theme";
+    private const string LanguageKey = "Appearance:Language";
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         Converters = { new JsonStringEnumConverter(allowIntegerValues: false) }

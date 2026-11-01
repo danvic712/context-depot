@@ -21,11 +21,37 @@ public sealed class AgentSessionSettingsTests
             .Single(operation => operation.Table == "application_settings");
         var records = Enumerable.Range(0, initial.Values.GetLength(0)).Select(row => new ApplicationSetting
         {
-            Id = (Guid)initial.Values[row, 0]!, Key = (string)initial.Values[row, 1]!,
+            Id = (Guid)initial.Values[row, 0]!, Key = ((string)initial.Values[row, 1]!)["ContextDepot:".Length..],
             UpdatedAt = (DateTimeOffset)initial.Values[row, 2]!, ValueJson = (string)initial.Values[row, 3]!
         }).ToList();
         if (enabled is not null) records.Add(new() { Key = "AgentSessions:Enabled", ValueJson = enabled });
         return records.ToArray();
+    }
+
+    [Fact]
+    public void Snapshot_maps_short_database_keys_to_existing_configuration_paths()
+    {
+        var records = Records();
+        records.Single(record => record.Key == "Appearance:Theme").ValueJson = "\"dark\"";
+        records.Single(record => record.Key == "Retrieval:Search:DefaultLimit").ValueJson = "17";
+        var snapshot = new DatabaseApplicationSettingsSnapshotBuilder().Build(records);
+
+        Assert.Equal(15, snapshot.Count);
+        Assert.Equal("dark", snapshot["ContextDepot:Appearance:Theme"]);
+        Assert.Equal("17", snapshot["ContextDepot:Retrieval:Search:DefaultLimit"]);
+        Assert.Equal("30", snapshot["ContextDepot:IndexRepair:PollIntervalSeconds"]);
+        Assert.Equal("30", snapshot["ContextDepot:VectorCoverage:CacheDurationSeconds"]);
+        Assert.False(snapshot.ContainsKey("Appearance:Theme"));
+        Assert.Equal("false", snapshot["AgentSessions:Enabled"]);
+    }
+
+    [Fact]
+    public void Snapshot_rejects_unmigrated_prefixed_database_keys()
+    {
+        var records = Records();
+        records[0].Key = "ContextDepot:" + records[0].Key;
+        Assert.Equal("ApplicationSettingKeyUnsupported", Assert.Throws<InvalidOperationException>(() =>
+            new DatabaseApplicationSettingsSnapshotBuilder().Build(records)).Message);
     }
 
     [Theory]
