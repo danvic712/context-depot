@@ -23,7 +23,6 @@ public sealed class DatabaseApplicationSettingsSnapshotBuilder
             ["Retrieval:Semantic:DedupTokenOverlapThreshold"] = "ContextDepot:Retrieval:Semantic:DedupTokenOverlapThreshold",
             ["Retrieval:Search:DefaultLimit"] = "ContextDepot:Retrieval:Search:DefaultLimit",
             ["Retrieval:Search:MaxLimit"] = "ContextDepot:Retrieval:Search:MaxLimit",
-            ["IndexRepair:PollIntervalSeconds"] = "ContextDepot:IndexRepair:PollIntervalSeconds",
             ["IndexRepair:BatchSize"] = "ContextDepot:IndexRepair:BatchSize",
             ["IndexRepair:MaxBatchesPerCycle"] = "ContextDepot:IndexRepair:MaxBatchesPerCycle",
             ["VectorCoverage:CacheDurationSeconds"] = "ContextDepot:VectorCoverage:CacheDurationSeconds",
@@ -38,6 +37,11 @@ public sealed class DatabaseApplicationSettingsSnapshotBuilder
         var values = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         foreach (var record in records)
         {
+            if (record.Key.Equals("IndexRepair:PollIntervalSeconds", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             if (!SupportedKeys.TryGetValue(record.Key, out var canonicalKey))
             {
                 throw new InvalidOperationException(InfrastructureErrorCodes.ApplicationSettingKeyUnsupported) { Data = { ["key"] = record.Key } };

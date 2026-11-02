@@ -23,6 +23,8 @@ using ContextDepot.Infrastructure.Options;
 using ContextDepot.Infrastructure.Repositories;
 using ContextDepot.Infrastructure.RuntimeConfiguration;
 using ContextDepot.Infrastructure.VectorStore;
+using Hangfire;
+using Hangfire.InMemory;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Caching.Memory;
@@ -36,6 +38,25 @@ namespace ContextDepot.Infrastructure;
 
 public static class ServiceCollectionExtensions
 {
+    public static IServiceCollection AddContextDepotBackgroundJobs(this IServiceCollection services)
+    {
+        services.AddHangfire((_, configuration) => configuration
+            .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+            .UseSimpleAssemblyNameTypeSerializer()
+            .UseRecommendedSerializerSettings()
+            .UseInMemoryStorage(new InMemoryStorageOptions
+            {
+                MaxExpirationTime = TimeSpan.FromHours(1),
+                MaxStateHistoryLength = 10
+            }));
+        services.AddSingleton<SessionCaptureJob>();
+        services.AddSingleton<IndexRepairJob>();
+        services.AddSingleton<ApplicationSettingsRefreshJob>();
+        services.AddSingleton<InferenceRuntimeRefreshJob>();
+        services.AddSingleton<BackgroundJobRegistrar>();
+        return services;
+    }
+
     public static IServiceCollection AddContextDepotInfrastructure(
         this IServiceCollection services,
         IConfiguration configuration)

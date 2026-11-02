@@ -3,7 +3,6 @@ namespace ContextDepot.Application.AgentSessions;
 public sealed class SessionCaptureOptions
 {
     public bool Enabled { get; set; }
-    public int PollIntervalSeconds { get; set; } = 10;
     public int MaxAttempts { get; set; } = 3;
     public int RetentionHours { get; set; } = 24;
     public int MaxCallsPerHour { get; set; } = 30;

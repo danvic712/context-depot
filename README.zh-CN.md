@@ -175,9 +175,19 @@ npx skills add danvic712/context-depot --skill context-depot --global
 - **连接限制：** Hook 需要 MCP 已连接，不会自行重连、重试或离线补发，调用失败可能丢失消息。示例使用五秒活动执行超时，不保证每条消息恰好送达一次。
 - **重复回复：** 重复 Stop 事件会去重。首个被接收的助手正文会保留，后续不同正文会冲突，而非替换，不能据此保证捕获到最终修改版。
 - **关闭功能：** 不再接收新会话和新捕获，尚未领取的任务暂停；已经领取的任务可能完成。已有记忆保留，清理期限继续计算，重新开启后仅恢复未过期任务。
-- **旧部署迁移：** 即使以前使用过 `AgentSessions__Enabled`，也需要在网页中开启，此环境变量已不再控制开关。当前实例无需重启，其他实例按现有的五秒轮询周期刷新设置。
+- **旧部署迁移：** 即使以前使用过 `AgentSessions__Enabled`，也需要在网页中开启，此环境变量已不再控制开关。当前实例直接应用此开关，无需重启；定时配置刷新改为每分钟执行，只运行一个应用实例。
 
 如需使用受管会话的生命周期、检索和状态工具，而非原生 Hook，请参考 [Skill 的 Session Memory 说明](skills/context-depot/SKILL.md#session-memory)。同一轮对话只使用一种捕获工作流。
+
+## 后台处理
+
+仅运行**一个应用实例**。会话捕获、索引修复、应用设置刷新和推理刷新通过同进程的 Hangfire.InMemory 每分钟执行一次。同类任务重叠时跳过，不并发执行。捕获吞吐仍受现有单轮处理上限限制，配置变更可能经过多个分钟周期才被所有后台任务使用。
+
+Hangfire 的定义、排队任务和执行历史只保存在内存中。重启会清空这些状态并重新注册四个定时任务；下一周期扫描 PostgreSQL 中已有的业务队列，中断的业务工作可能等待原租约到期后再继续。不补跑错过的分钟。PostgreSQL 仍用于业务数据，但不新增 Hangfire schema 或数据库权限，也不提供 Hangfire Dashboard。
+
+升级时先停止旧应用进程，再启动新版。启动迁移会删除数据库中废弃的 `IndexRepair:PollIntervalSeconds` 设置。应用忽略 JSON 中的 `ContextDepot:IndexRepair:PollIntervalSeconds` 和环境变量 `ContextDepot__IndexRepair__PollIntervalSeconds`，它们不再影响调度，也无需在启动前手动移除。旧的 `AgentSessions:PollIntervalSeconds` / `AgentSessions__PollIntervalSeconds` 同样被忽略。这些废弃项可从部署配置中清理；其他索引配置名仍严格校验，批次、超时和业务重试约束不变。
+
+若回滚到依赖旧数据库设置的版本，先停止新版并回退这项清理 migration，再启动旧版。回退会恢复历史默认的 30 秒间隔，不覆盖已有设置，也不会恢复删除前的自定义值。保留全部业务数据；无需备份或迁移 Hangfire 内存状态。
 
 ## 备份与更新
 

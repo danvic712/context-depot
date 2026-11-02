@@ -4,6 +4,7 @@ namespace ContextDepot.Infrastructure.Exceptions;
 public static class InfrastructureErrorCodes
 {
     public const string AgentSessionSettingMissing = "AgentSessionSettingMissing";
+    public const string BackgroundJobExecutionFailed = nameof(BackgroundJobExecutionFailed);
     public const string SessionMemoryChatUnavailable = nameof(SessionMemoryChatUnavailable);
     public const string SessionMemoryResponseInvalid = nameof(SessionMemoryResponseInvalid);
     public const string SessionMemoryContentUnavailable = nameof(SessionMemoryContentUnavailable);

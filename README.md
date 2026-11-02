@@ -175,9 +175,19 @@ Not every conversation becomes a memory: the service may find no lasting knowled
 - **Connection limits:** Hooks require an already-connected MCP server. They add no reconnect, retry or offline replay; a failed call can lose a message. The example uses a five-second active execution timeout and does not guarantee exactly-once delivery.
 - **Repeated replies:** repeated Stop events are deduplicated. The first accepted assistant body is kept; a changed later body conflicts rather than replacing it. Do not assume the final revision was captured.
 - **Turning it off:** new sessions and captures stop, and unclaimed work pauses. Work already claimed may finish. Saved memories remain; retention deadlines still run. Re-enabling resumes only unexpired work.
-- **Existing deployments:** enable capture in the UI even if you previously used `AgentSessions__Enabled`; that environment variable no longer controls it. Changes need no restart on the current instance; other instances refresh on their existing five-second polling cycle.
+- **Existing deployments:** enable capture in the UI even if you previously used `AgentSessions__Enabled`; that environment variable no longer controls it. The current instance applies this switch without restarting. Scheduled configuration refreshes run every minute; run only one application instance.
 
 For managed session lifecycle, recall and status tools instead of native Hooks, see the [Skill's Session Memory instructions](skills/context-depot/SKILL.md#session-memory). Use one capture workflow per turn.
+
+## Background processing
+
+Run **one application instance**. Session capture, index repair, application settings refresh and inference refresh use Hangfire.InMemory in the same process, once per minute. A category skips overlapping invocations rather than running concurrently with itself. Capture throughput is bounded by the existing per-cycle limits; changes may take multiple minute cycles to reach all background tasks.
+
+Hangfire definitions, queued jobs and execution history are held only in memory. Restarting clears them and registers the four schedules again; the next cycle scans the existing business queues in PostgreSQL. Interrupted business work may wait for its lease to expire. Missed minutes are not replayed. PostgreSQL remains required for business data, but no Hangfire schema or additional database permissions are needed. There is no Hangfire Dashboard.
+
+When upgrading, stop the old application process before starting the new one. The startup migration deletes the obsolete `IndexRepair:PollIntervalSeconds` database setting. The application ignores `ContextDepot:IndexRepair:PollIntervalSeconds` in JSON and `ContextDepot__IndexRepair__PollIntervalSeconds` in the environment; neither affects scheduling or needs to be removed before startup. The old `AgentSessions:PollIntervalSeconds` / `AgentSessions__PollIntervalSeconds` settings are also ignored. These obsolete entries can be removed from deployment configuration. Other index setting names remain strictly checked, and batch, timeout and business retry limits remain unchanged.
+
+Before rolling back to a version that requires the old database setting, stop the new process and reverse the cleanup migration before starting the old version. The downgrade restores the legacy default interval of 30 seconds without overwriting an existing setting; it does not recover a previously customized value. Retain all business data. Hangfire's in-memory state does not need a backup or migration.
 
 ## Back up and update
 
