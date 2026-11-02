@@ -6,6 +6,35 @@ namespace ContextDepot.Application.Tests.AgentSessions;
 
 public sealed class SessionCaptureProtocolTests
 {
+    [Theory]
+    [InlineData(null, "project", 2, true)]
+    [InlineData(null, null, 2, false)]
+    [InlineData("explicit", "project", 1, true)]
+    [InlineData("auto", null, 1, false)]
+    [InlineData("auto", null, 2, true)]
+    [InlineData("auto", "project", 2, false)]
+    [InlineData("AUTO", null, 2, false)]
+    [InlineData(" auto", null, 2, false)]
+    public void Workspace_modes_are_explicit_and_versioned(string? mode, string? workspace, int version, bool valid)
+    {
+        var request = new SessionCaptureRequest(version, "codex", "session", "turn",
+            version == 1 ? "user" : null, "event", workspace, version == 1 ? "text" : null,
+            version == 2 ? "message" : null, version == 2 ? [new("user", "text")] : null,
+            WorkspaceMode: mode);
+        if (valid) Assert.Equal(mode ?? "explicit", SessionCaptureProtocol.Normalize(request).WorkspaceMode);
+        else Assert.Throws<ContextDepotApplicationException>(() => SessionCaptureProtocol.Normalize(request));
+    }
+
+    [Fact]
+    public void Auto_turn_preserves_derived_identity_but_rejects_managed_session()
+    {
+        var request = Turn with { Workspace = null, WorkspaceMode = "auto" };
+        var first = SessionCaptureProtocol.Normalize(request);
+        Assert.Equal("auto", first.WorkspaceMode);
+        Assert.Equal(SessionCaptureProtocol.Normalize(request).EventIds, first.EventIds);
+        Assert.Throws<ContextDepotApplicationException>(() => SessionCaptureProtocol.Normalize(request with { SessionId = Guid.NewGuid() }));
+    }
+
     private static SessionCaptureRequest Turn => new(2, "plugin", null, null, null, "completed-1", "project", null,
         "turn", [new("user", "我决定使用 PostgreSQL 数据库。"), new("assistant", "已记录到当前方案。")]);
 

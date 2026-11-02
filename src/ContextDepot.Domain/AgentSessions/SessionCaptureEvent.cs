@@ -3,6 +3,17 @@ namespace ContextDepot.Domain.AgentSessions;
 /// <summary>An encrypted, idempotent visible message awaiting paired-turn processing.</summary>
 public sealed class SessionCaptureEvent
 {
+    public DateTimeOffset? CaptureExpiresAt { get; set; }
+    public Guid? LeaseToken { get; set; }
+    public DateTimeOffset? ContentPurgedAt { get; set; }
+    public string? LastErrorCode { get; set; }
+    public int ProviderCallCount { get; set; }
+    public DateTimeOffset? LastProviderCallAt { get; set; }
+    public string? EncryptedExtractionPlan { get; set; }
+    public string? ExtractionPlanHash { get; set; }
+    public string? ExtractorVersion { get; set; }
+    public string CandidateOutcomesJson { get; set; } = "[]";
+    public int PersistenceAttemptCount { get; set; }
     public Guid Id { get; set; }
     public Guid? SessionId { get; set; }
     public Guid DepotId { get; set; }

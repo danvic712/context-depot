@@ -26,60 +26,9 @@ public sealed partial class ContextAppService(
     {
         var workspace = await workspaceAppService.ResolveAsync(command.Workspace, cancellationToken)
             ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspaceNotFound);
-        var content = NormalizeContent(command.Content);
-        if (content.Length == 0)
-        {
-            throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidContextContent);
-        }
-
-        Validate(command, content);
-        sourceSafety.EnsureSafe(workspace.Path);
-        sourceSafety.EnsureSafe(content);
-        sourceSafety.EnsureSafe(command.Title);
-        sourceSafety.EnsureSafe(command.Key);
-        sourceSafety.EnsureSafe(command.SourceAgent);
-        sourceSafety.EnsureSafe(command.SourceRef);
-        sourceSafety.EnsureSafe(command.MetadataJson);
-        foreach (var tag in command.Tags ?? [])
-        {
-            sourceSafety.EnsureSafe(tag);
-        }
-
-        JsonObjectValidator.EnsureObject(command.MetadataJson, ApplicationErrorCodes.InvalidContextMetadata);
-        var provenance = sourceSafety.EvaluateProvenance(new ProvenanceInput(
-            command.SourceType,
-            command.VerificationStatus,
-            command.RequestedProvenanceTrust,
-            command.SourceAgent,
-            command.SourceRef,
-            command.IsTrustedServer));
-
-        var normalizedKey = NormalizeKey(command.Key);
-        if (command.SupersedesId is not null && (normalizedKey is not null || command.Kind == ContextKind.State))
-        {
-            throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidSupersedeTarget);
-        }
-
-        var now = timeProvider.GetUtcNow();
-        var context = new ContextItem(
-            idGenerator.NewId(),
-            currentDepot.DepotId,
-            workspace.Id,
-            command.Kind,
-            normalizedKey,
-            NormalizeOptional(command.Title),
-            content,
-            now);
-        context.SetQuality(command.Importance, command.Confidence);
-        context.SetValidity(command.ValidFrom, command.ValidUntil, command.ExpiresAt);
-        context.SetTags(JsonSerializer.Serialize((command.Tags ?? []).Select(tag => tag.Trim()).Where(tag => tag.Length > 0).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)));
-        context.SetMetadata(command.MetadataJson);
-        context.ConfigureProvenance(
-            provenance.VerificationStatus,
-            provenance.Trust,
-            provenance.SourceType,
-            NormalizeOptional(provenance.SourceAgent),
-            NormalizeOptional(provenance.SourceRef));
+        var context = PrepareContext(command, currentDepot.DepotId, workspace.Id, workspace.Path);
+        var normalizedKey = context.Key;
+        var now = context.CreatedAt;
 
         ContextPersistenceResult result;
         if (command.WriteMode == ContextWriteMode.CreateOnly)
@@ -115,6 +64,77 @@ public sealed partial class ContextAppService(
             ContextPersistenceOutcome.ConcurrencyConflict => throw new ContextDepotApplicationException(ApplicationErrorCodes.ContextConcurrencyConflict),
             _ => throw new ContextDepotApplicationException(ApplicationErrorCodes.ContextWriteFailed)
         };
+    }
+
+    public ContextDepot.Application.AgentSessions.Dtos.PreparedCaptureContext PrepareCaptureContext(
+        ContextDepot.Application.AgentSessions.Dtos.CapturedTurn turn,
+        ContextDepot.Application.AgentSessions.Dtos.ValidatedMemoryCandidate candidate, string workspacePath)
+    {
+        var command = new SaveContextCommand(workspacePath, Enum.Parse<ContextKind>(candidate.Kind, true),
+            candidate.Summary, Key: candidate.Key, Confidence: 0.95m, SourceType: SourceType.Agent,
+            SourceAgent: turn.Agent, SourceRef: $"session-capture:{turn.UserEventId}:{turn.AssistantEventId}",
+            WriteMode: ContextWriteMode.CreateOnly);
+        return new(PrepareContext(command, turn.DepotId, turn.WorkspaceId, workspacePath));
+    }
+
+    private ContextItem PrepareContext(SaveContextCommand command, Guid depotId, Guid workspaceId, string workspacePath)
+    {
+        var content = NormalizeContent(command.Content);
+        if (content.Length == 0)
+        {
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidContextContent);
+        }
+
+        Validate(command, content);
+        sourceSafety.EnsureSafe(workspacePath);
+        sourceSafety.EnsureSafe(content);
+        sourceSafety.EnsureSafe(command.Title);
+        sourceSafety.EnsureSafe(command.Key);
+        sourceSafety.EnsureSafe(command.SourceAgent);
+        sourceSafety.EnsureSafe(command.SourceRef);
+        sourceSafety.EnsureSafe(command.MetadataJson);
+        foreach (var tag in command.Tags ?? [])
+        {
+            sourceSafety.EnsureSafe(tag);
+        }
+
+        JsonObjectValidator.EnsureObject(command.MetadataJson, ApplicationErrorCodes.InvalidContextMetadata);
+        var provenance = sourceSafety.EvaluateProvenance(new ProvenanceInput(
+            command.SourceType,
+            command.VerificationStatus,
+            command.RequestedProvenanceTrust,
+            command.SourceAgent,
+            command.SourceRef,
+            command.IsTrustedServer));
+
+        var normalizedKey = NormalizeKey(command.Key);
+        if (command.SupersedesId is not null && (normalizedKey is not null || command.Kind == ContextKind.State))
+        {
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidSupersedeTarget);
+        }
+
+        var now = timeProvider.GetUtcNow();
+        var context = new ContextItem(
+            idGenerator.NewId(),
+            depotId,
+            workspaceId,
+            command.Kind,
+            normalizedKey,
+            NormalizeOptional(command.Title),
+            content,
+            now);
+        context.SetQuality(command.Importance, command.Confidence);
+        context.SetValidity(command.ValidFrom, command.ValidUntil, command.ExpiresAt);
+        context.SetTags(JsonSerializer.Serialize((command.Tags ?? []).Select(tag => tag.Trim()).Where(tag => tag.Length > 0).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)));
+        context.SetMetadata(command.MetadataJson);
+        context.ConfigureProvenance(
+            provenance.VerificationStatus,
+            provenance.Trust,
+            provenance.SourceType,
+            NormalizeOptional(provenance.SourceAgent),
+            NormalizeOptional(provenance.SourceRef));
+
+        return context;
     }
 
     public async Task ArchiveAsync(Guid contextId, CancellationToken cancellationToken)

@@ -20,6 +20,7 @@ public sealed class SessionCaptureAppServiceTests
     private readonly Mock<IWorkspaceAccessContext> access = new();
     private readonly Mock<ISessionCaptureRepository> repository = new();
     private readonly Mock<ISessionRepository> sessions = new();
+    private readonly Mock<ISessionCaptureInboxRepository> inbox = new();
     private readonly Mock<ISessionContentProtector> protector = new();
     private static SessionCaptureRequest Request => new(1, "codex", "session-1", "turn-1", "user", "event-1", "project", "我决定在第一版使用 PostgreSQL 数据库。");
 
@@ -38,7 +39,40 @@ public sealed class SessionCaptureAppServiceTests
         protector.Setup(x => x.Protect(It.IsAny<string>())).Returns("encrypted");
         options.SetupGet(o => o.CurrentValue).Returns(new SessionCaptureOptions { Enabled = enabled });
         return new(options.Object, depot.Object, access.Object,
-            workspaces.Object, repository.Object, protector.Object, ids.Object, TimeProvider.System, sessions.Object);
+            workspaces.Object, repository.Object, protector.Object, ids.Object, TimeProvider.System, sessions.Object,
+            inbox.Object, new ContextDepot.Application.Shared.Safety.HighConfidenceSecretDetector());
+    }
+
+    [Fact]
+    public async Task Auto_capture_uses_inbox_without_resolving_a_client_workspace()
+    {
+        var service = Create();
+        var turnReceipt = Guid.CreateVersion7();
+        inbox.Setup(r => r.AcceptAsync(It.IsAny<AuthorizedCaptureEnvelope>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SessionCaptureReceipt("accepted", Guid.CreateVersion7(), turnReceipt));
+        var request = new SessionCaptureRequest(2, "codex", "native-session", "native-turn", null, "auto-event", null,
+            Content: null, Mode: "message", Messages: [new("user", "用户明确表达的长期知识。")], WorkspaceMode: "auto");
+        var receipt = await service.CaptureAsync(request, default);
+        Assert.Equal(turnReceipt, receipt.TurnReceiptId);
+        inbox.Verify(r => r.AcceptAsync(It.Is<AuthorizedCaptureEnvelope>(e => !e.Sensitive && e.Messages.Count == 1 &&
+            e.Messages[0].DepotId == depotId && e.Messages[0].AccessKeyId == keyId && e.Messages[0].EncryptedContent == "encrypted"), default), Times.Once);
+        workspaces.Verify(w => w.ResolveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        repository.Verify(r => r.EnqueueAsync(It.IsAny<SessionCaptureEvent>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Sensitive_auto_turn_sends_only_hash_tombstones_to_inbox()
+    {
+        var service = Create();
+        inbox.Setup(r => r.AcceptAsync(It.IsAny<AuthorizedCaptureEnvelope>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SessionCaptureReceipt("skipped", Guid.CreateVersion7(), Guid.CreateVersion7(), "skipped_sensitive"));
+        var secret = "-----BEGIN PRIVATE KEY-----\\nconfidential\\n-----END PRIVATE KEY-----";
+        var request = new SessionCaptureRequest(2, "codex", "native-session", "native-turn", null, "auto-event", null,
+            Content: null, Mode: "turn", Messages: [new("user", secret), new("assistant", "公开回复")], WorkspaceMode: "auto");
+        Assert.Equal("skipped_sensitive", (await service.CaptureAsync(request, default)).ResultCode);
+        inbox.Verify(r => r.AcceptAsync(It.Is<AuthorizedCaptureEnvelope>(e => e.Sensitive && e.Messages.Count == 2 &&
+            e.Messages.All(m => m.EncryptedContent == null && m.ContentPurgedAt != null && m.ContentHash.Length == 64)), default), Times.Once);
+        protector.Verify(p => p.Protect(It.IsAny<string>()), Times.Never);
     }
 
     [Fact]

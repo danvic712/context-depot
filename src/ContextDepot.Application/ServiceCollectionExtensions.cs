@@ -46,6 +46,7 @@ public static class ServiceCollectionExtensions
                 o.MaxPendingEventsPerKey is >= 2 and <= 10000 && o.ExtractionTimeoutSeconds is >= 1 and <= 120,
                 ContextDepot.Application.Shared.Exceptions.ApplicationErrorCodes.InvalidSessionCapture).ValidateOnStart();
         services.AddScoped<ISessionAppService, SessionAppService>();
+        services.AddScoped<ISessionCaptureStatusAppService, SessionCaptureStatusAppService>();
         services.AddScoped<ISessionCaptureAppService,
             SessionCaptureAppService>();
         services.AddScoped<MemoryCaptureProcessor>();

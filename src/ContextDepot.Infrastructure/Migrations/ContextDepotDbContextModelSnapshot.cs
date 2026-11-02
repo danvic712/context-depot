@@ -104,6 +104,17 @@ namespace ContextDepot.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("attempt_count");
 
+                    b.Property<string>("CandidateOutcomesJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValue("[]")
+                        .HasColumnName("candidate_outcomes_json");
+
+                    b.Property<DateTimeOffset?>("CaptureExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("capture_expires_at");
+
                     b.Property<string>("ClientSessionId")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -115,6 +126,10 @@ namespace ContextDepot.Infrastructure.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("content_hash");
+
+                    b.Property<DateTimeOffset?>("ContentPurgedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("content_purged_at");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -128,11 +143,38 @@ namespace ContextDepot.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("encrypted_content");
 
+                    b.Property<string>("EncryptedExtractionPlan")
+                        .HasColumnType("text")
+                        .HasColumnName("encrypted_extraction_plan");
+
                     b.Property<string>("EventId")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("event_id");
+
+                    b.Property<string>("ExtractionPlanHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("extraction_plan_hash");
+
+                    b.Property<string>("ExtractorVersion")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("extractor_version");
+
+                    b.Property<string>("LastErrorCode")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("last_error_code");
+
+                    b.Property<DateTimeOffset?>("LastProviderCallAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_provider_call_at");
+
+                    b.Property<Guid?>("LeaseToken")
+                        .HasColumnType("uuid")
+                        .HasColumnName("lease_token");
 
                     b.Property<DateTimeOffset?>("LeaseUntil")
                         .HasColumnType("timestamp with time zone")
@@ -141,6 +183,12 @@ namespace ContextDepot.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("NextAttemptAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("next_attempt_at");
+
+                    b.Property<int>("PersistenceAttemptCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("persistence_attempt_count");
 
                     b.Property<string>("Phase")
                         .IsRequired()
@@ -151,6 +199,12 @@ namespace ContextDepot.Infrastructure.Migrations
                     b.Property<DateTimeOffset?>("ProcessedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("processed_at");
+
+                    b.Property<int>("ProviderCallCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("provider_call_count");
 
                     b.Property<string>("ResultCode")
                         .HasMaxLength(60)
@@ -186,6 +240,8 @@ namespace ContextDepot.Infrastructure.Migrations
 
                     b.HasIndex("WorkspaceId", "DepotId");
 
+                    b.HasIndex("DepotId", "AccessKeyId", "LastProviderCallAt");
+
                     b.HasIndex("SessionId", "DepotId", "AccessKeyId", "WorkspaceId");
 
                     b.HasIndex("DepotId", "AccessKeyId", "Agent", "ClientSessionId", "EventId")
@@ -198,9 +254,345 @@ namespace ContextDepot.Infrastructure.Migrations
 
                     b.ToTable("session_capture_events", "public", t =>
                         {
+                            t.HasCheckConstraint("ck_capture_event_counts", "attempt_count >= 0 AND provider_call_count >= 0 AND persistence_attempt_count >= 0");
+
+                            t.HasCheckConstraint("ck_capture_event_outcomes", "jsonb_typeof(candidate_outcomes_json) = 'array' AND jsonb_array_length(candidate_outcomes_json) <= 3");
+
+                            t.HasCheckConstraint("ck_capture_event_plan", "(encrypted_extraction_plan IS NULL) = (extraction_plan_hash IS NULL)");
+
+                            t.HasCheckConstraint("ck_capture_event_plan_hash", "extraction_plan_hash IS NULL OR extraction_plan_hash ~ '^[0-9A-F]{64}$'");
+
+                            t.HasCheckConstraint("ck_capture_event_user_fields", "phase = 'user' OR (encrypted_extraction_plan IS NULL AND extraction_plan_hash IS NULL AND extractor_version IS NULL AND candidate_outcomes_json = '[]'::jsonb AND provider_call_count = 0 AND last_provider_call_at IS NULL AND persistence_attempt_count = 0)");
+
                             t.HasCheckConstraint("ck_session_capture_phase", "phase IN ('user', 'assistant')");
 
                             t.HasCheckConstraint("ck_session_capture_status", "status IN ('pending', 'processing', 'completed', 'failed')");
+                        });
+                });
+
+            modelBuilder.Entity("ContextDepot.Domain.AgentSessions.SessionCaptureInboxEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccessKeyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("access_key_id");
+
+                    b.Property<string>("Agent")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("agent");
+
+                    b.Property<string>("ClientSessionId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("client_session_id");
+
+                    b.Property<string>("ContentHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("content_hash");
+
+                    b.Property<DateTimeOffset?>("ContentPurgedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("content_purged_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("DepotId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("depot_id");
+
+                    b.Property<string>("EncryptedContent")
+                        .HasColumnType("text")
+                        .HasColumnName("encrypted_content");
+
+                    b.Property<string>("EventId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("event_id");
+
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("phase");
+
+                    b.Property<string>("TurnId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("turn_id");
+
+                    b.Property<Guid>("TurnRouteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("turn_route_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TurnRouteId");
+
+                    b.HasIndex("TurnRouteId", "Phase")
+                        .IsUnique();
+
+                    b.HasIndex("DepotId", "AccessKeyId", "Agent", "ClientSessionId", "EventId")
+                        .IsUnique();
+
+                    b.HasIndex("TurnRouteId", "DepotId", "AccessKeyId", "Agent", "ClientSessionId", "TurnId");
+
+                    b.ToTable("session_capture_inbox_events", "public", t =>
+                        {
+                            t.HasCheckConstraint("ck_capture_inbox_content", "(encrypted_content IS NULL) = (content_purged_at IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_capture_inbox_hash", "content_hash ~ '^[0-9A-F]{64}$'");
+
+                            t.HasCheckConstraint("ck_capture_inbox_phase", "phase IN ('user','assistant')");
+                        });
+                });
+
+            modelBuilder.Entity("ContextDepot.Domain.AgentSessions.SessionCaptureTurnRoute", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccessKeyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("access_key_id");
+
+                    b.Property<string>("Agent")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("agent");
+
+                    b.Property<int>("AttemptCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("attempt_count");
+
+                    b.Property<string>("ClientSessionId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("client_session_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("DepotId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("depot_id");
+
+                    b.Property<string>("EncryptedRoutingVector")
+                        .HasColumnType("text")
+                        .HasColumnName("encrypted_routing_vector");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTimeOffset?>("LastAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_attempt_at");
+
+                    b.Property<string>("LastErrorCode")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("last_error_code");
+
+                    b.Property<DateTimeOffset?>("LastProviderCallAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_provider_call_at");
+
+                    b.Property<Guid?>("LeaseToken")
+                        .HasColumnType("uuid")
+                        .HasColumnName("lease_token");
+
+                    b.Property<DateTimeOffset?>("LeaseUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lease_until");
+
+                    b.Property<DateTimeOffset>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_attempt_at");
+
+                    b.Property<DateTimeOffset?>("PromotedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("promoted_at");
+
+                    b.Property<int>("ProviderCallCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("provider_call_count");
+
+                    b.Property<DateTimeOffset?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resolved_at");
+
+                    b.Property<string>("ResolverVersion")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("resolver_version");
+
+                    b.Property<string>("ResultCode")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("result_code");
+
+                    b.Property<string>("RoutingEmbeddingFingerprint")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("routing_embedding_fingerprint");
+
+                    b.Property<string>("RoutingVectorHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("routing_vector_hash");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("state");
+
+                    b.Property<string>("TurnId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("turn_id");
+
+                    b.Property<Guid?>("WorkspaceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("workspace_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccessKeyId", "DepotId");
+
+                    b.HasIndex("ExpiresAt", "Id");
+
+                    b.HasIndex("WorkspaceId", "DepotId");
+
+                    b.HasIndex("DepotId", "AccessKeyId", "LastProviderCallAt");
+
+                    b.HasIndex("State", "LeaseUntil", "Id");
+
+                    b.HasIndex("State", "NextAttemptAt", "Id");
+
+                    b.HasIndex("DepotId", "AccessKeyId", "Agent", "ClientSessionId", "TurnId")
+                        .IsUnique();
+
+                    b.ToTable("session_capture_turn_routes", "public", t =>
+                        {
+                            t.HasCheckConstraint("ck_capture_route_counts", "attempt_count >= 0 AND provider_call_count >= 0");
+
+                            t.HasCheckConstraint("ck_capture_route_expiry", "expires_at > created_at");
+
+                            t.HasCheckConstraint("ck_capture_route_hash", "routing_vector_hash IS NULL OR routing_vector_hash ~ '^[0-9A-F]{64}$'");
+
+                            t.HasCheckConstraint("ck_capture_route_lease", "(state = 'resolving' AND lease_token IS NOT NULL AND lease_until IS NOT NULL) OR (state <> 'resolving' AND lease_token IS NULL AND lease_until IS NULL)");
+
+                            t.HasCheckConstraint("ck_capture_route_state", "state IN ('waiting_user','pending','resolving','resolved','promoted','skipped','failed')");
+
+                            t.HasCheckConstraint("ck_capture_route_vector", "(encrypted_routing_vector IS NULL AND routing_vector_hash IS NULL AND routing_embedding_fingerprint IS NULL) OR (encrypted_routing_vector IS NOT NULL AND routing_vector_hash IS NOT NULL AND routing_embedding_fingerprint IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_capture_route_workspace", "state NOT IN ('resolved','promoted') OR workspace_id IS NOT NULL");
+                        });
+                });
+
+            modelBuilder.Entity("ContextDepot.Domain.Contexts.ContextCaptureEvidence", b =>
+                {
+                    b.Property<Guid>("ContextId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("context_id");
+
+                    b.Property<Guid>("AccessKeyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("access_key_id");
+
+                    b.Property<Guid>("AssistantEventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assistant_event_id");
+
+                    b.Property<int>("CandidateIndex")
+                        .HasColumnType("integer")
+                        .HasColumnName("candidate_index");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("DepotId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("depot_id");
+
+                    b.Property<string>("EncryptedFragments")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("encrypted_fragments");
+
+                    b.Property<string>("ExtractorVersion")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("extractor_version");
+
+                    b.Property<string>("FragmentsHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("fragments_hash");
+
+                    b.Property<int>("ProtectionVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("protection_version");
+
+                    b.Property<string>("UserContentHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("user_content_hash");
+
+                    b.Property<Guid>("UserEventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_event_id");
+
+                    b.Property<Guid>("WorkspaceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("workspace_id");
+
+                    b.HasKey("ContextId");
+
+                    b.HasIndex("AccessKeyId", "DepotId");
+
+                    b.HasIndex("ContextId", "DepotId", "WorkspaceId");
+
+                    b.HasIndex("DepotId", "AccessKeyId", "UserEventId", "CandidateIndex")
+                        .IsUnique();
+
+                    b.ToTable("context_capture_evidence", "public", t =>
+                        {
+                            t.HasCheckConstraint("ck_capture_evidence_hashes", "user_content_hash ~ '^[0-9A-F]{64}$' AND fragments_hash ~ '^[0-9A-F]{64}$'");
+
+                            t.HasCheckConstraint("ck_capture_evidence_index", "candidate_index BETWEEN 0 AND 2");
+
+                            t.HasCheckConstraint("ck_capture_evidence_protection", "protection_version >= 0");
                         });
                 });
 
@@ -1008,6 +1400,49 @@ namespace ContextDepot.Infrastructure.Migrations
                         .HasForeignKey("SessionId", "DepotId", "AccessKeyId", "WorkspaceId")
                         .HasPrincipalKey("Id", "DepotId", "AccessKeyId", "WorkspaceId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("ContextDepot.Domain.AgentSessions.SessionCaptureInboxEvent", b =>
+                {
+                    b.HasOne("ContextDepot.Domain.AgentSessions.SessionCaptureTurnRoute", null)
+                        .WithMany()
+                        .HasForeignKey("TurnRouteId", "DepotId", "AccessKeyId", "Agent", "ClientSessionId", "TurnId")
+                        .HasPrincipalKey("Id", "DepotId", "AccessKeyId", "Agent", "ClientSessionId", "TurnId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ContextDepot.Domain.AgentSessions.SessionCaptureTurnRoute", b =>
+                {
+                    b.HasOne("ContextDepot.Domain.Depots.DepotAccessKey", null)
+                        .WithMany()
+                        .HasForeignKey("AccessKeyId", "DepotId")
+                        .HasPrincipalKey("Id", "DepotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ContextDepot.Domain.Workspaces.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId", "DepotId")
+                        .HasPrincipalKey("Id", "DepotId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("ContextDepot.Domain.Contexts.ContextCaptureEvidence", b =>
+                {
+                    b.HasOne("ContextDepot.Domain.Depots.DepotAccessKey", null)
+                        .WithMany()
+                        .HasForeignKey("AccessKeyId", "DepotId")
+                        .HasPrincipalKey("Id", "DepotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ContextDepot.Domain.Contexts.ContextItem", null)
+                        .WithMany()
+                        .HasForeignKey("ContextId", "DepotId", "WorkspaceId")
+                        .HasPrincipalKey("Id", "DepotId", "WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("ContextDepot.Domain.Contexts.ContextItem", b =>

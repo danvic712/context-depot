@@ -26,16 +26,22 @@ public sealed class ContextRepository(ContextDepotDbContext db) : IContextReposi
             """).AsNoTracking().ToArrayAsync(cancellationToken);
         if (authorized.Length != 1)
             throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspaceUnavailable);
+        var result = await CompareAndStageCreateOnlyAsync(candidate, cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return result;
+    }
+
+    // Caller owns the transaction and (for capture) has already locked the original Key and grant.
+    internal async Task<ContextPersistenceResult> CompareAndStageCreateOnlyAsync(ContextItem candidate, CancellationToken cancellationToken)
+    {
         await LockWorkspaceAsync(candidate.DepotId, candidate.WorkspaceId, cancellationToken);
         var existing = await db.ContextItems.AsNoTracking().Where(x => x.DepotId == candidate.DepotId &&
             x.WorkspaceId == candidate.WorkspaceId && x.Status == ContextStatus.Active)
             .OrderBy(x => x.Id).Take(ContextCreateOnlyPolicy.MaxComparisonCount + 1).ToArrayAsync(cancellationToken);
         var duplicate = ContextCreateOnlyPolicy.FindExisting(candidate, existing);
-        if (duplicate is not null)
-            return new(duplicate, ContextPersistenceOutcome.ReusedExisting, duplicate.Id);
+        if (duplicate is not null) return new(duplicate, ContextPersistenceOutcome.ReusedExisting, duplicate.Id);
         db.ContextItems.Add(candidate);
-        await db.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
         return new(candidate, ContextPersistenceOutcome.Created);
     }
 

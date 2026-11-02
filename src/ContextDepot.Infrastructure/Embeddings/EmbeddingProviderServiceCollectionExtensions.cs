@@ -26,7 +26,8 @@ public static class EmbeddingProviderServiceCollectionExtensions
             var clientOptions = new OpenAIClientOptions
             {
                 Endpoint = embedding.Endpoint,
-                NetworkTimeout = TimeSpan.FromSeconds(embedding.TimeoutSeconds)
+                NetworkTimeout = TimeSpan.FromSeconds(embedding.TimeoutSeconds),
+                RetryPolicy = new System.ClientModel.Primitives.ClientRetryPolicy(0)
             };
             var client = new OpenAIClient(new ApiKeyCredential(embedding.ApiKey), clientOptions);
             return client.GetEmbeddingClient(embedding.ModelName).AsIEmbeddingGenerator();

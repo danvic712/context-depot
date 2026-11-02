@@ -87,7 +87,7 @@ public sealed class AgentSessionSettingsTests
         Assert.Equal("jsonb", insert.ColumnTypes![3]);
         Assert.Single(new AddAgentSessionSettings().DownOperations.OfType<DeleteDataOperation>());
         Assert.False(db.Database.HasPendingModelChanges());
-        var sql = db.GetService<IMigrator>().GenerateScript("20261020231901_AddAgentSessions");
+        var sql = db.GetService<IMigrator>().GenerateScript("20261020231901_AddAgentSessions", "20261021000000_AddAgentSessionSettings");
         Assert.Contains("AgentSessions:Enabled", sql);
         Assert.Contains("false", sql);
         Assert.DoesNotContain("CREATE TABLE", sql);

@@ -7,12 +7,16 @@ using Microsoft.EntityFrameworkCore;
 namespace ContextDepot.Infrastructure.AgentSessions;
 
 public sealed class SessionCaptureAuthorization(ContextDepotDbContext db, CurrentDepotAccessContext current,
-    IWorkspaceAppService workspaces, TimeProvider clock) : ISessionCaptureAuthorization
+    IWorkspaceAppService workspaces) : ISessionCaptureAuthorization
 {
     public async Task<string?> AuthorizeAsync(CapturedTurn turn, CancellationToken cancellationToken)
     {
+        var now = await SessionCaptureLocks.NowAsync(db, cancellationToken);
+        if (turn.EffectiveExpiresAt <= now) return null;
         if (!await db.SessionCaptureEvents.IgnoreQueryFilters().AnyAsync(e => e.Id == turn.UserEventId &&
-                e.Status == "processing" && e.LeaseUntil == turn.LeaseUntil && e.LeaseUntil > clock.GetUtcNow(),
+                e.DepotId == turn.DepotId && e.AccessKeyId == turn.AccessKeyId && e.WorkspaceId == turn.WorkspaceId &&
+                e.Status == "processing" && turn.LeaseToken != null && e.LeaseToken == turn.LeaseToken &&
+                e.LeaseUntil > now && (e.CaptureExpiresAt == null || e.CaptureExpiresAt > now),
                 cancellationToken)) return null;
         var key = await db.DepotAccessKeys.IgnoreQueryFilters().AsNoTracking()
             .SingleOrDefaultAsync(k => k.Id == turn.AccessKeyId && k.DepotId == turn.DepotId && k.RevokedAt == null, cancellationToken);

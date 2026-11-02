@@ -24,22 +24,22 @@ public sealed class SessionCapturePolicyTests
     }
 
     [Fact]
-    public void Hourly_budget_defers_the_pair_without_consuming_an_attempt()
+    public void Claims_do_not_consume_or_enforce_the_shared_provider_budget()
     {
         var user = new SessionCaptureEvent { CreatedAt = Now };
         var assistant = new SessionCaptureEvent { Phase = "assistant", CreatedAt = Now };
         var lease = SessionCapturePolicy.TryClaim([user, assistant], Options.MaxCallsPerHour, Options, Now);
-        Assert.Null(lease);
-        Assert.Equal("pending", user.Status);
-        Assert.Equal("pending", assistant.Status);
+        Assert.True(lease > Now);
+        Assert.Equal("processing", user.Status);
+        Assert.Equal("processing", assistant.Status);
         Assert.Equal(0, user.AttemptCount);
         Assert.Equal(0, assistant.AttemptCount);
-        Assert.Equal(user.NextAttemptAt, assistant.NextAttemptAt);
-        Assert.True(user.NextAttemptAt > Now);
+        Assert.NotNull(user.LeaseToken);
+        Assert.Equal(user.LeaseToken, assistant.LeaseToken);
     }
 
     [Fact]
-    public void Claiming_a_pair_assigns_the_same_lease_and_increments_each_attempt()
+    public void Claiming_a_pair_assigns_the_same_unique_token_without_consuming_provider_attempts()
     {
         var user = new SessionCaptureEvent { CreatedAt = Now };
         var assistant = new SessionCaptureEvent { Phase = "assistant", CreatedAt = Now };
@@ -49,8 +49,14 @@ public sealed class SessionCapturePolicyTests
         Assert.Equal(lease, assistant.LeaseUntil);
         Assert.Equal("processing", user.Status);
         Assert.Equal("processing", assistant.Status);
-        Assert.Equal(1, user.AttemptCount);
-        Assert.Equal(1, assistant.AttemptCount);
+        Assert.Equal(0, user.AttemptCount);
+        Assert.Equal(0, assistant.AttemptCount);
+        Assert.NotNull(user.LeaseToken);
+        Assert.Equal(user.LeaseToken, assistant.LeaseToken);
+        var oldToken = user.LeaseToken;
+        SessionCapturePolicy.TryClaim([user, assistant], 0, Options, Now.AddMinutes(3));
+        Assert.NotEqual(oldToken, user.LeaseToken);
+        Assert.Equal(user.LeaseToken, assistant.LeaseToken);
     }
 
     [Fact]
@@ -75,7 +81,8 @@ public sealed class SessionCapturePolicyTests
         var message = new SessionCaptureEvent { Status = "processing", AttemptCount = attemptCount, LeaseUntil = Now.AddMinutes(1) };
         SessionCapturePolicy.Complete(message, "result", disposition, 3, Now);
         Assert.Equal(expectedStatus, message.Status);
-        Assert.Equal("result", message.ResultCode);
+        Assert.Equal(expectedStatus == "pending" ? null : "result", message.ResultCode);
+        Assert.Null(message.LeaseToken);
         Assert.Equal(Now, message.ProcessedAt);
         Assert.Null(message.LeaseUntil);
         if (disposition == SessionCaptureDisposition.Retry && attemptCount < 3)
@@ -121,4 +128,48 @@ public sealed class SessionCapturePolicyTests
         Assert.Equal("skipped_incomplete", message.ResultCode);
         Assert.Null(message.EncryptedContent);
     }
+    [Fact]
+    public void Automatic_deadline_purges_completed_content_without_extending_from_processed_at()
+    {
+        var message = new SessionCaptureEvent
+        {
+            Status = "completed", ResultCode = "saved", CreatedAt = Now.AddHours(-24),
+            CaptureExpiresAt = Now, ProcessedAt = Now, EncryptedContent = "encrypted",
+            EncryptedExtractionPlan = "plan", ExtractionPlanHash = new string('A', 64)
+        };
+        Assert.True(SessionCapturePolicy.RequiresCleanup(Options, Now).Compile()(message));
+        SessionCapturePolicy.Cleanup(message, true, Options, Now);
+        Assert.Null(message.EncryptedContent);
+        Assert.Null(message.EncryptedExtractionPlan);
+        Assert.Null(message.ExtractionPlanHash);
+        Assert.Equal(Now, message.ContentPurgedAt);
+        Assert.Equal("saved", message.ResultCode);
+        Assert.False(SessionCapturePolicy.RequiresCleanup(Options, Now).Compile()(message));
+    }
+
+    [Fact]
+    public void Plan_recovery_uses_persistence_limit_instead_of_model_attempt_limit()
+    {
+        var message = new SessionCaptureEvent
+        {
+            Status = "processing", CreatedAt = Now, LeaseUntil = Now.AddSeconds(-1),
+            AttemptCount = Options.MaxAttempts, EncryptedExtractionPlan = "plan"
+        };
+        Assert.False(SessionCapturePolicy.RequiresCleanup(Options, Now).Compile()(message));
+        message.PersistenceAttemptCount = Options.PersistenceMaxAttempts;
+        Assert.True(SessionCapturePolicy.RequiresCleanup(Options, Now).Compile()(message));
+        SessionCapturePolicy.Cleanup(message, true, Options, Now);
+        Assert.Equal("failed", message.Status);
+        Assert.Equal("retry_exhausted", message.ResultCode);
+    }
+
+    [Fact]
+    public void Automatic_expiry_prevents_claim_even_for_a_recent_record()
+    {
+        var message = new SessionCaptureEvent { CreatedAt = Now, CaptureExpiresAt = Now };
+        Assert.False(SessionCapturePolicy.WithinRetention(Options, Now).Compile()(message));
+        Assert.Null(SessionCapturePolicy.TryClaim([message], 0, Options, Now));
+        Assert.Null(message.LeaseToken);
+    }
+
 }

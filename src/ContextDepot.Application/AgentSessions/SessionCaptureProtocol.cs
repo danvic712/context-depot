@@ -10,8 +10,12 @@ public static class SessionCaptureProtocol
 {
     public static NormalizedSessionCapture Normalize(SessionCaptureRequest request)
     {
+        var workspaceMode = request.WorkspaceMode ?? "explicit";
+        if (workspaceMode is not ("explicit" or "auto") ||
+            (workspaceMode == "auto" && (request.SchemaVersion != 2 || request.Workspace is not null || request.SessionId is not null)))
+            throw Invalid();
         if (!ValidAgent(request.Agent) || !ValidId(request.EventId) ||
-            string.IsNullOrWhiteSpace(request.Workspace) || request.Workspace.Length > 500)
+            (workspaceMode == "explicit" && (string.IsNullOrWhiteSpace(request.Workspace) || request.Workspace.Length > 500)))
             throw Invalid();
 
         if (request.SchemaVersion == 1)
@@ -21,7 +25,7 @@ public static class SessionCaptureProtocol
                 request.Phase is not ("user" or "assistant") || !ValidContent(request.Content))
                 throw Invalid();
             return new(request.ClientSessionId!, request.TurnId!,
-                [new(request.Phase, request.Content)], [request.EventId]);
+                [new(request.Phase, request.Content)], [request.EventId], workspaceMode);
         }
 
         if (request.SchemaVersion != 2 || request.Phase is not null || request.Content is not null ||
@@ -33,7 +37,7 @@ public static class SessionCaptureProtocol
         {
             if (request.Messages.Count != 1 || !ValidId(request.ClientSessionId) || !ValidId(request.TurnId))
                 throw Invalid();
-            return new(request.ClientSessionId!, request.TurnId!, request.Messages, [request.EventId]);
+            return new(request.ClientSessionId!, request.TurnId!, request.Messages, [request.EventId], workspaceMode);
         }
 
         if (request.Mode != "turn" || request.Messages.Count != 2 ||
@@ -46,7 +50,7 @@ public static class SessionCaptureProtocol
             throw Invalid();
         var identity = $"capture:{Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(request.EventId)))}";
         return new(standalone ? identity : request.ClientSessionId!, standalone ? identity : request.TurnId!,
-            request.Messages, [$"{identity}:user", $"{identity}:assistant"]);
+            request.Messages, [$"{identity}:user", $"{identity}:assistant"], workspaceMode);
     }
 
     public static bool ValidAgent(string? value) => !string.IsNullOrWhiteSpace(value) && value.Length <= 30 &&

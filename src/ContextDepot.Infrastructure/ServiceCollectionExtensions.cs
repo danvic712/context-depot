@@ -71,6 +71,13 @@ public static class ServiceCollectionExtensions
             SessionContentProtector>();
         services.AddScoped<ISessionRepository, SessionRepository>();
         services.AddScoped<ISessionCaptureRepository, SessionCaptureRepository>();
+        services.AddScoped<ISessionCaptureInboxRepository, SessionCaptureInboxRepository>();
+        services.AddScoped<ISessionCaptureStatusRepository, SessionCaptureStatusRepository>();
+        services.AddScoped<ISessionCapturePlanRepository, SessionCapturePlanRepository>();
+        services.AddSingleton<ICaptureEvidenceProtector, CaptureEvidenceProtector>();
+        services.AddScoped<ISessionCaptureCallBudget, SessionCaptureCallBudget>();
+        services.AddScoped<ISessionRoutingCandidateRepository, SessionRoutingCandidateRepository>();
+        services.AddScoped<ISessionWorkspaceRouter, AgentFrameworkWorkspaceRouter>();
         services.AddScoped<ISessionCaptureAuthorization,
             SessionCaptureAuthorization>();
         services.AddScoped<IMemoryExtractionService,
@@ -83,7 +90,8 @@ public static class ServiceCollectionExtensions
                 throw new InvalidOperationException(InfrastructureErrorCodes.SessionMemoryChatUnavailable);
             }
             var client = new OpenAI.OpenAIClient(new System.ClientModel.ApiKeyCredential(chat.ApiKey),
-                new OpenAI.OpenAIClientOptions { Endpoint = chat.Endpoint, NetworkTimeout = TimeSpan.FromSeconds(chat.TimeoutSeconds) });
+                new OpenAI.OpenAIClientOptions { Endpoint = chat.Endpoint, NetworkTimeout = TimeSpan.FromSeconds(chat.TimeoutSeconds),
+                    RetryPolicy = new System.ClientModel.Primitives.ClientRetryPolicy(0) });
             return client.GetChatClient(chat.ModelName).AsIChatClient();
         });
 
