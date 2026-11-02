@@ -1,6 +1,6 @@
 # Session-memory v1 manual evaluation fixtures
 
-These are hand-authored regression labels based on `AgentSessions/SPEC.md`, **not measured model results**. All conversations, workspace identities, and detector samples are synthetic. No live provider evaluation has been run; no accuracy, zero-error result, or release readiness is claimed.
+These are hand-authored regression labels for the implemented session-memory routing and evidence-validation rules, **not measured model results**. All conversations, workspace identities, and detector samples are synthetic. No live provider evaluation has been run; no accuracy, zero-error result, or release readiness is claimed.
 
 ## Format and manual-label semantics
 
@@ -33,4 +33,4 @@ Summary cases provide paired `user`/`assistant`, `shouldSave`, nullable `expecte
 
 Local Python checks passed: JSON parsing, versions, unique case IDs/messages, exact category/language counts, stable workspace metadata, authorization/resolved-target membership, summary label consistency, and unique nonoverlapping save evidence. These are **fixture integrity checks only**, not provider evaluation. No .NET/build checks were run for this fixture-only change.
 
-Configured-provider evaluation remains a release gate. Record provider/model configuration, routing rule version/mode, fixture versions, and actual results separately from labels. Report routing errors/abstentions and summary semantic/evidence violations; review paraphrases rather than asserting exact text matches. All 20 clear positives must hit their targets; no actual route may select the wrong workspace; clear ambiguity/unauthorized cases must not save; saveable summary labels must be covered without unsupported additions or meaning reversal. The spec's broader integration/security gates still apply. Do not claim zero errors or recommend automatic Hook installation until actual evaluations pass.
+Configured-provider evaluation remains a release gate. Record provider/model configuration, routing rule version/mode, fixture versions, and actual results separately from labels. Report routing errors/abstentions and summary semantic/evidence violations; review paraphrases rather than asserting exact text matches. All 20 clear positives must hit their targets; no actual route may select the wrong workspace; clear ambiguity/unauthorized cases must not save; saveable summary labels must be covered without unsupported additions or meaning reversal. Broader integration and security acceptance still require separate verification. Do not claim zero errors or recommend automatic Hook installation until actual evaluations pass.
