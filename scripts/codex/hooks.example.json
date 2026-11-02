@@ -1,0 +1,48 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "context-depot",
+            "tool": "session_capture",
+            "timeout": 5,
+            "input": {
+              "schemaVersion": 2,
+              "agent": "codex",
+              "workspaceMode": "auto",
+              "mode": "message",
+              "clientSessionId": "${session_id}",
+              "turnId": "${turn_id}",
+              "eventId": "codex:${turn_id}:user",
+              "messages": [{ "role": "user", "content": "${prompt}" }]
+            }
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "context-depot",
+            "tool": "session_capture",
+            "timeout": 5,
+            "input": {
+              "schemaVersion": 2,
+              "agent": "codex",
+              "workspaceMode": "auto",
+              "mode": "message",
+              "clientSessionId": "${session_id}",
+              "turnId": "${turn_id}",
+              "eventId": "codex:${turn_id}:assistant",
+              "messages": [{ "role": "assistant", "content": "${last_assistant_message}" }]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
