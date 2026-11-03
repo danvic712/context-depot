@@ -15,20 +15,20 @@ public sealed class DatabaseApplicationSettingsSnapshotBuilder
     private static readonly IReadOnlyDictionary<string, string> SupportedKeys =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["ContextDepot:Retrieval:Semantic:ScopeTopK"] = "ContextDepot:Retrieval:Semantic:ScopeTopK",
-            ["ContextDepot:Retrieval:Semantic:CandidateTopKPerSource"] = "ContextDepot:Retrieval:Semantic:CandidateTopKPerSource",
-            ["ContextDepot:Retrieval:Semantic:OversampleFactor"] = "ContextDepot:Retrieval:Semantic:OversampleFactor",
-            ["ContextDepot:Retrieval:Semantic:RetrievalLexicalFallbackThreshold"] = "ContextDepot:Retrieval:Semantic:RetrievalLexicalFallbackThreshold",
-            ["ContextDepot:Retrieval:Semantic:DedupSimilarityThreshold"] = "ContextDepot:Retrieval:Semantic:DedupSimilarityThreshold",
-            ["ContextDepot:Retrieval:Semantic:DedupTokenOverlapThreshold"] = "ContextDepot:Retrieval:Semantic:DedupTokenOverlapThreshold",
-            ["ContextDepot:Retrieval:Search:DefaultLimit"] = "ContextDepot:Retrieval:Search:DefaultLimit",
-            ["ContextDepot:Retrieval:Search:MaxLimit"] = "ContextDepot:Retrieval:Search:MaxLimit",
-            ["ContextDepot:IndexRepair:PollIntervalSeconds"] = "ContextDepot:IndexRepair:PollIntervalSeconds",
-            ["ContextDepot:IndexRepair:BatchSize"] = "ContextDepot:IndexRepair:BatchSize",
-            ["ContextDepot:IndexRepair:MaxBatchesPerCycle"] = "ContextDepot:IndexRepair:MaxBatchesPerCycle",
-            ["ContextDepot:VectorCoverage:CacheDurationSeconds"] = "ContextDepot:VectorCoverage:CacheDurationSeconds",
-            ["ContextDepot:Appearance:Language"] = "ContextDepot:Appearance:Language",
-            ["ContextDepot:Appearance:Theme"] = "ContextDepot:Appearance:Theme"
+            ["Retrieval:Semantic:ScopeTopK"] = "ContextDepot:Retrieval:Semantic:ScopeTopK",
+            ["Retrieval:Semantic:CandidateTopKPerSource"] = "ContextDepot:Retrieval:Semantic:CandidateTopKPerSource",
+            ["Retrieval:Semantic:OversampleFactor"] = "ContextDepot:Retrieval:Semantic:OversampleFactor",
+            ["Retrieval:Semantic:RetrievalLexicalFallbackThreshold"] = "ContextDepot:Retrieval:Semantic:RetrievalLexicalFallbackThreshold",
+            ["Retrieval:Semantic:DedupSimilarityThreshold"] = "ContextDepot:Retrieval:Semantic:DedupSimilarityThreshold",
+            ["Retrieval:Semantic:DedupTokenOverlapThreshold"] = "ContextDepot:Retrieval:Semantic:DedupTokenOverlapThreshold",
+            ["Retrieval:Search:DefaultLimit"] = "ContextDepot:Retrieval:Search:DefaultLimit",
+            ["Retrieval:Search:MaxLimit"] = "ContextDepot:Retrieval:Search:MaxLimit",
+            ["IndexRepair:BatchSize"] = "ContextDepot:IndexRepair:BatchSize",
+            ["IndexRepair:MaxBatchesPerCycle"] = "ContextDepot:IndexRepair:MaxBatchesPerCycle",
+            ["VectorCoverage:CacheDurationSeconds"] = "ContextDepot:VectorCoverage:CacheDurationSeconds",
+            ["Appearance:Language"] = "ContextDepot:Appearance:Language",
+            ["Appearance:Theme"] = "ContextDepot:Appearance:Theme",
+            ["AgentSessions:Enabled"] = "AgentSessions:Enabled"
         };
 
     public IReadOnlyDictionary<string, string?> Build(IEnumerable<ApplicationSetting> records)
@@ -37,6 +37,11 @@ public sealed class DatabaseApplicationSettingsSnapshotBuilder
         var values = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         foreach (var record in records)
         {
+            if (record.Key.Equals("IndexRepair:PollIntervalSeconds", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             if (!SupportedKeys.TryGetValue(record.Key, out var canonicalKey))
             {
                 throw new InvalidOperationException(InfrastructureErrorCodes.ApplicationSettingKeyUnsupported) { Data = { ["key"] = record.Key } };
@@ -66,6 +71,12 @@ public sealed class DatabaseApplicationSettingsSnapshotBuilder
         try
         {
             using var document = JsonDocument.Parse(valueJson);
+            if (key.Equals("AgentSessions:Enabled", StringComparison.OrdinalIgnoreCase) &&
+                document.RootElement.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+            {
+                throw new InvalidOperationException(InfrastructureErrorCodes.ApplicationSettingValueInvalid) { Data = { ["key"] = key } };
+            }
+
             return document.RootElement.ValueKind switch
             {
                 JsonValueKind.String => document.RootElement.GetString()!,

@@ -1,3 +1,7 @@
+using System.Security.Cryptography;
+using System.Text;
+using ContextDepot.Application.AgentSessions.Contracts;
+using ContextDepot.Application.AgentSessions.Dtos;
 using System.Text.Json;
 using ContextDepot.Application.Bootstrap;
 using ContextDepot.Application.Bootstrap.Dtos;
@@ -37,6 +41,7 @@ public sealed class ContextQueryAppService : IContextQueryAppService
     private readonly IOptionsMonitor<RetrievalOptions> retrievalOptions;
     private readonly TimeProvider timeProvider;
     private readonly ILogger<ContextQueryAppService> logger;
+    private readonly ICaptureEvidenceProtector? evidenceProtector;
 
     public ContextQueryAppService(
         ICurrentDepotContext currentDepot,
@@ -50,7 +55,8 @@ public sealed class ContextQueryAppService : IContextQueryAppService
         RetrievalDeduplicator retrievalDeduplicator,
         IOptionsMonitor<RetrievalOptions> retrievalOptions,
         TimeProvider timeProvider,
-        ILogger<ContextQueryAppService> logger)
+        ILogger<ContextQueryAppService> logger,
+        ICaptureEvidenceProtector? evidenceProtector = null)
     {
         this.currentDepot = currentDepot;
         this.repository = repository;
@@ -64,6 +70,7 @@ public sealed class ContextQueryAppService : IContextQueryAppService
         this.retrievalOptions = retrievalOptions;
         this.timeProvider = timeProvider;
         this.logger = logger;
+        this.evidenceProtector = evidenceProtector;
     }
 
     public async Task<ContextSearchResult> SearchAsync(
@@ -201,7 +208,30 @@ public sealed class ContextQueryAppService : IContextQueryAppService
         }
 
         var workspace = await workspaceAppService.GetAsync(context.WorkspaceId, cancellationToken);
-        return workspace is null ? null : ToDetailModel(context, workspace.Path);
+        if (workspace is null) return null;
+        var detail = ToDetailModel(context, workspace.Path);
+        var evidence = await repository.FindCaptureEvidenceAsync(currentDepot.DepotId, contextId, cancellationToken);
+        if (evidence is null) return detail;
+        var model = new CaptureEvidenceModel("unavailable", evidence.UserEventId, evidence.AssistantEventId, evidence.ExtractorVersion, []);
+        try
+        {
+            if (evidenceProtector is not null && evidence.ProtectionVersion == 1)
+            {
+                var plaintext = evidenceProtector.Unprotect(evidence.EncryptedFragments);
+                if (Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(plaintext))) == evidence.FragmentsHash)
+                {
+                    var fragments = JsonSerializer.Deserialize<EvidenceFragment[]>(plaintext, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+                    if (fragments is { Length: >= 1 and <= 3 } && fragments.All(x => x is not null && x.Start >= 0 && x.Length > 0 && x.Text is not null && x.Length == x.Text.Length) &&
+                        fragments.Sum(x => x.Length) <= 2000 && !fragments.Zip(fragments.Skip(1)).Any(x => (long)x.First.Start + x.First.Length > x.Second.Start))
+                        model = model with { State = "available", Fragments = fragments };
+                }
+            }
+        }
+        catch (Exception ex) when (ex is CryptographicException or JsonException or FormatException or InvalidOperationException)
+        {
+            logger.LogWarning("Capture evidence unavailable for Context {ContextId}", contextId);
+        }
+        return detail with { CaptureEvidence = model };
     }
 
     private static string ValidateAndNormalize(

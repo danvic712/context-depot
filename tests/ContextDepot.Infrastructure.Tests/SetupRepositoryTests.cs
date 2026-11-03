@@ -12,6 +12,8 @@ using ContextDepot.Domain.Workspaces;
 using ContextDepot.Infrastructure.CurrentDepot;
 using ContextDepot.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace ContextDepot.Infrastructure.Tests;
 
@@ -55,8 +57,8 @@ public sealed class SetupRepositoryTests
             .Select(provider => provider.Id).ToArrayAsync();
         await db.SaveChangesAsync();
 
-        await db.Database.MigrateAsync();
-        await db.Database.MigrateAsync();
+        await db.GetService<IMigrator>().MigrateAsync("20261004151218_AddInstallationState");
+        await db.GetService<IMigrator>().MigrateAsync("20261004151218_AddInstallationState");
 
         var state = Assert.Single(await db.InstallationStates.AsNoTracking().ToArrayAsync());
         Assert.Equal(InstallationState.Completed, state.State);

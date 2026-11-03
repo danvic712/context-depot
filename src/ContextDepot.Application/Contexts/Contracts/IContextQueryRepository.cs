@@ -5,6 +5,9 @@ namespace ContextDepot.Application.Contexts.Contracts;
 
 public interface IContextQueryRepository
 {
+    Task<ContextCaptureEvidence?> FindCaptureEvidenceAsync(Guid depotId, Guid contextId, CancellationToken cancellationToken) =>
+        Task.FromResult<ContextCaptureEvidence?>(null);
+
     Task<ContextItem?> FindContextByIdAsync(
         Guid depotId,
         Guid contextId,

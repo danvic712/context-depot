@@ -29,6 +29,10 @@ public sealed class ContextDepotDbContext(
 
     public DbSet<SessionCaptureEvent> SessionCaptureEvents => Set<SessionCaptureEvent>();
 
+    public DbSet<SessionCaptureTurnRoute> SessionCaptureTurnRoutes => Set<SessionCaptureTurnRoute>();
+    public DbSet<SessionCaptureInboxEvent> SessionCaptureInboxEvents => Set<SessionCaptureInboxEvent>();
+    public DbSet<ContextCaptureEvidence> ContextCaptureEvidence => Set<ContextCaptureEvidence>();
+
     public DbSet<Depot> Depots => Set<Depot>();
 
     public DbSet<DepotAccessKey> DepotAccessKeys => Set<DepotAccessKey>();
@@ -68,6 +72,9 @@ public sealed class ContextDepotDbContext(
         modelBuilder.Entity<SessionCaptureEvent>()
             .HasQueryFilter(message => HasUnrestrictedWorkspaceAccess ||
                 (message.AccessKeyId == CurrentAccessKeyId && AccessibleWorkspaceIds.Contains(message.WorkspaceId)));
+        modelBuilder.Entity<SessionCaptureTurnRoute>().HasQueryFilter(x => HasUnrestrictedWorkspaceAccess || x.AccessKeyId == CurrentAccessKeyId);
+        modelBuilder.Entity<SessionCaptureInboxEvent>().HasQueryFilter(x => HasUnrestrictedWorkspaceAccess || x.AccessKeyId == CurrentAccessKeyId);
+        modelBuilder.Entity<ContextCaptureEvidence>().HasQueryFilter(x => HasUnrestrictedWorkspaceAccess || AccessibleWorkspaceIds.Contains(x.WorkspaceId));
         modelBuilder.Entity<ContextItem>()
             .HasQueryFilter(context =>
                 HasUnrestrictedWorkspaceAccess || AccessibleWorkspaceIds.Contains(context.WorkspaceId));

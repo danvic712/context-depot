@@ -41,11 +41,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(TimeProvider.System);
         services.AddOptions<SessionCaptureOptions>()
             .Bind(configuration.GetSection("AgentSessions"))
-            .Validate(o => o.PollIntervalSeconds is >= 1 and <= 300 && o.MaxAttempts is >= 1 and <= 5 &&
+            .Validate(o => o.MaxAttempts is >= 1 and <= 5 &&
                 o.RetentionHours is >= 1 and <= 168 && o.MaxCallsPerHour is >= 1 and <= 300 &&
                 o.MaxPendingEventsPerKey is >= 2 and <= 10000 && o.ExtractionTimeoutSeconds is >= 1 and <= 120,
                 ContextDepot.Application.Shared.Exceptions.ApplicationErrorCodes.InvalidSessionCapture).ValidateOnStart();
         services.AddScoped<ISessionAppService, SessionAppService>();
+        services.AddScoped<ISessionCaptureStatusAppService, SessionCaptureStatusAppService>();
         services.AddScoped<ISessionCaptureAppService,
             SessionCaptureAppService>();
         services.AddScoped<MemoryCaptureProcessor>();
@@ -59,10 +60,25 @@ public static class ServiceCollectionExtensions
             .Bind(configuration.GetSection("ContextDepot:Retrieval"), binder => binder.ErrorOnUnknownConfiguration = true)
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<RetrievalOptions>, RetrievalOptionsValidator>();
+        var indexRepairSection = configuration.GetSection("ContextDepot:IndexRepair");
         services.AddOptions<IndexRepairOptions>()
-            .Bind(configuration.GetSection("ContextDepot:IndexRepair"), binder => binder.ErrorOnUnknownConfiguration = true)
+            .Configure(options =>
+            {
+                var values = indexRepairSection.GetChildren()
+                    .Where(section => !section.Key.Equals("PollIntervalSeconds", StringComparison.OrdinalIgnoreCase))
+                    .SelectMany(section => section.AsEnumerable())
+                    .Select(value => new KeyValuePair<string, string?>(
+                        value.Key[(indexRepairSection.Path.Length + 1)..], value.Value));
+                var filteredConfiguration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
+                using var configurationLifetime = (IDisposable)filteredConfiguration;
+                filteredConfiguration.Bind(options, binder => binder.ErrorOnUnknownConfiguration = true);
+            })
             .ValidateOnStart();
+        services.AddSingleton<IOptionsChangeTokenSource<IndexRepairOptions>>(
+            new ConfigurationChangeTokenSource<IndexRepairOptions>(indexRepairSection));
         services.AddSingleton<IValidateOptions<IndexRepairOptions>, IndexRepairOptionsValidator>();
+        services.AddScoped<AgentSessionSettingsAppService>();
+        services.AddScoped<IValidator<SaveAgentSessionSettingsRequest>, SaveAgentSessionSettingsRequestValidator>();
         services.AddScoped<IAppearanceSettingsAppService, AppearanceSettingsAppService>();
         services.AddScoped<IAccessKeyAppService, AccessKeyAppService>();
         services.AddScoped<SettingsOverviewAppService>();

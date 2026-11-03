@@ -26,4 +26,5 @@ public sealed record ContextDetailModel(
     DateTimeOffset? ExpiresAt,
     Sensitivity Sensitivity,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    CaptureEvidenceModel? CaptureEvidence = null);

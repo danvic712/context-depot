@@ -10,5 +10,7 @@ public interface ISessionCaptureRepository
     Task<SessionCaptureReceipt> EnqueueTurnAsync(SessionCaptureEvent user, SessionCaptureEvent assistant, CancellationToken cancellationToken);
     Task CleanupAsync(CancellationToken cancellationToken);
     Task<CapturedTurn?> ClaimAsync(CancellationToken cancellationToken);
-    Task FinishAsync(CapturedTurn turn, string resultCode, SessionCaptureDisposition disposition, CancellationToken cancellationToken);
+    Task FinishAsync(CapturedTurn turn, CaptureProcessingResult result, CancellationToken cancellationToken);
+    Task FinishAsync(CapturedTurn turn, string resultCode, SessionCaptureDisposition disposition, CancellationToken cancellationToken) =>
+        FinishAsync(turn, new CaptureProcessingResult(disposition, resultCode), cancellationToken);
 }

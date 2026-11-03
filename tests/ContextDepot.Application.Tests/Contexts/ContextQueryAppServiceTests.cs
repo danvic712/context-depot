@@ -1,3 +1,8 @@
+using ContextDepot.Application.AgentSessions.Contracts;
+using ContextDepot.Application.AgentSessions.Dtos;
+using System.Text;
+using System.Security.Cryptography;
+using System.Text.Json;
 using ContextDepot.Application.Bootstrap.Dtos;
 using ContextDepot.Application.Contexts;
 using ContextDepot.Application.Contexts.Contracts;
@@ -239,12 +244,53 @@ public sealed class ContextQueryAppServiceTests
         Assert.DoesNotContain("Ordinal", System.Text.Json.JsonSerializer.Serialize(original));
     }
 
+
+    [Theory]
+    [InlineData(false, "available")]
+    [InlineData(true, "unavailable")]
+    public async Task Get_returns_capture_evidence_only_after_context_and_workspace_authorization(bool corrupt, string state)
+    {
+        var workspaceId = Guid.NewGuid();
+        var context = new ContextItem(Guid.NewGuid(), DepotId, workspaceId, ContextKind.Fact, "project.database", null,
+            "用户使用 PostgreSQL 数据库。", DateTimeOffset.UtcNow);
+        var repository = new Mock<IContextQueryRepository>();
+        repository.Setup(x => x.FindContextByIdAsync(DepotId, context.Id, It.IsAny<CancellationToken>())).ReturnsAsync(context);
+        var original = new[] { new EvidenceFragment(3, 5, "原始证据。") };
+        var plaintext = JsonSerializer.Serialize(original, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        var evidence = new ContextCaptureEvidence
+        {
+            ContextId = context.Id, DepotId = DepotId, WorkspaceId = workspaceId,
+            UserEventId = Guid.NewGuid(), AssistantEventId = Guid.NewGuid(), ExtractorVersion = "capture-summary-v1",
+            EncryptedFragments = "ciphertext", FragmentsHash = corrupt ? "BAD" : Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(plaintext)))
+        };
+        repository.Setup(x => x.FindCaptureEvidenceAsync(DepotId, context.Id, It.IsAny<CancellationToken>())).ReturnsAsync(evidence);
+        var workspaces = new Mock<IWorkspaceAppService>();
+        var protector = new Mock<ICaptureEvidenceProtector>();
+        protector.Setup(x => x.Unprotect("ciphertext")).Returns(plaintext);
+        var service = CreateService(repository, workspaces, evidenceProtector: protector.Object);
+        Assert.Null(await service.GetAsync(context.Id, default));
+        repository.Verify(x => x.FindCaptureEvidenceAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        protector.VerifyNoOtherCalls();
+        workspaces.Setup(x => x.GetAsync(workspaceId, It.IsAny<CancellationToken>())).ReturnsAsync(
+            new WorkspaceModel(workspaceId, DepotId, "project", "project", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
+        var detail = await service.GetAsync(context.Id, default);
+        Assert.NotNull(detail);
+        Assert.Equal(context.Content, detail.Content);
+        Assert.NotNull(detail.CaptureEvidence);
+        Assert.Equal(state, detail.CaptureEvidence.State);
+        Assert.Equal(evidence.UserEventId, detail.CaptureEvidence.SourceUserReceiptId);
+        Assert.Equal(evidence.AssistantEventId, detail.CaptureEvidence.SourceAssistantReceiptId);
+        if (corrupt) Assert.Empty(detail.CaptureEvidence.Fragments);
+        else Assert.Equal(original, detail.CaptureEvidence.Fragments);
+    }
+
     private static ContextQueryAppService CreateService(
         Mock<IContextQueryRepository> repository,
         Mock<IWorkspaceAppService> workspaces,
         Mock<ISemanticRetrievalRepository>? semanticRepository = null,
         Mock<IEmbeddingGenerator<string, Embedding<float>>>? generator = null,
-        Mock<IWorkspaceAccessContext>? workspaceAccess = null)
+        Mock<IWorkspaceAccessContext>? workspaceAccess = null,
+        ICaptureEvidenceProtector? evidenceProtector = null)
     {
         var depot = new Mock<ICurrentDepotContext>();
         depot.SetupGet(x => x.DepotId).Returns(DepotId);
@@ -281,7 +327,7 @@ public sealed class ContextQueryAppServiceTests
             new RetrievalDeduplicator(),
             options.Object,
             TimeProvider.System,
-            NullLogger<ContextQueryAppService>.Instance);
+            NullLogger<ContextQueryAppService>.Instance, evidenceProtector);
     }
 
     private static BootstrapContextCandidate ContextCandidate(Guid workspaceId, string content) => new(

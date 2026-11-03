@@ -23,6 +23,8 @@ using ContextDepot.Infrastructure.Options;
 using ContextDepot.Infrastructure.Repositories;
 using ContextDepot.Infrastructure.RuntimeConfiguration;
 using ContextDepot.Infrastructure.VectorStore;
+using Hangfire;
+using Hangfire.InMemory;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Caching.Memory;
@@ -36,6 +38,25 @@ namespace ContextDepot.Infrastructure;
 
 public static class ServiceCollectionExtensions
 {
+    public static IServiceCollection AddContextDepotBackgroundJobs(this IServiceCollection services)
+    {
+        services.AddHangfire((_, configuration) => configuration
+            .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+            .UseSimpleAssemblyNameTypeSerializer()
+            .UseRecommendedSerializerSettings()
+            .UseInMemoryStorage(new InMemoryStorageOptions
+            {
+                MaxExpirationTime = TimeSpan.FromHours(1),
+                MaxStateHistoryLength = 10
+            }));
+        services.AddSingleton<SessionCaptureJob>();
+        services.AddSingleton<IndexRepairJob>();
+        services.AddSingleton<ApplicationSettingsRefreshJob>();
+        services.AddSingleton<InferenceRuntimeRefreshJob>();
+        services.AddSingleton<BackgroundJobRegistrar>();
+        return services;
+    }
+
     public static IServiceCollection AddContextDepotInfrastructure(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -71,6 +92,13 @@ public static class ServiceCollectionExtensions
             SessionContentProtector>();
         services.AddScoped<ISessionRepository, SessionRepository>();
         services.AddScoped<ISessionCaptureRepository, SessionCaptureRepository>();
+        services.AddScoped<ISessionCaptureInboxRepository, SessionCaptureInboxRepository>();
+        services.AddScoped<ISessionCaptureStatusRepository, SessionCaptureStatusRepository>();
+        services.AddScoped<ISessionCapturePlanRepository, SessionCapturePlanRepository>();
+        services.AddSingleton<ICaptureEvidenceProtector, CaptureEvidenceProtector>();
+        services.AddScoped<ISessionCaptureCallBudget, SessionCaptureCallBudget>();
+        services.AddScoped<ISessionRoutingCandidateRepository, SessionRoutingCandidateRepository>();
+        services.AddScoped<ISessionWorkspaceRouter, AgentFrameworkWorkspaceRouter>();
         services.AddScoped<ISessionCaptureAuthorization,
             SessionCaptureAuthorization>();
         services.AddScoped<IMemoryExtractionService,
@@ -83,7 +111,8 @@ public static class ServiceCollectionExtensions
                 throw new InvalidOperationException(InfrastructureErrorCodes.SessionMemoryChatUnavailable);
             }
             var client = new OpenAI.OpenAIClient(new System.ClientModel.ApiKeyCredential(chat.ApiKey),
-                new OpenAI.OpenAIClientOptions { Endpoint = chat.Endpoint, NetworkTimeout = TimeSpan.FromSeconds(chat.TimeoutSeconds) });
+                new OpenAI.OpenAIClientOptions { Endpoint = chat.Endpoint, NetworkTimeout = TimeSpan.FromSeconds(chat.TimeoutSeconds),
+                    RetryPolicy = new System.ClientModel.Primitives.ClientRetryPolicy(0) });
             return client.GetChatClient(chat.ModelName).AsIChatClient();
         });
 
@@ -108,6 +137,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<VectorCollectionInitializer>();
         services.AddScoped<VectorCoverageSnapshotProvider>();
         services.AddSingleton<VectorCoverageComputationGate>();
+        services.AddScoped<IAgentSessionSettingsRepository, AgentSessionSettingsRepository>();
         services.AddScoped<IAppearanceSettingsRepository, AppearanceSettingsRepository>();
         services.AddScoped<ISetupRepository, SetupRepository>();
         services.AddScoped<IAccessKeyRepository, AccessKeyRepository>();

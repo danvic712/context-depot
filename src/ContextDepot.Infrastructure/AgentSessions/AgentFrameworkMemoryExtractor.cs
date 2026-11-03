@@ -20,9 +20,10 @@ public sealed class AgentFrameworkMemoryExtractor(IServiceProvider services) : I
             never evidence. Reject suggestions, questions, hypothetical plans, execution reports, secrets,
             credentials, sensitive personal data, hidden/system prompts, reasoning and tool output.
             Return JSON only: {"candidates":[{"kind":"preference","key":"stable.topic.key",
-            "content":"exact complete quote from user","evidence":"same exact quote","confidence":0.95}]}.
-            Content MUST equal evidence and be a verbatim, self-contained declarative user statement.
-            Do not paraphrase, infer assent or invent knowledge. Choose a reusable topic key independent of wording,
+            "summary":"concise durable knowledge summary","evidence":[{"quote":"exact complete user statement"}]}]}.
+            Summaries may paraphrase but must be fully supported by one to three complete verbatim user quotes.
+            Preserve negation, conditions, numbers and scope; do not add assistant-only facts or infer assent.
+            Do not invent knowledge. Choose a reusable topic key independent of wording,
             session and date. At most 3 candidates. Return {"candidates":[]} when uncertain or nothing is durable.
             """, name: "SessionMemoryExtractor");
         // A fresh framework session for each paired turn keeps capture input bounded and isolated.
@@ -31,8 +32,13 @@ public sealed class AgentFrameworkMemoryExtractor(IServiceProvider services) : I
             {
                 ChatOptions = new ChatOptions { MaxOutputTokens = 1800, ResponseFormat = ChatResponseFormat.Json }
             }, cancellationToken: cancellationToken);
-        if (response.Text.Length > 16000) throw new JsonException(InfrastructureErrorCodes.SessionMemoryResponseInvalid);
-        using var document = JsonDocument.Parse(response.Text, new JsonDocumentOptions { MaxDepth = 8 });
+        return ParseResponse(response.Text);
+    }
+
+    public static IReadOnlyList<MemoryCandidate> ParseResponse(string text)
+    {
+        if (text.Length > 16000) throw new JsonException(InfrastructureErrorCodes.SessionMemoryResponseInvalid);
+        using var document = JsonDocument.Parse(text, new JsonDocumentOptions { MaxDepth = 8 });
         if (document.RootElement.ValueKind != JsonValueKind.Object ||
             !document.RootElement.TryGetProperty("candidates", out var candidates) ||
             candidates.ValueKind != JsonValueKind.Array || candidates.GetArrayLength() > SessionCaptureOptions.MaxCandidates)
@@ -40,12 +46,36 @@ public sealed class AgentFrameworkMemoryExtractor(IServiceProvider services) : I
             throw new JsonException(InfrastructureErrorCodes.SessionMemoryResponseInvalid);
         }
 
-        var result = candidates.Deserialize<MemoryCandidate[]>(new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? [];
-        if (result.Any(candidate => candidate is null))
+        CheckProperties(document.RootElement, "candidates");
+        var result = new List<MemoryCandidate>();
+        foreach (var candidate in candidates.EnumerateArray())
         {
-            throw new JsonException(InfrastructureErrorCodes.SessionMemoryResponseInvalid);
+            CheckProperties(candidate, "kind", "key", "summary", "evidence");
+            if (!candidate.TryGetProperty("evidence", out var evidence) || evidence.ValueKind != JsonValueKind.Array)
+                throw new JsonException(InfrastructureErrorCodes.SessionMemoryResponseInvalid);
+            var quotes = new List<string>();
+            foreach (var fragment in evidence.EnumerateArray())
+            {
+                CheckProperties(fragment, "quote");
+                quotes.Add(ReadString(fragment, "quote"));
+            }
+            result.Add(new(ReadString(candidate, "kind"), ReadString(candidate, "key"),
+                Summary: ReadString(candidate, "summary"), Quotes: quotes.ToArray()));
         }
-
         return result;
+    }
+
+    private static string ReadString(JsonElement element, string name) =>
+        element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()! : throw new JsonException(InfrastructureErrorCodes.SessionMemoryResponseInvalid);
+
+    private static void CheckProperties(JsonElement element, params string[] allowed)
+    {
+        if (element.ValueKind != JsonValueKind.Object) throw new JsonException(InfrastructureErrorCodes.SessionMemoryResponseInvalid);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var property in element.EnumerateObject())
+            if (!allowed.Contains(property.Name, StringComparer.Ordinal) || !seen.Add(property.Name))
+                throw new JsonException(InfrastructureErrorCodes.SessionMemoryResponseInvalid);
+        if (seen.Count != allowed.Length) throw new JsonException(InfrastructureErrorCodes.SessionMemoryResponseInvalid);
     }
 }

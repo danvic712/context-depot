@@ -3,7 +3,8 @@ using System.Text.Json;
 using ContextDepot.Application.DataProtection;
 using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Application;
-using ContextDepot.BackgroundServices;
+using ContextDepot.Infrastructure.Jobs;
+using Hangfire;
 using ContextDepot.Extensions;
 using ContextDepot.Infrastructure.DataProtection;
 using ContextDepot.Infrastructure.Embeddings;
@@ -87,10 +88,14 @@ try
     builder.Services.AddContextDepotApplication(builder.Configuration);
     builder.Services.AddContextDepotEmbeddingProvider();
     builder.Services.AddContextDepotInfrastructure(builder.Configuration);
-    builder.Services.AddHostedService<IndexRepairHostedService>();
-    builder.Services.AddHostedService<SessionCaptureHostedService>();
-    builder.Services.AddHostedService<DatabaseApplicationSettingsReloadService>();
-    builder.Services.AddHostedService<InferenceRuntimeReloadService>();
+    builder.Services.AddContextDepotBackgroundJobs();
+    builder.Services.Configure<HostOptions>(options => options.ShutdownTimeout = TimeSpan.FromSeconds(30));
+    builder.Services.AddHangfireServer(options =>
+    {
+        options.Queues = ["default"];
+        options.WorkerCount = 4;
+        options.ShutdownTimeout = TimeSpan.FromSeconds(30);
+    });
 
     var mcpJsonOptions = new JsonSerializerOptions(McpJsonUtilities.DefaultOptions)
     {
@@ -110,6 +115,7 @@ try
     await app.Services
         .GetRequiredService<ContextDepotStartupInitializer>()
         .InitializeAsync(CancellationToken.None);
+    app.Services.GetRequiredService<BackgroundJobRegistrar>().Register();
 
     app.UseExceptionHandler();
     app.UseMiddleware<DepotAccessKeyAuthenticationMiddleware>();

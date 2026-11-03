@@ -12,6 +12,9 @@ public sealed class ContextQueryRepository(
     ContextDepotDbContext db,
     VisibleWorkspaceTopologyProvider topologyProvider) : IContextQueryRepository
 {
+    public Task<ContextCaptureEvidence?> FindCaptureEvidenceAsync(Guid depotId, Guid contextId, CancellationToken cancellationToken) =>
+        db.ContextCaptureEvidence.AsNoTracking().SingleOrDefaultAsync(x => x.DepotId == depotId && x.ContextId == contextId, cancellationToken);
+
     public Task<ContextItem?> FindContextByIdAsync(
         Guid depotId,
         Guid contextId,

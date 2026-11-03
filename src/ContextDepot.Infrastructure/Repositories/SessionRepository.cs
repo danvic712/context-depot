@@ -15,6 +15,11 @@ public sealed class SessionRepository(ContextDepotDbContext db) : ISessionReposi
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         await LockKeyAsync(session.DepotId, session.AccessKeyId, cancellationToken);
         await SessionAccessGuard.EnsureAsync(db, session.DepotId, session.AccessKeyId, session.WorkspaceId, cancellationToken);
+        if (await db.SessionCaptureTurnRoutes.IgnoreQueryFilters().AnyAsync(r => r.DepotId == session.DepotId &&
+                r.AccessKeyId == session.AccessKeyId && r.Agent == session.Agent && r.ClientSessionId == session.ClientSessionId, cancellationToken) ||
+            await db.SessionCaptureEvents.IgnoreQueryFilters().AnyAsync(e => e.DepotId == session.DepotId &&
+                e.AccessKeyId == session.AccessKeyId && e.Agent == session.Agent && e.ClientSessionId == session.ClientSessionId && e.SessionId == null, cancellationToken))
+            throw new ContextDepotApplicationException(ApplicationErrorCodes.SessionConflict);
         var existing = await db.AgentSessions.IgnoreQueryFilters().AsNoTracking().SingleOrDefaultAsync(s =>
             s.DepotId == session.DepotId && s.AccessKeyId == session.AccessKeyId && s.Agent == session.Agent &&
             s.ClientSessionId == session.ClientSessionId, cancellationToken);

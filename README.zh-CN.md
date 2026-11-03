@@ -2,83 +2,57 @@
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
-ContextDepot 是一个可自行部署的上下文与文档服务，用于为智能体保存结构化上下文和 Markdown 文档。智能体通过 MCP（Model Context Protocol，模型上下文协议）读写知识，用户可以在网页中浏览、搜索和管理配置。
+ContextDepot 为你的 AI 助手提供一个共享的知识存储。把事实、偏好、决策和 Markdown 文档保存下来，在其他任务或对话中继续使用。助手通过 MCP（模型上下文协议）读写知识，你可以在网页中浏览、搜索和管理这些内容。
 
-项目事实、偏好、决策、目标、设计文档和研究笔记都可以保存下来，在后续任务和对话中复用。
+本教程带你完成部署、连接助手，并保存第一条知识。使用 Codex 时，还可以按需开启后台会话记忆。
 
-## 功能
+## 开始前准备
 
-- **结构化上下文**：保存、读取、更新和归档事实、偏好、决策、目标、状态与事件。
-- **Markdown 文档**：保存和阅读完整的设计、研究笔记、计划及操作手册。
-- **空间**：按项目或主题组织上下文和文档。
-- **搜索**：通过关键词、语义或混合检索查找上下文和文档片段。
-- **MCP 集成**：通过兼容的智能体客户端加载任务相关上下文，并保存知识。
-- **访问密钥**：控制客户端可访问的空间，支持调整授权、轮换和撤销密钥。
-- **网页界面**：浏览和阅读知识、创建空间、管理设置，支持英文、简体中文及浅色和深色主题。
+- **部署服务：** 安装 Docker 和 Docker Compose。应用镜像已包含网页和运行环境，无需另外安装 .NET 或 Bun。
+- **连接助手：** 使用支持 MCP Streamable HTTP 连接的客户端。
+- **搜索知识：** 不配置模型也能使用关键词搜索。如需按内容含义搜索，请在**设置 → 模型服务**中添加搜索模型（Embedding）。
 
-在 Inference 设置中配置 Embedding 模型后，即可启用语义检索。关键词搜索无需配置模型服务，在语义检索不可用时仍然可用。
+**空间**用来归集同一项目或主题的知识，在 MCP 工具中称为 **Workspace**。简短的事实或决策保存为**上下文条目**，长篇笔记保存为 **Markdown 文档**。**访问密钥**决定一个应用可以使用哪些空间。
 
-## 基本概念
+## 1. 启动 ContextDepot
 
-| 概念 | 含义 |
-| --- | --- |
-| 空间 | 归集同一项目或主题的上下文与文档，在 MCP 中称为 Workspace |
-| 上下文 | 一条可复用的知识，例如事实、偏好或决策 |
-| 文档 | 以完整 Markdown 文档保存的长篇内容 |
-| 访问密钥 | 允许 MCP 客户端访问已授权空间的凭证 |
+### 推荐：使用 Docker Compose
 
-## 部署与使用
-
-### 1. 使用 Docker 启动
-
-先安装 Docker。`danvic712/context-depot` 镜像已包含网页界面和应用运行环境，无需另外安装 .NET 或 Bun。可以使用 Docker Compose 一起启动应用与数据库，也可以直接运行应用镜像，连接已有数据库。
-
-#### 方式一：Docker Compose
-
-安装 Docker Compose，并使用仓库根目录的 [docker-compose.yaml](docker-compose.yaml) 和 [.env.example](.env.example)。可以直接在仓库根目录运行，也可以将两个文件复制到独立的部署目录。
-
-创建配置文件：
+使用仓库根目录的 [docker-compose.yaml](docker-compose.yaml) 和 [.env.example](.env.example)，或将两个文件复制到独立的部署目录。在该目录中创建配置文件：
 
 ```sh
 cp .env.example .env
 ```
 
-在 `.env` 中为 `POSTGRES_PASSWORD` 设置较长的随机密码，仅使用英文字母和数字。还可以调整以下选项：
+编辑 `.env`，为 `POSTGRES_PASSWORD` 设置较长的随机密码，仅使用英文字母和数字。其他选项可按需调整：
 
 | 变量 | 默认值 | 用途 |
 | --- | --- | --- |
-| `CONTEXTDEPOT_VERSION` | `latest` | 应用镜像的版本标签 |
-| `HTTP_PORT` | `8080` | 网页和 MCP 使用的服务器端口 |
-| `DATA_DIR` | `./data` | 持久化数据的父目录 |
+| `CONTEXTDEPOT_VERSION` | `latest` | 应用镜像标签；填写已发布的版本标签可固定版本 |
+| `HTTP_PORT` | `8080` | 网页和 MCP 使用的端口 |
+| `DATA_DIR` | `./data` | 持久化数据目录 |
 
-需要通过服务器 IP 或域名访问时，将 `docker-compose.yaml` 中 `context-depot` 服务的 `ports` 配置替换为：
-
-```yaml
-ports:
-  - "${HTTP_PORT:-8080}:8080"
-```
-
-这样会在服务器的网络接口上开放该端口，请在部署环境中保护网页的访问。如果使用反向代理，请根据实际部署方式配置端口映射。
-
-启动服务，并等待应用通过健康检查：
+启动服务：
 
 ```sh
 docker compose up -d --wait
 ```
 
-Compose 会等待 PostgreSQL 就绪，运行 `database-init` 启用 pgvector，再启动 ContextDepot。初始化服务完成后退出，ContextDepot 会在启动时创建所需的数据表。
+Compose 会启动 PostgreSQL 17、启用 pgvector，再启动 ContextDepot。`database-init` 容器完成初始化后退出属于正常现象。ContextDepot 会在启动时创建所需的数据表。
 
-#### 方式二：直接运行镜像
+在部署机器上打开 **http://localhost:8080**；如果修改了 `HTTP_PORT`，请使用对应端口。
 
-如果已有安装了 pgvector 的 PostgreSQL 17，可以使用此方式。先准备数据库和有权限创建应用数据表的用户，并在该数据库中启用扩展，再启动 ContextDepot：
+**需要从其他设备访问？** Compose 默认只监听本机回环地址。可以通过 HTTPS 反向代理提供访问，也可以将应用的端口映射改为 `"${HTTP_PORT:-8080}:8080"`，在服务器的网络接口上开放端口。请保护网页的访问，MCP 访问密钥不能代替部署层面的访问保护。网页和 `/mcp` 使用同一个可访问的服务地址。
+
+### 其他方式：连接已有 PostgreSQL 数据库
+
+准备已安装 pgvector 的 PostgreSQL 17，以及有权限创建应用数据表的数据库用户。在该数据库中启用扩展：
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS vector;
 ```
 
-将下方的 `<DB_HOST>`、`<DB_NAME>`、`<DB_USER>` 和 `<DB_PASSWORD>` 替换为实际数据库连接信息。`<DB_HOST>` 必须是应用容器可以访问的 IP 或主机名；数据库端口不是 `5432` 时，也需要修改对应端口。
-
-在服务器的部署目录中执行：
+替换下方的数据库占位符。数据库主机必须能从容器访问；端口不是 `5432` 时也需要修改。在部署目录中运行：
 
 ```sh
 mkdir -p data/context-depot
@@ -97,32 +71,33 @@ docker run -d \
   danvic712/context-depot:latest
 ```
 
-应用会在启动时创建数据表，并将文档、日志和加密密钥保存到 `data/context-depot`。需要固定镜像版本时，将 `latest` 替换为已发布的版本标签。需要修改服务器端口时，调整 `--publish 8080:8080` 中的第一个 `8080`。
+此命令会在服务器的网络接口上开放 `8080` 端口，请按上文做好访问保护。需要时修改 `--publish 8080:8080` 中的第一个端口；将 `latest` 替换为已发布的版本标签可固定版本。
 
-#### 访问服务
+## 2. 完成首次使用向导
 
-打开 `http://<SERVER_IP_OR_DOMAIN>:8080`。本文所有网页和 MCP 地址中的 `<SERVER_IP_OR_DOMAIN>` 都需要替换为你的服务器 IP 或域名，例如 `192.168.1.100` 或 `context.example.com`。请使用实际映射的端口；如果反向代理提供 HTTPS，请改用对应的 HTTPS 地址。
+1. **创建空间。** 填写容易识别的名称和标识，例如 `my-project`，并描述这里准备保存什么。
+2. **设置搜索，或先跳过。** 搜索模型用于语义搜索，也可以稍后在**设置 → 模型服务**中添加；关键词搜索无需配置模型。
+3. **创建访问密钥。** 建议用要连接的应用命名。也可以稍后在**设置 → 访问密钥**中创建。
+4. **确认并保存。** 出现完整密钥和连接信息时，请复制并妥善保存。完整密钥只显示一次。
 
-### 2. 完成首次使用向导
+向导会在最后一步统一保存设置。完成前请保持页面打开，不要刷新。
 
-1. **创建空间。** 设置名称和路径，例如 `my-project`，并描述这里准备保存什么。
-2. **按需配置模型服务。** 配置 Embedding 模型以启用语义检索，也可以先跳过 Inference，稍后再设置。
-3. **创建 MCP 访问密钥。** 为密钥取一个容易识别的名称，也可以稍后在设置中创建。
-4. **确认并完成。** 如果创建了密钥，请复制密钥和连接信息。密钥完整值只显示一次。
+## 3. 连接你的助手
 
-向导会在完成时统一保存所有设置。在此之前刷新页面，会清空草稿。
+在客户端的 MCP 设置中选择 **Streamable HTTP**，填写：
 
-### 3. 连接智能体
+- **服务地址：** ContextDepot 地址加上 `/mcp`，例如 `https://context-depot.example.com/mcp`。
+- **请求头：** 名称为 `X-ContextDepot-Key`，值为你的访问密钥。ContextDepot 不使用 Bearer 认证。
 
-在兼容的 MCP 客户端中选择 **Streamable HTTP**，填写服务地址 `http://<SERVER_IP_OR_DOMAIN>:8080/mcp`，并添加请求头 `X-ContextDepot-Key`，值为你的访问密钥。
+只有客户端与服务运行在同一台机器上时，才使用 `http://localhost:8080/mcp`。远程客户端请填写它能访问的地址，通过网络连接时使用 HTTPS。
 
-对于使用 `mcpServers` 配置的客户端，可以添加：
+对于使用 `mcpServers` 配置的客户端，可以参考：
 
 ```json
 {
   "mcpServers": {
-    "contextdepot": {
-      "url": "http://<SERVER_IP_OR_DOMAIN>:8080/mcp",
+    "context-depot": {
+      "url": "https://context-depot.example.com/mcp",
       "headers": {
         "X-ContextDepot-Key": "<YOUR_ACCESS_KEY>"
       }
@@ -131,71 +106,118 @@ docker run -d \
 }
 ```
 
-将 `<SERVER_IP_OR_DOMAIN>` 替换为你的服务器 IP 或域名，将 `<YOUR_ACCESS_KEY>` 替换为你的密钥。请使用与网页相同的服务地址和端口，如果已配置 HTTPS，也需要使用 HTTPS 地址。不同客户端的配置格式可能有所区别，可以参考首次使用向导提供的连接示例进行调整。
+替换地址和 `<YOUR_ACCESS_KEY>`。不同客户端的格式可能不同，请按实际客户端调整，并避免将密钥提交到版本库。
 
-在**设置 → 访问密钥**中，选择客户端可以使用的空间。也可以开启独立空间创建能力：此密钥新建的空间会自动获得访问权限。由其他方式创建的空间，或由另一把密钥访问的空间，仍需单独授权。
+在**设置 → 访问密钥**中，为这把密钥授权目标空间。允许应用创建空间时，只有通过这把密钥新建的空间会自动授权；已有空间和其他方式创建的空间仍需单独授权。
 
-#### 使用 ContextDepot Skill
+### 可选：安装 ContextDepot Skill
 
-[ContextDepot Skill](skills/context-depot/SKILL.md) 帮助 Agent 在个人任务、研究和项目中检索及保存有用知识。先配置 MCP 连接，再使用 Node.js 和 [skills 安装工具](https://github.com/vercel-labs/skills)：
+[Skill](skills/context-depot/SKILL.md) 可以指导兼容的助手检索和保存知识。先配置 MCP，再使用 Node.js 和 [skills 安装工具](https://github.com/vercel-labs/skills)安装：
 
 ```sh
 npx skills add danvic712/context-depot --skill context-depot --global
 ```
 
-安装时选择当前 Agent。`--global` 会安装到它的全局技能目录，供不同项目使用；兼容客户端可按需选择该 Skill。在本地仓库中安装时，将 `danvic712/context-depot` 替换为 `./skills/context-depot`。
+安装目标仅选择当前使用的助手。`--global` 让该助手在不同项目中都能使用此 Skill。从本地仓库安装时，将 `danvic712/context-depot` 替换为 `./skills/context-depot`。
 
-将这段安装说明发给 Agent：
+安装 Skill 不会增加空间权限，也不会开启自动捕获。只要助手能够访问 MCP 工具，就可以尝试下面的请求。
 
-```text
-请运行 npx skills add danvic712/context-depot --skill context-depot --global 安装 context-depot Skill，安装目标仅选择当前 Agent。安装后读取 SKILL.md，确认 Skill 可用，保留已有 MCP 配置。如果无法完成安装，请说明问题，不要猜测路径或自行生成替代 Skill。
-```
+## 4. 保存第一条知识
 
-安装后，可按下面的示例要求检索或保存。自动保存和空间准备需由你明确启用，安装 Skill 不会增加写入权限。文档更新会检查当前版本，保存后读回确认正文。
-
-Session Memory（默认关闭）提供独立的会话生命周期、捕获、检索和状态工具，通过 [ContextDepot Skill](skills/context-depot/SKILL.md) 显式启用 Codex 会话工作流。
-
-### 4. 保存和读取知识
-
-连接完成后，可以向智能体发出以下请求。请将 `my-project` 替换为你的空间路径，并提供需要保存的内容：
+将下面的请求发给已连接的助手，并把 `my-project` 替换为你的空间标识：
 
 > 在 `my-project` 空间记住这项偏好：合并代码前先审查改动，并解释重要的取舍。
 
+打开 ContextDepot 的**空间**页面，确认偏好已出现在目标空间中。然后开启一次新对话，尝试读取：
+
+> 继续 `my-project` 的工作前，先从 ContextDepot 读取相关偏好和决策。
+
+需要保存长篇内容时，提供正文并告诉助手：
+
 > 把这份项目设计保存为 `my-project` 空间中的 Markdown 文档，路径为 `project-design.md`。
 
-> 继续 `my-project` 的工作前，先从 ContextDepot 读取相关决策、偏好和设计文档。
+通过**搜索**查找已保存的知识。网页用于浏览和阅读；需要更新或归档时，可以让已连接的助手操作。
 
-在**空间**中浏览已保存的内容，或通过**搜索**查找上下文和文档。网页支持阅读完整内容，项目情况变化时，可以让已连接的智能体更新或归档知识。
+## 可选：启用 Codex 会话记忆
 
-## 数据与更新
+会话记忆会在后台处理提交的对话，保存有用户依据、值得长期保留的知识。该功能**默认关闭**，目前支持 Codex。显式保存和普通检索不需要开启它。
 
-使用 Docker Compose 部署时，两个服务的持久化数据统一放在 `DATA_DIR` 下，默认是 Compose 文件所在目录的 `./data`：
+**自动选择空间仍处于预览阶段。** 真实模型的质量评测和安装版 Codex 的端到端验收尚未完成。请在了解这些限制后试用。
 
-| 目录 | 保存内容 |
+### 配置对话捕获
+
+1. 在**设置 → 模型服务**中配置**对话模型（Chat）**。如需通过向量查找候选空间，还要配置搜索模型。
+2. 在**设置 → 访问密钥**中，为 Codex 使用的密钥授权目标已有空间。给这些空间填写清晰的名称和描述。自动捕获不会创建空间或授予权限。
+3. 打开**设置 → 会话记忆**并启用。此开关对整个应用生效，只是允许接收捕获；还需要让 Codex 提交对话。
+4. 使用支持原生 [`mcp_tool` Hook](https://developers.openai.com/codex/hooks/#configure-an-mcp-tool-hook) 的 Codex。在 `~/.codex/config.toml` 中配置或复用 MCP 连接：
+
+   ```toml
+   [mcp_servers.context-depot]
+   url = "https://context-depot.example.com/mcp"
+   env_http_headers = { "X-ContextDepot-Key" = "CONTEXTDEPOT_MCP_TOKEN" }
+   ```
+
+   替换地址，通过常用的安全环境配置方式提供 `CONTEXTDEPOT_MCP_TOKEN`，确保 Codex 能读取它。不要把密钥写入 Hook 文件或提交到版本库。
+5. 将 [hooks.example.json](scripts/codex/hooks.example.json) 中的 `UserPromptSubmit` 和 `Stop` 条目合并到 `~/.codex/hooks.json`，或受信任项目的 `.codex/hooks.json`。两个 `server` 值都必须与 MCP 连接名一致，这里是 `context-depot`。通过 Codex `/hooks` 审查并信任定义，确认 MCP 已连接。
+6. 开启**新对话**。如果使用过旧命令适配器，先移除它的 Hook 注册，不要在一轮对话中途切换捕获方式。由 Hook 捕获时，关闭 Skill 对同一轮对话的重复捕获；Skill 的检索和显式保存仍可使用。
+
+这些 Hook 直接调用 MCP，**不需要 Python、JavaScript 或 Shell 运行时**。它们提交可见的用户提问和助手回复，以及原生会话、回合标识，不提交隐藏推理、工具输出或转录文件。
+
+### 确认保存结果
+
+完成一次包含明确事实或决策、且希望保留的对话。如果取得了返回的 `receiptId` 或 `turnReceiptId`，可以让助手选择其中一个查询 `session_capture_status`。`accepted` 只表示已入队，**不表示已保存**。结果为 `saved` 时，用返回的 Context ID 调用 `context_get`，检查空间、摘要和支持它的用户原文。也可以在网页中浏览或搜索目标空间。
+
+并非每次对话都会生成记忆：没有长期价值，或无法明确匹配已授权空间时，都可能不保存。助手自己的解释不能单独作为保存事实的依据。
+
+### 使用时需要了解
+
+- **隐私：** 最小必要的用户原文证据会随知识长期保存，即使临时对话正文已经过期。请在获得相应同意后开启捕获；敏感信息检测无法保证排除所有敏感内容。
+- **连接限制：** Hook 需要 MCP 已连接，不会自行重连、重试或离线补发，调用失败可能丢失消息。示例使用五秒活动执行超时，不保证每条消息恰好送达一次。
+- **重复回复：** 重复 Stop 事件会去重。首个被接收的助手正文会保留，后续不同正文会冲突，而非替换，不能据此保证捕获到最终修改版。
+- **关闭功能：** 不再接收新会话和新捕获，尚未领取的任务暂停；已经领取的任务可能完成。已有记忆保留，清理期限继续计算，重新开启后仅恢复未过期任务。
+- **旧部署迁移：** 即使以前使用过 `AgentSessions__Enabled`，也需要在网页中开启，此环境变量已不再控制开关。当前实例直接应用此开关，无需重启；定时配置刷新改为每分钟执行，只运行一个应用实例。
+
+如需使用受管会话的生命周期、检索和状态工具，而非原生 Hook，请参考 [Skill 的 Session Memory 说明](skills/context-depot/SKILL.md#session-memory)。同一轮对话只使用一种捕获工作流。
+
+## 后台处理
+
+仅运行**一个应用实例**。会话捕获、索引修复、应用设置刷新和推理刷新通过同进程的 Hangfire.InMemory 每分钟执行一次。同类任务重叠时跳过，不并发执行。捕获吞吐仍受现有单轮处理上限限制，配置变更可能经过多个分钟周期才被所有后台任务使用。
+
+Hangfire 的定义、排队任务和执行历史只保存在内存中。重启会清空这些状态并重新注册四个定时任务；下一周期扫描 PostgreSQL 中已有的业务队列，中断的业务工作可能等待原租约到期后再继续。不补跑错过的分钟。PostgreSQL 仍用于业务数据，但不新增 Hangfire schema 或数据库权限，也不提供 Hangfire Dashboard。
+
+升级时先停止旧应用进程，再启动新版。启动迁移会删除数据库中废弃的 `IndexRepair:PollIntervalSeconds` 设置。应用忽略 JSON 中的 `ContextDepot:IndexRepair:PollIntervalSeconds` 和环境变量 `ContextDepot__IndexRepair__PollIntervalSeconds`，它们不再影响调度，也无需在启动前手动移除。旧的 `AgentSessions:PollIntervalSeconds` / `AgentSessions__PollIntervalSeconds` 同样被忽略。这些废弃项可从部署配置中清理；其他索引配置名仍严格校验，批次、超时和业务重试约束不变。
+
+若回滚到依赖旧数据库设置的版本，先停止新版并回退这项清理 migration，再启动旧版。回退会恢复历史默认的 30 秒间隔，不覆盖已有设置，也不会恢复删除前的自定义值。保留全部业务数据；无需备份或迁移 Hangfire 内存状态。
+
+## 备份与更新
+
+Compose 将持久化数据保存在 `DATA_DIR` 下，默认是 `./data`：
+
+| 目录 | 内容 |
 | --- | --- |
 | `data/postgresql` | PostgreSQL 数据库文件 |
 | `data/context-depot` | Markdown 文档、日志和加密密钥 |
 
-这些目录会在启动时创建。直接运行 `docker run` 示例时，应用数据保存在 `data/context-depot`，外部 PostgreSQL 数据库需要单独备份。使用文件复制方式备份时，请先停止服务，再备份整个数据目录，以保持数据一致。读取已保存的 Inference 凭证需要原有的加密密钥。
-
-使用 Compose 部署时，停止容器并保留数据：
+使用文件复制方式备份时，先停止服务，再复制整个数据目录以保持一致：
 
 ```sh
 docker compose down
-```
-
-备份数据后，拉取应用镜像并重新创建应用容器：
-
-```sh
+# 继续之前，先备份数据目录。
 docker compose pull context-depot
 docker compose up -d --wait context-depot
 ```
 
-使用 Compose 部署时，如需固定应用版本，在 `.env` 中将 `CONTEXTDEPOT_VERSION` 设置为已发布的版本标签。两种部署示例都启用了容器日志自动轮转，每个容器最多保留 3 个日志文件，每个文件不超过 10 MB。
+请保留加密密钥，读取已保存的模型服务凭据需要原有密钥。如需固定版本，在 `.env` 中将 `CONTEXTDEPOT_VERSION` 设置为已发布的版本标签。两种部署示例都启用容器日志轮转，每个容器最多保留 3 个 10 MB 日志文件。
 
-通过 `docker run` 启动的容器，可以使用 `docker stop context-depot` 停止，使用 `docker logs context-depot` 查看日志。备份数据后，如需更新，先拉取目标版本的镜像，用 `docker rm context-depot` 删除已停止的容器，再使用相同的数据目录重新执行 `docker run` 命令。
+通过 `docker run` 部署时，除 `data/context-depot` 外，还需单独备份外部数据库。使用 `docker stop context-depot` 停止应用，拉取目标镜像后，用 `docker rm context-depot` 删除已停止的容器，再使用相同数据目录重新执行原来的启动命令。
 
-使用 Compose 部署时，应用无法启动可通过 `docker compose logs context-depot` 查看日志。
+## 常见问题
+
+- **应用无法启动：** 运行 `docker compose logs context-depot database-init`；独立容器使用 `docker logs context-depot`。
+- **客户端无法连接：** 确认客户端可以访问服务地址，地址以 `/mcp` 结尾，并通过 `X-ContextDepot-Key` 请求头传入有效密钥。
+- **某个空间不可用：** 在**设置 → 访问密钥**中检查该空间是否单独授权。父空间的访问权限不会自动授予子空间。
+- **无法按含义搜索：** 在**设置 → 模型服务**中检查搜索模型。关键词搜索仍然可用。
+- **没有生成记忆：** 检查服务端开关、Codex Hook、对话模型、MCP 连接和空间授权。收到入队回执不等于保存成功。
 
 ## 许可证
 

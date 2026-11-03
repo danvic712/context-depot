@@ -27,6 +27,8 @@ public sealed class SessionAppServiceTests
     private AgentSession Session => new() { Id = sessionId, DepotId = depotId, AccessKeyId = keyId,
         WorkspaceId = workspaceId, Agent = "codex", ClientSessionId = "client-1", CreatedAt = DateTimeOffset.UtcNow };
 
+    private readonly Mock<IOptionsMonitor<SessionCaptureOptions>> options = new();
+
     private SessionAppService Create(bool enabled = true)
     {
         var depot = new Mock<ICurrentDepotContext>();
@@ -38,8 +40,25 @@ public sealed class SessionAppServiceTests
         workspaces.Setup(w => w.GetAsync(workspaceId, It.IsAny<CancellationToken>())).ReturnsAsync(workspace);
         repository.Setup(r => r.GetAsync(depotId, keyId, sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(Session);
         var ids = new Mock<IIdGenerator>(); ids.Setup(i => i.NewId()).Returns(sessionId);
-        return new(Options.Create(new SessionCaptureOptions { Enabled = enabled }), depot.Object, access.Object,
+        options.SetupGet(o => o.CurrentValue).Returns(new SessionCaptureOptions { Enabled = enabled });
+        return new(options.Object, depot.Object, access.Object,
             workspaces.Object, repository.Object, bootstrap.Object, ids.Object, TimeProvider.System);
+    }
+
+    [Fact]
+    public async Task Start_observes_live_enable_disable_enable_on_same_service()
+    {
+        var service = Create(false);
+        repository.Setup(r => r.StartAsync(It.IsAny<AgentSession>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((AgentSession session, CancellationToken _) => session);
+        Assert.Equal("disabled", (await service.StartAsync(new("codex", "client-1", "project"), default)).Status);
+        options.SetupGet(o => o.CurrentValue).Returns(new SessionCaptureOptions { Enabled = true });
+        Assert.Equal("started", (await service.StartAsync(new("codex", "client-1", "project"), default)).Status);
+        options.SetupGet(o => o.CurrentValue).Returns(new SessionCaptureOptions { Enabled = false });
+        Assert.Equal("disabled", (await service.StartAsync(new("codex", "client-1", "project"), default)).Status);
+        options.SetupGet(o => o.CurrentValue).Returns(new SessionCaptureOptions { Enabled = true });
+        Assert.Equal("started", (await service.StartAsync(new("codex", "client-1", "project"), default)).Status);
+        repository.Verify(r => r.StartAsync(It.IsAny<AgentSession>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 
     [Fact]

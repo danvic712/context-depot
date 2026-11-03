@@ -16,23 +16,32 @@ public sealed class MemoryCaptureProcessorTests
     private readonly Mock<ISessionCaptureAuthorization> authorization = new();
     private readonly Mock<IMemoryExtractionService> extraction = new();
     private readonly Mock<IContextAppService> contexts = new();
+    private readonly Mock<ISessionCapturePlanRepository> plans = new();
+    private readonly Mock<ISessionCaptureCallBudget> budget = new();
     private static CapturedTurn Turn(string user = Decision) => new(Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(),
-        Guid.CreateVersion7(), Guid.CreateVersion7(), DateTimeOffset.UtcNow.AddMinutes(2), user, "建议使用 SQLite，测试已通过。", Agent: "declared-agent");
+        Guid.CreateVersion7(), Guid.CreateVersion7(), DateTimeOffset.UtcNow.AddMinutes(2), user, "建议使用 SQLite，测试已通过。", Agent: "declared-agent", LeaseToken: Guid.NewGuid());
 
     private MemoryCaptureProcessor Create(params MemoryCandidate[] candidates)
     {
         authorization.Setup(x => x.AuthorizeAsync(It.IsAny<CapturedTurn>(), It.IsAny<CancellationToken>())).ReturnsAsync("project");
         extraction.Setup(x => x.ExtractAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(candidates);
-        return new(authorization.Object, extraction.Object, contexts.Object, new HighConfidenceSecretDetector());
+        plans.Setup(x => x.StorePlanAsync(It.IsAny<CapturedTurn>(), It.IsAny<ValidatedExtractionPlan>(), It.IsAny<CancellationToken>())).ReturnsAsync(new LeaseCommitResult("committed"));
+        plans.Setup(x => x.SaveCandidateAsync(It.IsAny<CapturedTurn>(), It.IsAny<int>(), It.IsAny<PreparedCaptureContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((CapturedTurn _, int index, PreparedCaptureContext prepared, CancellationToken _) => new CaptureCandidateOutcome(index, "created", prepared.Context.Id));
+        budget.Setup(x => x.TryReserveAsync(It.IsAny<CaptureWorkLease>(), ContextDepot.Application.AgentSessions.Enums.ProviderCallKind.ExtractionChat, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new BudgetReservation("granted"));
+        contexts.Setup(x => x.PrepareCaptureContext(It.IsAny<CapturedTurn>(), It.IsAny<ValidatedMemoryCandidate>(), It.IsAny<string>()))
+            .Returns((CapturedTurn turn, ValidatedMemoryCandidate candidate, string _) => Prepared(turn, candidate));
+        return new(authorization.Object, extraction.Object, contexts.Object, new HighConfidenceSecretDetector(), plans.Object, budget.Object);
     }
 
-    private static SaveContextResult CreatedResult(SaveContextCommand command)
+    private static PreparedCaptureContext Prepared(CapturedTurn turn, ValidatedMemoryCandidate candidate)
     {
-        var now = DateTimeOffset.UtcNow;
-        return new(new ContextModel(Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(),
-            command.Kind, command.Key, command.Title, command.Content, command.Tags ?? [], command.Importance,
-            command.Confidence, ContextStatus.Active, command.VerificationStatus, command.RequestedProvenanceTrust,
-            command.SourceType, command.SourceAgent, command.SourceRef, null, null, now, now), SaveContextOutcome.Created);
+        var item = new ContextDepot.Domain.Contexts.ContextItem(Guid.NewGuid(), turn.DepotId, turn.WorkspaceId,
+            Enum.Parse<ContextKind>(candidate.Kind, true), candidate.Key, null, candidate.Summary, DateTimeOffset.UtcNow);
+        item.ConfigureProvenance(VerificationStatus.Unknown, ProvenanceTrust.Unknown, SourceType.Agent, turn.Agent,
+            $"session-capture:{turn.UserEventId}:{turn.AssistantEventId}");
+        return new(item);
     }
 
     [Theory]
@@ -42,11 +51,10 @@ public sealed class MemoryCaptureProcessorTests
     public async Task Durable_user_statements_can_be_saved(string kind, string quote)
     {
         var processor = Create(new MemoryCandidate(kind, "project.topic", quote, quote, 0.95m));
-        contexts.Setup(x => x.SaveAsync(It.IsAny<SaveContextCommand>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((SaveContextCommand command, CancellationToken _) => CreatedResult(command));
-        Assert.Equal("saved", await processor.ProcessAsync(Turn(quote), default));
-        contexts.Verify(x => x.SaveAsync(It.Is<SaveContextCommand>(c => c.Content == quote && c.WriteMode == ContextWriteMode.CreateOnly),
-            It.IsAny<CancellationToken>()), Times.Once);
+        Assert.Equal("saved", (await processor.ProcessAsync(Turn(quote), default)).ResultCode);
+        plans.Verify(x => x.SaveCandidateAsync(It.IsAny<CapturedTurn>(), 0,
+            It.Is<PreparedCaptureContext>(c => c.Context.Content == quote), It.IsAny<CancellationToken>()), Times.Once);
+        contexts.Verify(x => x.SaveAsync(It.IsAny<SaveContextCommand>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Theory]
@@ -56,7 +64,7 @@ public sealed class MemoryCaptureProcessorTests
     public async Task Sensitive_identifiers_or_invalid_keys_never_write(string quote, string key = "project.topic")
     {
         var processor = Create(new MemoryCandidate("fact", key, quote, quote, 0.99m));
-        Assert.Equal("skipped_no_new_memory", await processor.ProcessAsync(Turn(quote), default));
+        Assert.Equal("skipped_no_new_memory", (await processor.ProcessAsync(Turn(quote), default)).ResultCode);
         contexts.VerifyNoOtherCalls();
     }
 
@@ -64,7 +72,7 @@ public sealed class MemoryCaptureProcessorTests
     public async Task Secret_in_capture_prevents_provider_call()
     {
         var processor = Create();
-        Assert.Equal("skipped_sensitive", await processor.ProcessAsync(Turn("api_key=abcdefghijklmnopqrstuvxyz123456789"), default));
+        Assert.Equal("skipped_sensitive", (await processor.ProcessAsync(Turn("api_key=abcdefghijklmnopqrstuvxyz123456789"), default)).ResultCode);
         extraction.VerifyNoOtherCalls();
         contexts.VerifyNoOtherCalls();
     }
@@ -73,18 +81,19 @@ public sealed class MemoryCaptureProcessorTests
     public async Task Confirmed_decision_uses_create_only_unknown_agent_provenance()
     {
         var processor = Create(new MemoryCandidate("decision", "project.database", Decision, Decision, 0.99m));
-        var saved = new List<SaveContextCommand>();
-        contexts.Setup(x => x.SaveAsync(It.IsAny<SaveContextCommand>(), It.IsAny<CancellationToken>()))
-            .Callback<SaveContextCommand, CancellationToken>((command, _) => saved.Add(command))
-            .ReturnsAsync((SaveContextCommand command, CancellationToken _) => CreatedResult(command));
-        Assert.Equal("saved", await processor.ProcessAsync(Turn(), default));
-        var command = Assert.Single(saved);
-        Assert.Equal(ContextWriteMode.CreateOnly, command.WriteMode);
-        Assert.Equal(ContextDepot.Domain.Contexts.Enums.VerificationStatus.Unknown, command.VerificationStatus);
-        Assert.Equal(ContextDepot.Domain.Contexts.Enums.SourceType.Agent, command.SourceType);
-        Assert.StartsWith("session-capture:", command.SourceRef);
-        Assert.Equal("declared-agent", command.SourceAgent);
-        Assert.Null(command.SupersedesId);
+        PreparedCaptureContext? saved = null;
+        contexts.Setup(x => x.PrepareCaptureContext(It.IsAny<CapturedTurn>(), It.IsAny<ValidatedMemoryCandidate>(), It.IsAny<string>()))
+            .Returns((CapturedTurn turn, ValidatedMemoryCandidate candidate, string _) => saved = Prepared(turn, candidate));
+        Assert.Equal("saved", (await processor.ProcessAsync(Turn(), default)).ResultCode);
+        Assert.NotNull(saved);
+        var item = saved.Context;
+        Assert.Equal(VerificationStatus.Unknown, item.VerificationStatus);
+        Assert.Equal(SourceType.Agent, item.SourceType);
+        Assert.StartsWith("session-capture:", item.SourceRef);
+        Assert.Equal("declared-agent", item.SourceAgent);
+        Assert.Null(item.SupersedesId);
+        plans.Verify(x => x.SaveCandidateAsync(It.IsAny<CapturedTurn>(), 0, saved, It.IsAny<CancellationToken>()), Times.Once);
+        contexts.Verify(x => x.SaveAsync(It.IsAny<SaveContextCommand>(), It.IsAny<CancellationToken>()), Times.Never);
         authorization.Verify(x => x.AuthorizeAsync(It.IsAny<CapturedTurn>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 
@@ -98,7 +107,7 @@ public sealed class MemoryCaptureProcessorTests
     public async Task Unsupported_or_unproven_candidates_never_write(string kind, string content, string evidence, double confidence)
     {
         var processor = Create(new MemoryCandidate(kind, "project.database", content, evidence, (decimal)confidence));
-        Assert.Equal("skipped_no_new_memory", await processor.ProcessAsync(Turn(), default));
+        Assert.Equal("skipped_no_new_memory", (await processor.ProcessAsync(Turn(), default)).ResultCode);
         contexts.VerifyNoOtherCalls();
     }
 
@@ -121,7 +130,7 @@ public sealed class MemoryCaptureProcessorTests
     {
         var processor = Create();
         authorization.Setup(x => x.AuthorizeAsync(It.IsAny<CapturedTurn>(), It.IsAny<CancellationToken>())).ReturnsAsync((string?)null);
-        Assert.Equal("skipped_unauthorized", await processor.ProcessAsync(Turn(), default));
+        Assert.Equal("skipped_unauthorized", (await processor.ProcessAsync(Turn(), default)).ResultCode);
         extraction.VerifyNoOtherCalls();
         contexts.VerifyNoOtherCalls();
     }
@@ -132,7 +141,7 @@ public sealed class MemoryCaptureProcessorTests
         var processor = Create(new MemoryCandidate("decision", "project.database", Decision, Decision, 0.99m));
         authorization.SetupSequence(x => x.AuthorizeAsync(It.IsAny<CapturedTurn>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("project").ReturnsAsync((string?)null);
-        Assert.Equal("skipped_unauthorized", await processor.ProcessAsync(Turn(), default));
+        Assert.Equal("skipped_unauthorized", (await processor.ProcessAsync(Turn(), default)).ResultCode);
         contexts.VerifyNoOtherCalls();
     }
 
@@ -145,4 +154,62 @@ public sealed class MemoryCaptureProcessorTests
         await Assert.ThrowsAsync<HttpRequestException>(() => processor.ProcessAsync(Turn(), default));
         contexts.VerifyNoOtherCalls();
     }
+    [Fact]
+    public async Task Existing_plan_is_reused_without_provider_or_budget_calls()
+    {
+        var processor = Create();
+        var plan = new ExtractionPlanValidator(new HighConfidenceSecretDetector()).Validate(
+            [new MemoryCandidate("decision", "project.database", Summary: "用户确认使用 PostgreSQL 数据库。", Quotes: [Decision])], Decision);
+        var turn = Turn() with { Plan = plan };
+        Assert.Equal("saved", (await processor.ProcessAsync(turn, default)).ResultCode);
+        extraction.VerifyNoOtherCalls();
+        budget.VerifyNoOtherCalls();
+        plans.Verify(x => x.StorePlanAsync(It.IsAny<CapturedTurn>(), It.IsAny<ValidatedExtractionPlan>(), It.IsAny<CancellationToken>()), Times.Never);
+        plans.Verify(x => x.SaveCandidateAsync(turn, 0, It.IsAny<PreparedCaptureContext>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Theory]
+    [InlineData("wait", "Retry", null, "budget_wait")]
+    [InlineData("expired", "Completed", "skipped_expired", null)]
+    [InlineData("lease_lost", "Failed", null, "lease_lost")]
+    public async Task Budget_denial_never_calls_provider_or_persistence(string status, string disposition, string? code, string? error)
+    {
+        var processor = Create();
+        budget.Setup(x => x.TryReserveAsync(It.IsAny<CaptureWorkLease>(), ContextDepot.Application.AgentSessions.Enums.ProviderCallKind.ExtractionChat, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new BudgetReservation(status));
+        var result = await processor.ProcessAsync(Turn(), default);
+        Assert.Equal(disposition, result.Disposition.ToString());
+        Assert.Equal(code, result.ResultCode);
+        Assert.Equal(error, result.LastErrorCode);
+        extraction.VerifyNoOtherCalls();
+        plans.VerifyNoOtherCalls();
+        contexts.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task Invalid_json_is_terminal_not_a_provider_retry()
+    {
+        var processor = Create();
+        extraction.Setup(x => x.ExtractAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new System.Text.Json.JsonException());
+        var result = await processor.ProcessAsync(Turn(), default);
+        Assert.Equal(ContextDepot.Application.AgentSessions.Enums.SessionCaptureDisposition.Failed, result.Disposition);
+        Assert.Equal("invalid_extraction_response", result.ResultCode);
+        plans.VerifyNoOtherCalls();
+        contexts.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task Losing_lease_while_storing_plan_cannot_save_candidates()
+    {
+        var processor = Create(new MemoryCandidate("decision", "project.database", Decision, Decision, 0.99m));
+        plans.Setup(x => x.StorePlanAsync(It.IsAny<CapturedTurn>(), It.IsAny<ValidatedExtractionPlan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LeaseCommitResult("lease_lost"));
+        var result = await processor.ProcessAsync(Turn(), default);
+        Assert.Equal("lease_lost", result.LastErrorCode);
+        Assert.Null(result.ResultCode);
+        contexts.VerifyNoOtherCalls();
+        plans.Verify(x => x.SaveCandidateAsync(It.IsAny<CapturedTurn>(), It.IsAny<int>(), It.IsAny<PreparedCaptureContext>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
 }

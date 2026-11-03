@@ -82,5 +82,7 @@ public static class ApplicationErrorCodes
     public const string InvalidSessionCapture = "InvalidSessionCapture";
     public const string SessionCaptureConflict = "SessionCaptureConflict";
     public const string SessionCaptureCapacity = "SessionCaptureCapacity";
+    public const string SessionCaptureUnavailable = "SessionCaptureUnavailable";
+    public const string SessionCaptureLeaseLost = "SessionCaptureLeaseLost";
     public const string InvalidSearchQuery = "InvalidSearchQuery";
 }

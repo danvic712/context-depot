@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   MonitorIcon,
+  BrainIcon,
   DatabaseIcon,
   SearchIcon,
   LinkIcon,
@@ -32,6 +33,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { AccessKeySettings } from "@/features/settings/AccessKeySettings";
 import { AboutSettings } from "@/features/settings/AboutSettings";
 import { InferenceSettings } from "@/features/settings/InferenceSettings";
+import { SessionMemorySettings } from "@/features/settings/SessionMemorySettings";
 import { SettingsResourceState } from "@/features/settings/SettingsResourceState";
 import {
   SettingsStatus,
@@ -49,6 +51,7 @@ const sections = [
   ["storage", "storage", DatabaseIcon],
   ["retrieval", "retrieval", SearchIcon],
   ["inference", "settingsInferenceNav", SparklesIcon],
+  ["session-memory", "settingsSessionMemoryTitle", BrainIcon],
   ["access-keys", "settingsKeysNav", KeyRoundIcon],
   ["connections", "connections", LinkIcon],
   ["about", "about", InfoIcon],
@@ -294,6 +297,7 @@ export function Settings() {
           </div>
         </SettingsSection>
         <InferenceSettings onChanged={resource.refresh} />
+        <SessionMemorySettings />
         <AccessKeySettings />
         <SettingsSection
           id="connections"
