@@ -1,5 +1,11 @@
 # ContextDepot
 
+[![发布版本](https://img.shields.io/github/v/release/danvic712/context-depot?include_prereleases&sort=semver)](https://github.com/danvic712/context-depot/releases)
+[![构建与测试](https://github.com/danvic712/context-depot/actions/workflows/build-and-test.yml/badge.svg?branch=main)](https://github.com/danvic712/context-depot/actions/workflows/build-and-test.yml?query=branch%3Amain)
+[![Docker 镜像构建与发布](https://github.com/danvic712/context-depot/actions/workflows/release-container.yml/badge.svg?event=release)](https://github.com/danvic712/context-depot/actions/workflows/release-container.yml)
+[![Docker Hub 拉取量](https://img.shields.io/docker/pulls/danvic712/context-depot)](https://hub.docker.com/r/danvic712/context-depot/tags)
+[![许可证](https://img.shields.io/github/license/danvic712/context-depot)](https://github.com/danvic712/context-depot/blob/main/LICENSE)
+
 [English](README.md) · [简体中文](README.zh-CN.md)
 
 ContextDepot 为你的 AI 助手提供一个共享的知识存储。把事实、偏好、决策和 Markdown 文档保存下来，在其他任务或对话中继续使用。助手通过 MCP（模型上下文协议）读写知识，你可以在网页中浏览、搜索和管理这些内容。
@@ -84,6 +90,8 @@ docker run -d \
 
 ## 3. 连接你的助手
 
+使用 Codex 时，可以[复制配置提示词](#复制提示词让-codex-配置)，让它写入 MCP 配置，并按需添加自动抓取 Hook。
+
 在客户端的 MCP 设置中选择 **Streamable HTTP**，填写：
 
 - **服务地址：** ContextDepot 地址加上 `/mcp`，例如 `https://context-depot.example.com/mcp`。
@@ -140,34 +148,71 @@ npx skills add danvic712/context-depot --skill context-depot --global
 
 ## 可选：启用 Codex 会话记忆
 
-会话记忆会在后台处理提交的对话，保存有用户依据、值得长期保留的知识。该功能**默认关闭**，目前支持 Codex。显式保存和普通检索不需要开启它。
+开启后，Codex 会在提交提问和结束一轮时，把可见的提问、回复和会话标识发给 ContextDepot。ContextDepot 在后台提取值得长期保留的知识，并把它保存到有权限的空间。配置时需要在服务端开启会话记忆，并在 Codex 安装和信任 Hook。
 
-**自动选择空间仍处于预览阶段。** 真实模型的质量评测和安装版 Codex 的端到端验收尚未完成。请在了解这些限制后试用。
+### 在 ContextDepot 开启会话记忆
 
-### 配置对话捕获
+1. 在**设置 → 模型服务**中配置**对话模型（Chat）**。使用向量搜索候选空间时，再配置搜索模型（Embedding）。
+2. 在**设置 → 访问密钥**中，为 Codex 的密钥授权要使用的已有空间。空间的名称和描述会帮助 ContextDepot 选择去向。
+3. 在**设置 → 会话记忆**中打开开关。此开关默认关闭，并对整个应用生效。
 
-1. 在**设置 → 模型服务**中配置**对话模型（Chat）**。如需通过向量查找候选空间，还要配置搜索模型。
-2. 在**设置 → 访问密钥**中，为 Codex 使用的密钥授权目标已有空间。给这些空间填写清晰的名称和描述。自动捕获不会创建空间或授予权限。
-3. 打开**设置 → 会话记忆**并启用。此开关对整个应用生效，只是允许接收捕获；还需要让 Codex 提交对话。
-4. 使用支持原生 [`mcp_tool` Hook](https://developers.openai.com/codex/hooks/#configure-an-mcp-tool-hook) 的 Codex。在 `~/.codex/config.toml` 中配置或复用 MCP 连接：
+自动选择空间仍处于预览阶段。真实模型的质量评测和安装版 Codex 的端到端验收尚未完成。
 
-   ```toml
-   [mcp_servers.context-depot]
-   url = "https://context-depot.example.com/mcp"
+### 复制提示词让 Codex 配置
+
+在要配置的机器上打开一个本地 Codex 聊天，粘贴整段提示词。Codex 会直接从 GitHub 获取 Hook 模板，无需克隆 ContextDepot 仓库。自动抓取需要客户端支持原生 [`mcp_tool` Hook](https://learn.chatgpt.com/docs/hooks#configure-an-mcp-tool-hook)。已有连接时可保留「自动识别」，首次连接请填入实际的 `/mcp` 地址。密钥在本机配置。
+
+```text
+请直接在这台机器上为 Codex 配置 ContextDepot。
+MCP 地址：自动识别（首次连接请替换为实际的 https://你的服务地址/mcp）
+自动抓取范围：当前项目（可改为“全局”或“仅连接 MCP”）
+
+1. 查找实际的 Codex 用户配置目录（CODEX_HOME，默认 ~/.codex）和当前项目根目录。
+   检查用户配置及当前受信任项目中与 ContextDepot 有关的 MCP 和 Hook 设置。
+   只显示服务器名、文件路径和验证结果，密钥留在本机。
+2. 复用在所选范围可用、与 ContextDepot 地址匹配的连接，保留连接名和密钥来源。
+   连接有歧义或缺少地址时，询问要用的连接名或实际地址。首次配置时，在用户
+   config.toml 新增 [mcp_servers.<连接名>] 并填写实际 url，优先用未被占用的
+   context-depot。缺少密钥来源时，添加以下单行 TOML 配置：
    env_http_headers = { "X-ContextDepot-Key" = "CONTEXTDEPOT_MCP_TOKEN" }
-   ```
+   如需补密钥，告诉我如何让 Codex 进程读取该环境变量，或在私有的用户 config.toml
+   用 http_headers 设置该请求头。保留其他 MCP 设置。
+3. 选择“仅连接 MCP”时跳过 Hook 安装。否则直接从 GitHub 读取 JSON 模板：
+   https://raw.githubusercontent.com/danvic712/context-depot/main/scripts/codex/hooks.example.json
+   将 UserPromptSubmit 和 Stop 合并到所选范围的 hooks.json。当前项目使用
+   <项目根目录>/.codex/hooks.json，全局使用 Codex 用户配置目录下的 hooks.json。
+   两处 server 填实际连接名，保留模板 input 和 ${...} 原样。保留其他 Hook，
+   跳过已有的相同规则。发现旧 Hook 会重复抓取、连接或 Hook 被禁用，或配置无法解析时，
+   告诉我具体冲突，由我决定如何处理。
+4. 校验 TOML 和 JSON、适用的 Hook 及其服务器名和范围。报告实际改动路径、
+   密钥配置状态和 MCP 连接是否已验证。提示我重启 Codex 以加载配置。若安装了 Hook，
+   让我到桌面端“设置 → Hooks”或 CLI 的 /hooks 审查并信任规则。
+   按实际验证结果报告 Hook 信任和抓取状态。
+```
 
-   替换地址，通过常用的安全环境配置方式提供 `CONTEXTDEPOT_MCP_TOKEN`，确保 Codex 能读取它。不要把密钥写入 Hook 文件或提交到版本库。
-5. 将 [hooks.example.json](scripts/codex/hooks.example.json) 中的 `UserPromptSubmit` 和 `Stop` 条目合并到 `~/.codex/hooks.json`，或受信任项目的 `.codex/hooks.json`。两个 `server` 值都必须与 MCP 连接名一致，这里是 `context-depot`。通过 Codex `/hooks` 审查并信任定义，确认 MCP 已连接。
-6. 开启**新对话**。如果使用过旧命令适配器，先移除它的 Hook 注册，不要在一轮对话中途切换捕获方式。由 Hook 捕获时，关闭 Skill 对同一轮对话的重复捕获；Skill 的检索和显式保存仍可使用。
+选择全局时，这台机器上读取该用户配置的本地 Codex 聊天都可能提交对话。由 Hook 抓取后，同一轮对话只保留这一条抓取途径。普通 MCP 检索和显式保存仍可使用。
 
-这些 Hook 直接调用 MCP，**不需要 Python、JavaScript 或 Shell 运行时**。它们提交可见的用户提问和助手回复，以及原生会话、回合标识，不提交隐藏推理、工具输出或转录文件。
+### 手动配置参考
+
+在 Codex 用户目录的 `config.toml` 中配置或复用 MCP 连接。填写实际可访问的 `/mcp` 地址，并让启动 Codex 的进程读取密钥环境变量。
+
+```toml
+[mcp_servers.context-depot]
+url = "https://context-depot.example.com/mcp"
+env_http_headers = { "X-ContextDepot-Key" = "CONTEXTDEPOT_MCP_TOKEN" }
+```
+
+也可在私有的用户 `config.toml` 中用 `http_headers = { "X-ContextDepot-Key" = "<YOUR_ACCESS_KEY>" }` 替换 `env_http_headers` 这一行。在本机编辑密钥，避免把它放进聊天、项目配置或 Hook 文件。
+
+将 [GitHub 上的 Hook 模板](https://github.com/danvic712/context-depot/blob/main/scripts/codex/hooks.example.json) 中的两条规则合并到选定的 `hooks.json`。两处 `server` 要与实际连接名一致，例如有的配置使用 `context_depot`。
 
 ### 确认保存结果
 
-完成一次包含明确事实或决策、且希望保留的对话。如果取得了返回的 `receiptId` 或 `turnReceiptId`，可以让助手选择其中一个查询 `session_capture_status`。`accepted` 只表示已入队，**不表示已保存**。结果为 `saved` 时，用返回的 Context ID 调用 `context_get`，检查空间、摘要和支持它的用户原文。也可以在网页中浏览或搜索目标空间。
+重启 Codex 以加载配置，再开启新聊天。使用项目级 Hook 时，请在该受信任项目中开启。用 `/mcp` 确认 ContextDepot 已连接，自动抓取还需要工具列表中有 `session_capture`，并在桌面端**设置 → Hooks**或 CLI 的 `/hooks` 中审查并信任两条规则。
 
-并非每次对话都会生成记忆：没有长期价值，或无法明确匹配已授权空间时，都可能不保存。助手自己的解释不能单独作为保存事实的依据。
+说一条明确、希望长期保留的项目决策，带上目标空间或项目名。完成一轮后，在 ContextDepot 网页的目标空间搜索该决策。处理任务每分钟运行一次，结果可能需要等待几个周期。
+
+如果拿到了 `receiptId` 或 `turnReceiptId`，可以任选其一用 `session_capture_status` 查询。`accepted` 表示已入队，`saved` 表示已保存。用返回的 Context ID 调用 `context_get` 可以检查空间、摘要和用户原文。只有找到有长期价值的用户依据且能明确匹配已授权空间时，服务才会保存。
 
 ### 使用时需要了解
 
@@ -217,7 +262,7 @@ docker compose up -d --wait context-depot
 - **客户端无法连接：** 确认客户端可以访问服务地址，地址以 `/mcp` 结尾，并通过 `X-ContextDepot-Key` 请求头传入有效密钥。
 - **某个空间不可用：** 在**设置 → 访问密钥**中检查该空间是否单独授权。父空间的访问权限不会自动授予子空间。
 - **无法按含义搜索：** 在**设置 → 模型服务**中检查搜索模型。关键词搜索仍然可用。
-- **没有生成记忆：** 检查服务端开关、Codex Hook、对话模型、MCP 连接和空间授权。收到入队回执不等于保存成功。
+- **没有生成记忆：** 先用 `/mcp` 看连接，再在 Hooks 设置中确认两条规则已信任。检查会话记忆开关、对话模型和空间授权，然后[验证保存结果](#确认保存结果)。
 
 ## 许可证
 

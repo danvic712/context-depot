@@ -1,5 +1,11 @@
 # ContextDepot
 
+[![Release](https://img.shields.io/github/v/release/danvic712/context-depot?include_prereleases&sort=semver)](https://github.com/danvic712/context-depot/releases)
+[![Build and test](https://github.com/danvic712/context-depot/actions/workflows/build-and-test.yml/badge.svg?branch=main)](https://github.com/danvic712/context-depot/actions/workflows/build-and-test.yml?query=branch%3Amain)
+[![Docker image build and publish](https://github.com/danvic712/context-depot/actions/workflows/release-container.yml/badge.svg?event=release)](https://github.com/danvic712/context-depot/actions/workflows/release-container.yml)
+[![Docker Hub pulls](https://img.shields.io/docker/pulls/danvic712/context-depot)](https://hub.docker.com/r/danvic712/context-depot/tags)
+[![License](https://img.shields.io/github/license/danvic712/context-depot)](https://github.com/danvic712/context-depot/blob/main/LICENSE)
+
 [English](README.md) · [简体中文](README.zh-CN.md)
 
 ContextDepot gives your AI assistants a shared place to keep knowledge. Save facts, preferences, decisions and Markdown documents, then reuse them in another task or conversation. Connect an assistant through MCP (Model Context Protocol); use the web interface to browse, search and manage what you keep.
@@ -84,6 +90,8 @@ The guide saves all settings at the last step. Keep the page open without refres
 
 ## 3. Connect your assistant
 
+For Codex, [copy the setup prompt](#copy-the-codex-setup-prompt) to configure MCP and optionally install automatic capture hooks.
+
 In your client's MCP settings, select **Streamable HTTP** and enter:
 
 - **Server URL:** your ContextDepot address followed by `/mcp`, for example `https://context-depot.example.com/mcp`.
@@ -140,34 +148,80 @@ Use **Search** to find saved knowledge. The web interface lets you browse and re
 
 ## Optional: enable Codex session memory
 
-Session memory processes submitted conversations in the background and saves useful, user-supported knowledge. It is **off by default** and currently supports Codex. Explicit saving and ordinary retrieval do not require it.
+When enabled, Codex sends the visible prompt, reply, and session identifiers to ContextDepot as each turn starts and ends. ContextDepot looks for knowledge worth keeping and saves it to an authorized space. Setup requires enabling session memory on the server and installing and trusting the hooks in Codex.
 
-**Automatic space selection is a preview.** Live-model quality evaluation and installed-Codex end-to-end acceptance are still pending. Use it only if you accept those limitations.
+### Enable session memory in ContextDepot
 
-### Set up capture
+1. Under **Settings → Model services**, configure a **Chat model**. Add a search model (Embedding) if you use vector search to find candidate spaces.
+2. Under **Settings → Access keys**, grant the Codex key access to the existing spaces you want to use. Space names and descriptions help ContextDepot choose a destination.
+3. Under **Settings → Session memory**, turn on session memory. The switch is off by default and applies to the whole application.
 
-1. In **Settings → Model services**, configure a **Chat model**. Also configure a search model for vector-based space candidate lookup.
-2. In **Settings → Access keys**, grant the Codex key access to the existing spaces you want it to use. Give those spaces clear names and descriptions. Automatic capture does not create spaces or grant access.
-3. Open **Settings → Session memory** and enable it. This application-wide switch allows capture; you must also configure Codex to submit conversations.
-4. Use a Codex version that supports native [`mcp_tool` Hooks](https://developers.openai.com/codex/hooks/#configure-an-mcp-tool-hook). In `~/.codex/config.toml`, configure or reuse the MCP connection:
+Automatic space selection is in preview. Live-model quality evaluation and end-to-end testing with an installed Codex client are still pending.
 
-   ```toml
-   [mcp_servers.context-depot]
-   url = "https://context-depot.example.com/mcp"
+### Copy the Codex setup prompt
+
+Copy the full prompt into a local Codex chat on the machine you want to configure. Codex fetches the hook template directly from GitHub, so you can use the prompt without cloning ContextDepot. Automatic capture requires native [`mcp_tool` hook](https://learn.chatgpt.com/docs/hooks#configure-an-mcp-tool-hook) support. Keep `detect` if you have a connection, or enter the actual `/mcp` address for a first connection. Set the access key locally.
+
+```text
+Configure ContextDepot for Codex on this machine.
+MCP address: detect (for a first connection, replace with the actual https://your-server/mcp URL)
+Automatic capture scope: current project (can also be global or MCP only)
+
+1. Find the active Codex user configuration directory (CODEX_HOME, default
+   ~/.codex) and the current project root. Check the user configuration and
+   the current trusted project for ContextDepot MCP and hook settings.
+   Report server names, file paths, and check results. Keep credentials local.
+2. Reuse a connection visible in the selected scope that matches
+   the ContextDepot address. Keep its server name and X-ContextDepot-Key source.
+   If the target is ambiguous or missing, ask for the server name or actual
+   address. For a new connection, add [mcp_servers.<name>] to user config.toml
+   with the actual url, using context-depot if that name is free. If a key
+   source is missing, add this TOML line:
    env_http_headers = { "X-ContextDepot-Key" = "CONTEXTDEPOT_MCP_TOKEN" }
-   ```
+   If needed, explain how to make the variable available to the Codex
+   process or set this header with http_headers in the private user
+   config.toml. Preserve other MCP settings.
+3. For MCP only, skip hook installation. Otherwise fetch the JSON template
+   directly from GitHub:
+   https://raw.githubusercontent.com/danvic712/context-depot/main/scripts/codex/hooks.example.json
+   Merge UserPromptSubmit and Stop into
+   <project-root>/.codex/hooks.json for the current project or the user's
+   hooks.json for global scope. Set both server fields to the actual MCP
+   server name and preserve the template inputs, including ${...}. Keep
+   other hooks and skip matching entries. If old hooks would capture twice,
+   the connection or hooks are disabled, or a config file fails to parse,
+   identify the conflict so I can decide how to handle it.
+4. Validate TOML and JSON, any installed hook targets, and the selected scope.
+   Report the files changed, whether the key still needs setup, and whether
+   the MCP connection is verified. Tell me to restart Codex to load the
+   configuration. For capture, direct me to Settings → Hooks in the desktop
+   app or /hooks in the CLI to review and trust the rules.
+   Report trust and capture as verified only when they have been checked.
+```
 
-   Replace the URL. Supply `CONTEXTDEPOT_MCP_TOKEN` through your normal secure environment setup so Codex can read it. Keep the key out of Hook files and version control.
-5. Merge the `UserPromptSubmit` and `Stop` entries from [hooks.example.json](scripts/codex/hooks.example.json) into `~/.codex/hooks.json` or a trusted project's `.codex/hooks.json`. Both `server` values must match the MCP connection name (`context-depot` here). Review and trust the definitions using Codex `/hooks`, and confirm MCP is connected.
-6. Start a **new conversation**. If you used the old command adapter, remove its Hook registrations first; do not switch capture methods mid-turn. When Hooks own capture, disable Skill-driven capture of the same turns. Skill retrieval and explicit saves can remain enabled.
+With global hooks, all local Codex chats using that user configuration can submit conversations. Use one capture workflow per turn. Ordinary retrieval and explicit saves remain available.
 
-These Hooks call MCP directly: **no Python, JavaScript or shell runtime is required**. They submit the visible prompt and assistant reply with native session/turn IDs, not hidden reasoning, tool output or transcript files.
+### Manual configuration reference
+
+Configure or reuse the MCP connection in the Codex user `config.toml`. Use the reachable `/mcp` address and supply the key environment variable to the process that starts Codex.
+
+```toml
+[mcp_servers.context-depot]
+url = "https://context-depot.example.com/mcp"
+env_http_headers = { "X-ContextDepot-Key" = "CONTEXTDEPOT_MCP_TOKEN" }
+```
+
+For a key stored in the private user `config.toml`, replace the `env_http_headers` line with `http_headers = { "X-ContextDepot-Key" = "<YOUR_ACCESS_KEY>" }`. Enter the key locally and keep it out of chats, project configuration, and hook files.
+
+Merge both entries from the [hook template on GitHub](https://github.com/danvic712/context-depot/blob/main/scripts/codex/hooks.example.json) into the chosen `hooks.json`. Both `server` fields must match the actual connection name, such as `context_depot` in an existing configuration.
 
 ### Check the result
 
-Complete a conversation containing a clear fact or decision you want retained. If you have a returned `receiptId` or `turnReceiptId`, ask your assistant to query `session_capture_status` with exactly one of them. `accepted` means queued, **not saved**. If the result is `saved`, use `context_get` with the returned Context IDs to inspect the space, summary and supporting user quotes. You can also browse or search the destination space in the web interface.
+Restart Codex to load the configuration, then open a new chat. For project hooks, open the chat in that trusted project. Use `/mcp` to confirm that ContextDepot is connected. For automatic capture, check that `session_capture` is available and review and trust both rules in **Settings → Hooks** in the desktop app or `/hooks` in the CLI.
 
-Not every conversation becomes a memory: the service may find no lasting knowledge or no clear authorized space. An assistant's explanation alone is not evidence for a saved fact.
+State a clear project decision you want to keep and include the space or project name. After the turn ends, search for the decision in the destination space in ContextDepot. Processing runs once per minute and can take several cycles.
+
+If you have a `receiptId` or `turnReceiptId`, query `session_capture_status` with one of them. `accepted` means queued. `saved` means the memory was saved. Use `context_get` with the returned Context ID to inspect the space, summary, and supporting user quote. The service saves a memory when it finds evidence worth keeping in the user's message and can match it to an authorized space.
 
 ### What to expect
 
@@ -217,7 +271,7 @@ For `docker run` deployments, back up the external database separately along wit
 - **A client cannot connect:** check that the URL is reachable from the client, ends in `/mcp`, and uses the `X-ContextDepot-Key` header with an active key.
 - **A space is unavailable:** check the key's exact space grants under **Settings → Access keys**. Access to a parent does not automatically grant access to its children.
 - **Search by meaning is unavailable:** check the search model under **Settings → Model services**. Keyword search remains available.
-- **No memory appeared:** check both the server switch and Codex Hooks, the Chat model, the MCP connection and space grants. An accepted receipt alone does not confirm a save.
+- **No memory appeared:** use `/mcp` to check the connection, then confirm that both rules are trusted in Hooks settings. Check the session memory switch, Chat model, and space grants, then [check the result](#check-the-result).
 
 ## License
 
