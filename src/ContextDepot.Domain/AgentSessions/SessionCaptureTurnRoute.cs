@@ -27,4 +27,6 @@ public sealed class SessionCaptureTurnRoute
     public string? EncryptedRoutingVector { get; set; }
     public string? RoutingVectorHash { get; set; }
     public string? RoutingEmbeddingFingerprint { get; set; }
+    public string? EncryptedExtractionPlan { get; set; }
+    public string? ExtractionPlanHash { get; set; }
 }

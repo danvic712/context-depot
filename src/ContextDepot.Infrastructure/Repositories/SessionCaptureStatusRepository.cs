@@ -14,10 +14,12 @@ public sealed class SessionCaptureStatusRepository(ContextDepotDbContext db) : I
     public async Task<SessionCaptureStatusResult?> GetAsync(Guid depotId, Guid keyId, SessionCaptureStatusRequest request, CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
-        if (!await db.DepotAccessKeys.IgnoreQueryFilters().AnyAsync(k => k.Id == keyId && k.DepotId == depotId && k.RevokedAt == null, cancellationToken)) return null;
+        var canCreateRoot = await db.DepotAccessKeys.IgnoreQueryFilters().Where(k => k.Id == keyId && k.DepotId == depotId && k.RevokedAt == null)
+            .Select(k => (bool?)k.CanCreateRootWorkspaces).SingleOrDefaultAsync(cancellationToken);
+        if (canCreateRoot is null) return null;
         var grants = await db.WorkspaceAccessGrants.IgnoreQueryFilters().Where(g => g.DepotId == depotId && g.DepotAccessKeyId == keyId)
             .Select(g => g.WorkspaceId).ToArrayAsync(cancellationToken);
-        if (grants.Length == 0) return null;
+        if (grants.Length == 0 && !canCreateRoot.Value) return null;
         SessionCaptureTurnRoute? route = null;
         var inbox = db.SessionCaptureInboxEvents.IgnoreQueryFilters().AsNoTracking().Where(e => e.DepotId == depotId && e.AccessKeyId == keyId);
         if (request.TurnReceiptId is Guid turnId)

@@ -13,7 +13,7 @@ public sealed class SessionCaptureCallBudget(ContextDepotDbContext db, IOptionsM
 {
     public async Task<BudgetReservation> TryReserveAsync(CaptureWorkLease lease, ProviderCallKind kind, CancellationToken cancellationToken)
     {
-        if (!((lease.OwnerKind == "route" && kind is ProviderCallKind.RoutingEmbedding or ProviderCallKind.RoutingChat) ||
+        if (!((lease.OwnerKind == "route" && kind is ProviderCallKind.RoutingEmbedding or ProviderCallKind.RoutingChat or ProviderCallKind.ExtractionChat) ||
             (lease.OwnerKind == "extraction" && kind == ProviderCallKind.ExtractionChat))) return new("lease_lost");
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         await SessionCaptureLocks.LockKeyAsync(db, lease.DepotId, lease.KeyId, cancellationToken);
@@ -30,7 +30,7 @@ public sealed class SessionCaptureCallBudget(ContextDepotDbContext db, IOptionsM
             if (message is not null) await SessionAccessGuard.EnsureAsync(db, lease.DepotId, lease.KeyId, message.WorkspaceId, cancellationToken);
             else
             {
-                await SessionAccessGuard.EnsureAnyAsync(db, lease.DepotId, lease.KeyId, cancellationToken);
+                await SessionAccessGuard.EnsureAutomaticCaptureAsync(db, lease.DepotId, lease.KeyId, cancellationToken);
             }
         }
         catch (ContextDepotApplicationException) { return new("lease_lost"); }

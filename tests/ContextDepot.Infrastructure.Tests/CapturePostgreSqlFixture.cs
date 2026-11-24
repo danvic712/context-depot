@@ -61,7 +61,7 @@ public sealed class CapturePostgreSqlFixture : IAsyncLifetime
             .AddInterceptors(interceptors).Options, access);
     }
 
-    public async Task<CaptureSeed> SeedAsync()
+    public async Task<CaptureSeed> SeedAsync(bool canCreateRootWorkspaces = false, bool grantWorkspace = true)
     {
         await using var db = CreateDb();
         // Explicit child-first list, confined to the dedicated test database. No CASCADE or schema deletion.
@@ -71,6 +71,7 @@ public sealed class CapturePostgreSqlFixture : IAsyncLifetime
             DELETE FROM public.session_capture_turn_routes;
             DELETE FROM public.session_capture_events;
             DELETE FROM public.context_items;
+            DELETE FROM public.workspace_subject_bindings;
             DELETE FROM public.workspace_access_grants;
             DELETE FROM public.depot_access_keys;
             DELETE FROM public.workspaces;
@@ -79,8 +80,8 @@ public sealed class CapturePostgreSqlFixture : IAsyncLifetime
         var now = DateTimeOffset.UtcNow;
         var depot = new Depot(Guid.NewGuid(), "Capture integration", now);
         var workspace = new Workspace(Guid.NewGuid(), depot.Id, null, "Storage", "storage", null, now);
-        var key = new DepotAccessKey(Guid.NewGuid(), depot.Id, "Capture", "capture-test", "test-only-hash", now);
-        key.WorkspaceGrants.Add(new WorkspaceAccessGrant(key.Id, depot.Id, workspace.Id, now));
+        var key = new DepotAccessKey(Guid.NewGuid(), depot.Id, "Capture", "capture-test", "test-only-hash", now, canCreateRootWorkspaces);
+        if (grantWorkspace) key.WorkspaceGrants.Add(new WorkspaceAccessGrant(key.Id, depot.Id, workspace.Id, now));
         db.AddRange(depot, workspace, key);
         await db.SaveChangesAsync();
         return new(depot.Id, key.Id, workspace.Id);

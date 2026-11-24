@@ -1,6 +1,8 @@
 using System.ComponentModel;
+using System.Text.Json;
 using ContextDepot.Application.AgentSessions.Contracts;
 using ContextDepot.Application.AgentSessions.Dtos;
+using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 
 namespace ContextDepot.MCP.Tools;
@@ -8,16 +10,28 @@ namespace ContextDepot.MCP.Tools;
 public sealed class SessionTools(MCPToolExecutor executor, ILogger<SessionTools> logger)
 {
     [McpServerTool(Name = "session_capture", Title = "Capture visible session memory", Destructive = false,
-        Idempotent = true, UseStructuredContent = true)]
+        Idempotent = true, UseStructuredContent = true, OutputSchemaType = typeof(SessionCaptureReceipt))]
     [Description("Submit visible dialogue only. workspaceMode defaults to explicit and requires workspace; auto requires schema 2 and omits workspace/sessionId, routes only this turn's user input and may abstain. Server may save evidence-backed summaries of durable user information; unconfirmed assistant claims are not evidence. Supply sessionId from session_start for lifecycle-managed capture; agent, clientSessionId and Workspace must match. No session is created or recalled here. Legacy unbound capture remains supported. Schema 2: mode=message requires clientSessionId, turnId and one messages item (role=user or assistant); mode=turn requires exactly [user, assistant], both nonempty, and allows omitting both native IDs. Each content is at most 20000 characters. Keep eventId stable on retry. Submit a completed visible exchange only when invoking manually. Schema 1 phase/content remains supported; do not mix it with mode/messages. Server opt-in and the current key grant are required. accepted confirms queue persistence only, not saved memory. Never send hidden instructions, reasoning, tools, attachments or transcripts. Agent/role are unverified labels. Do not also automatically context_save the same turn.")]
-    public Task<SessionCaptureReceipt> CaptureAsync(ISessionCaptureAppService service,
+    public async Task<CallToolResult> CaptureAsync(ISessionCaptureAppService service,
         int schemaVersion, string agent, string eventId, string? workspace = null,
         string? clientSessionId = null, string? turnId = null, string? phase = null, string? content = null,
         string? mode = null, IReadOnlyList<SessionCaptureMessage>? messages = null, Guid? sessionId = null,
-        [Description("explicit (default) requires workspace; auto requires schema 2 and omits workspace/sessionId. Auto routes this turn's user text to an existing authorized Workspace, or abstains.")] string? workspaceMode = null,
-        CancellationToken cancellationToken = default) =>
-        executor.ExecuteAsync(() => service.CaptureAsync(new(schemaVersion, agent, clientSessionId, turnId,
+        [Description("explicit (default) requires workspace. auto requires schema 2 and omits workspace/sessionId. It waits for both phases and may ensure a root project Workspace with root creation permission or a child under an authorized parent when durable user evidence supports the project. Codex auto message calls return Hook continuation text and a structured capture receipt.")] string? workspaceMode = null,
+        CancellationToken cancellationToken = default)
+    {
+        var receipt = await executor.ExecuteAsync(() => service.CaptureAsync(new(schemaVersion, agent, clientSessionId, turnId,
             phase, eventId, workspace, content, mode, messages, sessionId, workspaceMode), cancellationToken), logger);
+        var structured = JsonSerializer.SerializeToElement(receipt, JsonSerializerOptions.Web);
+        // Codex parses the text block as Hook output. MCP clients can still read the structured receipt.
+        var text = (agent, workspaceMode, mode) is ("codex", "auto", "message")
+            ? """{"continue":true}"""
+            : structured.GetRawText();
+        return new CallToolResult
+        {
+            Content = [new TextContentBlock { Text = text }],
+            StructuredContent = structured
+        };
+    }
 
     [McpServerTool(Name = "session_capture_status", Title = "Read capture receipt status", ReadOnly = true,
         Idempotent = true, UseStructuredContent = true)]

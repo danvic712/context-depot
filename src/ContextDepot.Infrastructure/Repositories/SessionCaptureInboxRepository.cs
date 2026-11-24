@@ -21,7 +21,7 @@ public sealed class SessionCaptureInboxRepository(ContextDepotDbContext db, ISes
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         await LockKeyAsync(first.DepotId, first.AccessKeyId, cancellationToken);
         if (!options.CurrentValue.Enabled) return new("disabled");
-        try { await SessionAccessGuard.EnsureAnyAsync(db, first.DepotId, first.AccessKeyId, cancellationToken); }
+        try { await SessionAccessGuard.EnsureAutomaticCaptureAsync(db, first.DepotId, first.AccessKeyId, cancellationToken); }
         catch (ContextDepotApplicationException) { throw Unavailable(); }
         var now = await NowAsync(cancellationToken);
         if (!options.CurrentValue.Enabled) return new("disabled");
@@ -88,7 +88,8 @@ public sealed class SessionCaptureInboxRepository(ContextDepotDbContext db, ISes
     {
         var now = await NowAsync(cancellationToken);
         return await db.SessionCaptureTurnRoutes.IgnoreQueryFilters().AsNoTracking().Where(r =>
-            (r.State == "pending" && r.NextAttemptAt <= now) || (r.State == "resolving" && r.LeaseUntil < now))
+            ((r.State == "pending" && r.NextAttemptAt <= now) || (r.State == "resolving" && r.LeaseUntil < now)) &&
+            db.SessionCaptureInboxEvents.IgnoreQueryFilters().Count(e => e.TurnRouteId == r.Id) == 2)
             .OrderBy(r => r.NextAttemptAt).ThenBy(r => r.CreatedAt).ThenBy(r => r.Id).Take(Math.Min(limit, 64))
             .Select(r => new RouteLocator(r.DepotId, r.AccessKeyId, r.Id)).ToArrayAsync(cancellationToken);
     }
@@ -104,13 +105,19 @@ public sealed class SessionCaptureInboxRepository(ContextDepotDbContext db, ISes
             !((route.State == "pending" && route.NextAttemptAt <= now) || (route.State == "resolving" && route.LeaseUntil < now))) return null;
         var messages = await MessagesAsync(route.Id, cancellationToken);
         if (route.ExpiresAt <= now) Terminate(route, messages, now, "skipped", messages.Length == 2 ? "skipped_expired" : "skipped_incomplete");
+        else if (messages.Length != 2) return null;
         else if (route.AttemptCount >= options.CurrentValue.RoutingMaxAttempts) Terminate(route, messages, now, "failed", "retry_exhausted");
         else if (!await AuthorizedAsync(locator.DepotId, locator.KeyId, null, cancellationToken)) Terminate(route, messages, now, "skipped", "skipped_unauthorized");
         else
         {
             var user = messages.SingleOrDefault(m => m.Phase == "user");
             string text;
-            try { text = Decrypt(user); }
+            string assistant;
+            try
+            {
+                text = Decrypt(user);
+                assistant = Decrypt(messages.SingleOrDefault(m => m.Phase == "assistant"));
+            }
             catch (CryptographicException)
             {
                 Terminate(route, messages, now, "failed", "content_unavailable");
@@ -126,7 +133,7 @@ public sealed class SessionCaptureInboxRepository(ContextDepotDbContext db, ISes
             await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             return new(locator, route.LeaseToken.Value, route.LeaseUntil.Value, route.ExpiresAt, text, user!.ContentHash,
-                route.EncryptedRoutingVector, route.RoutingVectorHash, route.RoutingEmbeddingFingerprint);
+                route.EncryptedRoutingVector, route.RoutingVectorHash, route.RoutingEmbeddingFingerprint, assistant);
         }
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -174,8 +181,15 @@ public sealed class SessionCaptureInboxRepository(ContextDepotDbContext db, ISes
                     await SessionAccessGuard.EnsureAsync(db, route.DepotId, route.AccessKeyId, workspaceId, cancellationToken);
                     now = await NowAsync(cancellationToken);
                     if (!ValidLease(route, lease, now) || !options.CurrentValue.Enabled) return false;
+                    if (decision.Plan is { } plan)
+                    {
+                        var plaintext = CapturePlanCodec.Serialize(plan);
+                        route.EncryptedExtractionPlan = protector.Protect(plaintext);
+                        route.ExtractionPlanHash = CapturePlanCodec.Hash(plaintext);
+                    }
                     route.WorkspaceId = workspaceId; route.State = "resolved"; route.ResolvedAt = now; route.ResultCode = null;
                     ClearLease(route); ClearVector(route); break;
+                case "no_memory": Terminate(route, messages, now, "skipped", "skipped_no_new_memory"); break;
                 case "no_match": Terminate(route, messages, now, "skipped", "workspace_no_match"); break;
                 case "ambiguous": Terminate(route, messages, now, "skipped", "workspace_ambiguous"); break;
                 case "budget_deferred":
@@ -233,14 +247,20 @@ public sealed class SessionCaptureInboxRepository(ContextDepotDbContext db, ISes
             if (await db.SessionCaptureEvents.IgnoreQueryFilters().AnyAsync(e => e.DepotId == route.DepotId && e.AccessKeyId == route.AccessKeyId &&
                 e.Agent == route.Agent && e.ClientSessionId == route.ClientSessionId && (e.TurnId == route.TurnId || messages.Select(m => m.EventId).Contains(e.EventId)), cancellationToken)) throw Conflict();
             foreach (var message in messages)
+            {
+                var hasPlan = message.Phase == "user" && route.EncryptedExtractionPlan is not null;
                 db.SessionCaptureEvents.Add(new SessionCaptureEvent
                 {
                     Id = message.Id, DepotId = route.DepotId, AccessKeyId = route.AccessKeyId, WorkspaceId = workspaceId,
                     Agent = route.Agent, ClientSessionId = route.ClientSessionId, TurnId = route.TurnId, Phase = message.Phase,
                     EventId = message.EventId, EncryptedContent = message.EncryptedContent, ContentHash = message.ContentHash,
-                    CreatedAt = route.CreatedAt, CaptureExpiresAt = route.ExpiresAt, NextAttemptAt = now
+                    CreatedAt = route.CreatedAt, CaptureExpiresAt = route.ExpiresAt, NextAttemptAt = now,
+                    EncryptedExtractionPlan = hasPlan ? route.EncryptedExtractionPlan : null,
+                    ExtractionPlanHash = hasPlan ? route.ExtractionPlanHash : null,
+                    ExtractorVersion = hasPlan ? ValidatedExtractionPlan.CurrentVersion : null
                 });
-            route.State = "promoted"; route.PromotedAt = now; ClearVector(route); Purge(messages, now);
+            }
+            route.State = "promoted"; route.PromotedAt = now; ClearVector(route); ClearPlan(route); Purge(messages, now);
         }
         await db.SaveChangesAsync(cancellationToken);
         if (route.State == "promoted" && (!options.CurrentValue.Enabled || route.ExpiresAt <= await NowAsync(cancellationToken)))
@@ -283,7 +303,8 @@ public sealed class SessionCaptureInboxRepository(ContextDepotDbContext db, ISes
         $"SELECT pg_try_advisory_xact_lock(hashtextextended({$"session-capture:{locator.DepotId}:{locator.KeyId}"},0)) AS \"Value\"").SingleAsync(ct);
     private async Task<bool> AuthorizedAsync(Guid depot, Guid key, Guid? workspace, CancellationToken ct) =>
         await db.DepotAccessKeys.IgnoreQueryFilters().AnyAsync(k => k.Id == key && k.DepotId == depot && k.RevokedAt == null &&
-            db.WorkspaceAccessGrants.IgnoreQueryFilters().Any(g => g.DepotId == depot && g.DepotAccessKeyId == key && (workspace == null || g.WorkspaceId == workspace)), ct);
+            ((workspace == null && k.CanCreateRootWorkspaces) || db.WorkspaceAccessGrants.IgnoreQueryFilters().Any(g =>
+                g.DepotId == depot && g.DepotAccessKeyId == key && (workspace == null || g.WorkspaceId == workspace))), ct);
     private string Decrypt(SessionCaptureInboxEvent? message)
     {
         if (message?.EncryptedContent is null) throw new CryptographicException();
@@ -296,10 +317,12 @@ public sealed class SessionCaptureInboxRepository(ContextDepotDbContext db, ISes
     private static void ClearLease(SessionCaptureTurnRoute route) { route.LeaseToken = null; route.LeaseUntil = null; }
     private static void ClearVector(SessionCaptureTurnRoute route)
     { route.EncryptedRoutingVector = null; route.RoutingVectorHash = null; route.RoutingEmbeddingFingerprint = null; }
+    private static void ClearPlan(SessionCaptureTurnRoute route)
+    { route.EncryptedExtractionPlan = null; route.ExtractionPlanHash = null; }
     private static void Purge(IEnumerable<SessionCaptureInboxEvent> messages, DateTimeOffset now)
     { foreach (var message in messages) { message.EncryptedContent = null; message.ContentPurgedAt = now; } }
     private static void Terminate(SessionCaptureTurnRoute route, IEnumerable<SessionCaptureInboxEvent> messages, DateTimeOffset now, string state, string code)
-    { route.State = state; route.ResultCode = code; ClearLease(route); ClearVector(route); Purge(messages, now); }
+    { route.State = state; route.ResultCode = code; ClearLease(route); ClearVector(route); ClearPlan(route); Purge(messages, now); }
     private static ContextDepotApplicationException Conflict() => new(ApplicationErrorCodes.SessionCaptureConflict);
     private static ContextDepotApplicationException Unavailable() => new(ApplicationErrorCodes.SessionCaptureUnavailable);
 }

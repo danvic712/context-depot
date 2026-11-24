@@ -20,6 +20,7 @@ public sealed class SessionCaptureTurnRouteConfiguration : IEntityTypeConfigurat
             table.HasCheckConstraint("ck_capture_route_expiry", "expires_at > created_at");
             table.HasCheckConstraint("ck_capture_route_counts", "attempt_count >= 0 AND provider_call_count >= 0");
             table.HasCheckConstraint("ck_capture_route_vector", "(encrypted_routing_vector IS NULL AND routing_vector_hash IS NULL AND routing_embedding_fingerprint IS NULL) OR (encrypted_routing_vector IS NOT NULL AND routing_vector_hash IS NOT NULL AND routing_embedding_fingerprint IS NOT NULL)");
+            table.HasCheckConstraint("ck_capture_route_plan", "(encrypted_extraction_plan IS NULL AND extraction_plan_hash IS NULL) OR (state = 'resolved' AND encrypted_extraction_plan IS NOT NULL AND extraction_plan_hash IS NOT NULL AND extraction_plan_hash ~ '^[0-9A-F]{64}$')");
         });
         entity.HasKey(x => x.Id);
         entity.Property(x => x.Id).HasColumnName("id");
@@ -47,6 +48,8 @@ public sealed class SessionCaptureTurnRouteConfiguration : IEntityTypeConfigurat
         entity.Property(x => x.EncryptedRoutingVector).HasColumnName("encrypted_routing_vector");
         entity.Property(x => x.RoutingVectorHash).HasColumnName("routing_vector_hash").HasMaxLength(64);
         entity.Property(x => x.RoutingEmbeddingFingerprint).HasColumnName("routing_embedding_fingerprint").HasMaxLength(200);
+        entity.Property(x => x.EncryptedExtractionPlan).HasColumnName("encrypted_extraction_plan");
+        entity.Property(x => x.ExtractionPlanHash).HasColumnName("extraction_plan_hash").HasMaxLength(64);
 
         entity.HasAlternateKey(x => new { x.Id, x.DepotId, x.AccessKeyId, x.Agent, x.ClientSessionId, x.TurnId });
         entity.HasIndex(x => new { x.DepotId, x.AccessKeyId, x.Agent, x.ClientSessionId, x.TurnId }).IsUnique();

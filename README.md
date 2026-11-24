@@ -148,12 +148,12 @@ Use **Search** to find saved knowledge. The web interface lets you browse and re
 
 ## Optional: enable Codex session memory
 
-When enabled, Codex sends the visible prompt, reply, and session identifiers to ContextDepot as each turn starts and ends. ContextDepot looks for knowledge worth keeping and saves it to an authorized space. Setup requires enabling session memory on the server and installing and trusting the hooks in Codex.
+When enabled, Codex sends the visible prompt, reply, and session identifiers to ContextDepot as each turn starts and ends. ContextDepot processes completed turns and reuses matching spaces. When the user's message identifies a new project and supports a durable memory, ContextDepot can create a root space for an independent project or a child under a matching authorized parent, then save the summary and supporting evidence there.
 
 ### Enable session memory in ContextDepot
 
 1. Under **Settings → Model services**, configure a **Chat model**. Add a search model (Embedding) if you use vector search to find candidate spaces.
-2. Under **Settings → Access keys**, grant the Codex key access to the existing spaces you want to use. Space names and descriptions help ContextDepot choose a destination.
+2. Under **Settings → Access keys**, grant the Codex key access to the project spaces or parent spaces it should use. Enable root workspace creation on the key if it should also create independent project spaces. Names and descriptions help ContextDepot choose where a project belongs.
 3. Under **Settings → Session memory**, turn on session memory. The switch is off by default and applies to the whole application.
 
 Automatic space selection is in preview. Live-model quality evaluation and end-to-end testing with an installed Codex client are still pending.
@@ -215,13 +215,15 @@ For a key stored in the private user `config.toml`, replace the `env_http_header
 
 Merge both entries from the [hook template on GitHub](https://github.com/danvic712/context-depot/blob/main/scripts/codex/hooks.example.json) into the chosen `hooks.json`. Both `server` fields must match the actual connection name, such as `context_depot` in an existing configuration.
 
+When upgrading, update the server and database. Existing `session_capture` rules with `workspaceMode: "auto"` use the new behavior after the server upgrade.
+
 ### Check the result
 
-Restart Codex to load the configuration, then open a new chat. For project hooks, open the chat in that trusted project. Use `/mcp` to confirm that ContextDepot is connected. For automatic capture, check that `session_capture` is available and review and trust both rules in **Settings → Hooks** in the desktop app or `/hooks` in the CLI.
+Restart Codex to load the configuration, then open a new chat. For project hooks, open the chat in that trusted project. Use `/mcp` to confirm that ContextDepot is connected and exposes `session_capture`. Review and trust both rules in **Settings → Hooks** in the desktop app or `/hooks` in the CLI.
 
-State a clear project decision you want to keep and include the space or project name. After the turn ends, search for the decision in the destination space in ContextDepot. Processing runs once per minute and can take several cycles.
+State a clear decision you want to keep and include the project name. To test child space creation, also name its existing category. After the turn ends, search for the decision in the destination space in ContextDepot. Processing runs once per minute and can take several cycles.
 
-If you have a `receiptId` or `turnReceiptId`, query `session_capture_status` with one of them. `accepted` means queued. `saved` means the memory was saved. Use `context_get` with the returned Context ID to inspect the space, summary, and supporting user quote. The service saves a memory when it finds evidence worth keeping in the user's message and can match it to an authorized space.
+If you have a `receiptId` or `turnReceiptId` from the MCP result's structured content, query `session_capture_status` with one of them. `accepted` means queued. `saved` means the memory was saved. Use `context_get` with the returned Context ID to inspect the space, summary, and supporting user quote.
 
 ### What to expect
 

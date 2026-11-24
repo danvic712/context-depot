@@ -99,6 +99,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISessionCaptureCallBudget, SessionCaptureCallBudget>();
         services.AddScoped<ISessionRoutingCandidateRepository, SessionRoutingCandidateRepository>();
         services.AddScoped<ISessionWorkspaceRouter, AgentFrameworkWorkspaceRouter>();
+        services.AddScoped<SessionWorkspacePreparation>();
         services.AddScoped<ISessionCaptureAuthorization,
             SessionCaptureAuthorization>();
         services.AddScoped<IMemoryExtractionService,

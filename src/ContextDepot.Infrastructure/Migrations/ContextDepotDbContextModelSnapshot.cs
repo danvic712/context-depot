@@ -396,6 +396,10 @@ namespace ContextDepot.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("depot_id");
 
+                    b.Property<string>("EncryptedExtractionPlan")
+                        .HasColumnType("text")
+                        .HasColumnName("encrypted_extraction_plan");
+
                     b.Property<string>("EncryptedRoutingVector")
                         .HasColumnType("text")
                         .HasColumnName("encrypted_routing_vector");
@@ -403,6 +407,11 @@ namespace ContextDepot.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("ExpiresAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("expires_at");
+
+                    b.Property<string>("ExtractionPlanHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("extraction_plan_hash");
 
                     b.Property<DateTimeOffset?>("LastAttemptAt")
                         .HasColumnType("timestamp with time zone")
@@ -505,6 +514,8 @@ namespace ContextDepot.Infrastructure.Migrations
                             t.HasCheckConstraint("ck_capture_route_hash", "routing_vector_hash IS NULL OR routing_vector_hash ~ '^[0-9A-F]{64}$'");
 
                             t.HasCheckConstraint("ck_capture_route_lease", "(state = 'resolving' AND lease_token IS NOT NULL AND lease_until IS NOT NULL) OR (state <> 'resolving' AND lease_token IS NULL AND lease_until IS NULL)");
+
+                            t.HasCheckConstraint("ck_capture_route_plan", "(encrypted_extraction_plan IS NULL AND extraction_plan_hash IS NULL) OR (state = 'resolved' AND encrypted_extraction_plan IS NOT NULL AND extraction_plan_hash IS NOT NULL AND extraction_plan_hash ~ '^[0-9A-F]{64}$')");
 
                             t.HasCheckConstraint("ck_capture_route_state", "state IN ('waiting_user','pending','resolving','resolved','promoted','skipped','failed')");
 
