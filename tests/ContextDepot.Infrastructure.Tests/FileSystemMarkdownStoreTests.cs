@@ -34,25 +34,26 @@ public sealed class FileSystemMarkdownStoreTests
     }
 
     [Fact]
-    public async Task Delete_is_idempotent_and_scoped_to_depot_and_validated_path()
+    public async Task Delete_is_idempotent_and_scoped_to_workspace_and_validated_path()
     {
         var root = Path.Combine(Path.GetTempPath(), "context-depot-delete-" + Guid.NewGuid().ToString("N"));
         try
         {
             var store = new FileSystemMarkdownStore(new TestHostEnvironment { ContentRootPath = root },
                 Microsoft.Extensions.Options.Options.Create(new MarkdownStoreOptions { MarkdownRoot = root }));
-            var depot = Guid.CreateVersion7(); var other = Guid.CreateVersion7();
-            await store.WriteAtomicAsync(depot, "notes/old.md", "old", default);
-            await store.WriteAtomicAsync(other, "notes/old.md", "keep", default);
+            var workspacePath = $"workspaces/{Guid.CreateVersion7():N}/old.md";
+            var otherPath = $"workspaces/{Guid.CreateVersion7():N}/old.md";
+            await store.WriteAtomicAsync(workspacePath, "old", default);
+            await store.WriteAtomicAsync(otherPath, "keep", default);
             await Assert.ThrowsAsync<ContextDepot.Application.Shared.Exceptions.ContextDepotApplicationException>(() =>
-                store.DeleteAsync(depot, "../notes/old.md", default));
+                store.DeleteAsync("../notes/old.md", default));
             using var canceled = new CancellationTokenSource(); canceled.Cancel();
-            await Assert.ThrowsAsync<OperationCanceledException>(() => store.DeleteAsync(depot, "notes/old.md", canceled.Token));
-            Assert.NotNull(await store.GetAsync(depot, "notes/old.md", default));
-            await store.DeleteAsync(depot, "notes/old.md", default);
-            await store.DeleteAsync(depot, "notes/old.md", default);
-            Assert.Null(await store.GetAsync(depot, "notes/old.md", default));
-            Assert.Equal("keep", (await store.GetAsync(other, "notes/old.md", default))!.Content);
+            await Assert.ThrowsAsync<OperationCanceledException>(() => store.DeleteAsync(workspacePath, canceled.Token));
+            Assert.NotNull(await store.GetAsync(workspacePath, default));
+            await store.DeleteAsync(workspacePath, default);
+            await store.DeleteAsync(workspacePath, default);
+            Assert.Null(await store.GetAsync(workspacePath, default));
+            Assert.Equal("keep", (await store.GetAsync(otherPath, default))!.Content);
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }

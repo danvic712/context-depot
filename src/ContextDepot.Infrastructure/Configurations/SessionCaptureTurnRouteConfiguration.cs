@@ -1,6 +1,6 @@
 using ContextDepot.Domain.AgentSessions;
 using ContextDepot.Domain.Contexts;
-using ContextDepot.Domain.Depots;
+using ContextDepot.Domain.Access;
 using ContextDepot.Domain.Workspaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -24,7 +24,6 @@ public sealed class SessionCaptureTurnRouteConfiguration : IEntityTypeConfigurat
         });
         entity.HasKey(x => x.Id);
         entity.Property(x => x.Id).HasColumnName("id");
-        entity.Property(x => x.DepotId).HasColumnName("depot_id");
         entity.Property(x => x.AccessKeyId).HasColumnName("access_key_id");
         entity.Property(x => x.Agent).HasColumnName("agent").HasMaxLength(30);
         entity.Property(x => x.ClientSessionId).HasColumnName("client_session_id").HasMaxLength(200);
@@ -51,15 +50,15 @@ public sealed class SessionCaptureTurnRouteConfiguration : IEntityTypeConfigurat
         entity.Property(x => x.EncryptedExtractionPlan).HasColumnName("encrypted_extraction_plan");
         entity.Property(x => x.ExtractionPlanHash).HasColumnName("extraction_plan_hash").HasMaxLength(64);
 
-        entity.HasAlternateKey(x => new { x.Id, x.DepotId, x.AccessKeyId, x.Agent, x.ClientSessionId, x.TurnId });
-        entity.HasIndex(x => new { x.DepotId, x.AccessKeyId, x.Agent, x.ClientSessionId, x.TurnId }).IsUnique();
-        entity.HasOne<Workspace>().WithMany().HasForeignKey(x => new { x.WorkspaceId, x.DepotId }).HasPrincipalKey(x => new { x.Id, x.DepotId }).OnDelete(DeleteBehavior.Restrict);
+        entity.HasAlternateKey(x => new { x.Id, x.AccessKeyId, x.Agent, x.ClientSessionId, x.TurnId });
+        entity.HasIndex(x => new { x.AccessKeyId, x.Agent, x.ClientSessionId, x.TurnId }).IsUnique();
+        entity.HasOne<Workspace>().WithMany().HasForeignKey(x => x.WorkspaceId).OnDelete(DeleteBehavior.Restrict);
         entity.HasIndex(x => new { x.State, x.NextAttemptAt, x.Id });
         entity.HasIndex(x => new { x.State, x.LeaseUntil, x.Id });
         entity.HasIndex(x => new { x.ExpiresAt, x.Id });
-        entity.HasIndex(x => new { x.DepotId, x.AccessKeyId, x.LastProviderCallAt });
+        entity.HasIndex(x => new { x.AccessKeyId, x.LastProviderCallAt });
         entity.Property(x => x.AttemptCount).HasDefaultValue(0);
         entity.Property(x => x.ProviderCallCount).HasDefaultValue(0);
-        entity.HasOne<DepotAccessKey>().WithMany().HasForeignKey(x => new { x.AccessKeyId, x.DepotId }).HasPrincipalKey(x => new { x.Id, x.DepotId }).OnDelete(DeleteBehavior.Restrict);
+        entity.HasOne<AccessKey>().WithMany().HasForeignKey(x => x.AccessKeyId).OnDelete(DeleteBehavior.Restrict);
     }
 }

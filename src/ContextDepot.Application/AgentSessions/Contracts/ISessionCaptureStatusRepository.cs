@@ -4,5 +4,5 @@ namespace ContextDepot.Application.AgentSessions.Contracts;
 
 public interface ISessionCaptureStatusRepository
 {
-    Task<SessionCaptureStatusResult?> GetAsync(Guid depotId, Guid keyId, SessionCaptureStatusRequest request, CancellationToken cancellationToken);
+    Task<SessionCaptureStatusResult?> GetAsync(Guid keyId, SessionCaptureStatusRequest request, CancellationToken cancellationToken);
 }

@@ -1,6 +1,6 @@
 using ContextDepot.Domain.AgentSessions;
 using ContextDepot.Domain.Contexts;
-using ContextDepot.Domain.Depots;
+using ContextDepot.Domain.Access;
 using ContextDepot.Domain.Workspaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -19,7 +19,6 @@ public sealed class ContextCaptureEvidenceConfiguration : IEntityTypeConfigurati
         });
         entity.HasKey(x => x.ContextId);
         entity.Property(x => x.ContextId).HasColumnName("context_id");
-        entity.Property(x => x.DepotId).HasColumnName("depot_id");
         entity.Property(x => x.WorkspaceId).HasColumnName("workspace_id");
         entity.Property(x => x.AccessKeyId).HasColumnName("access_key_id");
         entity.Property(x => x.UserEventId).HasColumnName("user_event_id");
@@ -32,9 +31,9 @@ public sealed class ContextCaptureEvidenceConfiguration : IEntityTypeConfigurati
         entity.Property(x => x.ProtectionVersion).HasColumnName("protection_version");
         entity.Property(x => x.CreatedAt).HasColumnName("created_at");
 
-        entity.HasOne<ContextItem>().WithMany().HasForeignKey(x => new { x.ContextId, x.DepotId, x.WorkspaceId }).HasPrincipalKey(x => new { x.Id, x.DepotId, x.WorkspaceId }).OnDelete(DeleteBehavior.Cascade);
-        entity.HasIndex(x => new { x.DepotId, x.AccessKeyId, x.UserEventId, x.CandidateIndex }).IsUnique();
+        entity.HasOne<ContextItem>().WithMany().HasForeignKey(x => new { x.ContextId, x.WorkspaceId }).HasPrincipalKey(x => new { x.Id, x.WorkspaceId }).OnDelete(DeleteBehavior.Cascade);
+        entity.HasIndex(x => new { x.AccessKeyId, x.UserEventId, x.CandidateIndex }).IsUnique();
         entity.Property(x => x.ProtectionVersion).HasDefaultValue(1);
-        entity.HasOne<DepotAccessKey>().WithMany().HasForeignKey(x => new { x.AccessKeyId, x.DepotId }).HasPrincipalKey(x => new { x.Id, x.DepotId }).OnDelete(DeleteBehavior.Restrict);
+        entity.HasOne<AccessKey>().WithMany().HasForeignKey(x => x.AccessKeyId).OnDelete(DeleteBehavior.Restrict);
     }
 }

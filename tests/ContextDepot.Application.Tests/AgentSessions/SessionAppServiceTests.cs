@@ -15,7 +15,7 @@ namespace ContextDepot.Application.Tests.AgentSessions;
 
 public sealed class SessionAppServiceTests
 {
-    private readonly Guid depotId = Guid.CreateVersion7();
+
     private readonly Guid keyId = Guid.CreateVersion7();
     private readonly Guid workspaceId = Guid.CreateVersion7();
     private readonly Guid sessionId = Guid.CreateVersion7();
@@ -24,24 +24,31 @@ public sealed class SessionAppServiceTests
     private readonly Mock<IWorkspaceAccessContext> access = new();
     private readonly Mock<IContextBootstrapAppService> bootstrap = new();
 
-    private AgentSession Session => new() { Id = sessionId, DepotId = depotId, AccessKeyId = keyId,
-        WorkspaceId = workspaceId, Agent = "codex", ClientSessionId = "client-1", CreatedAt = DateTimeOffset.UtcNow };
+    private AgentSession Session => new()
+    {
+        Id = sessionId,
+        AccessKeyId = keyId,
+        WorkspaceId = workspaceId,
+        Agent = "codex",
+        ClientSessionId = "client-1",
+        CreatedAt = DateTimeOffset.UtcNow
+    };
 
     private readonly Mock<IOptionsMonitor<SessionCaptureOptions>> options = new();
 
     private SessionAppService Create(bool enabled = true)
     {
-        var depot = new Mock<ICurrentDepotContext>();
-        depot.SetupGet(d => d.DepotId).Returns(depotId);
-        access.SetupGet(a => a.DepotAccessKeyId).Returns(keyId);
+
+
+        access.SetupGet(a => a.AccessKeyId).Returns(keyId);
         access.Setup(a => a.CanAccess(workspaceId)).Returns(true);
-        var workspace = new WorkspaceModel(workspaceId, depotId, "project", "Project", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
+        var workspace = new WorkspaceModel(workspaceId, "project", "Project", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
         workspaces.Setup(w => w.ResolveAsync("project", It.IsAny<CancellationToken>())).ReturnsAsync(workspace);
         workspaces.Setup(w => w.GetAsync(workspaceId, It.IsAny<CancellationToken>())).ReturnsAsync(workspace);
-        repository.Setup(r => r.GetAsync(depotId, keyId, sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(Session);
+        repository.Setup(r => r.GetAsync(keyId, sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(Session);
         var ids = new Mock<IIdGenerator>(); ids.Setup(i => i.NewId()).Returns(sessionId);
         options.SetupGet(o => o.CurrentValue).Returns(new SessionCaptureOptions { Enabled = enabled });
-        return new(options.Object, depot.Object, access.Object,
+        return new(options.Object, access.Object,
             workspaces.Object, repository.Object, bootstrap.Object, ids.Object, TimeProvider.System);
     }
 
@@ -73,11 +80,11 @@ public sealed class SessionAppServiceTests
         Assert.Equal("active", result.Session!.Status);
         Assert.Equal(sessionId, result.Session.Id);
         Assert.Equal(keyId, stored!.AccessKeyId);
-        Assert.Equal(depotId, stored.DepotId);
+
         Assert.Equal(workspaceId, stored.WorkspaceId);
         Assert.Null(stored.EndedAt);
         bootstrap.VerifyNoOtherCalls();
-        repository.Verify(r => r.EndAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<DateTimeOffset>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        repository.Verify(r => r.EndAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<DateTimeOffset>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -86,7 +93,7 @@ public sealed class SessionAppServiceTests
         var service = Create(false);
         Assert.Equal("disabled", (await service.StartAsync(new("codex", "client-1", "project"), default)).Status);
         repository.VerifyNoOtherCalls(); workspaces.VerifyNoOtherCalls(); bootstrap.VerifyNoOtherCalls();
-        repository.Setup(r => r.CountEventsAsync(depotId, keyId, sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(new SessionEventCounts(1, 0, 0, 0, 1, 0));
+        repository.Setup(r => r.CountEventsAsync(keyId, sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(new SessionEventCounts(1, 0, 0, 0, 1, 0));
         Assert.Equal(1, (await service.StatusAsync(sessionId, null, default)).Events.Pending);
     }
 
@@ -95,7 +102,7 @@ public sealed class SessionAppServiceTests
     {
         var service = Create();
         var ended = Session; ended.EndedAt = DateTimeOffset.UtcNow; ended.EndReason = "completed";
-        repository.Setup(r => r.GetAsync(depotId, keyId, sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(ended);
+        repository.Setup(r => r.GetAsync(keyId, sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(ended);
         BootstrapRequest? query = null;
         bootstrap.Setup(b => b.BootstrapAsync(It.IsAny<BootstrapRequest>(), It.IsAny<CancellationToken>()))
             .Callback<BootstrapRequest, CancellationToken>((r, _) => query = r).ReturnsAsync((BootstrapResult)null!);
@@ -104,7 +111,7 @@ public sealed class SessionAppServiceTests
         Assert.Equal(["project"], query!.Workspaces);
         Assert.Equal("database", query.Query); Assert.Equal(700, query.MaxTokens);
         repository.Verify(r => r.StartAsync(It.IsAny<AgentSession>(), It.IsAny<CancellationToken>()), Times.Never);
-        repository.Verify(r => r.EndAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<DateTimeOffset>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        repository.Verify(r => r.EndAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<DateTimeOffset>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -112,10 +119,10 @@ public sealed class SessionAppServiceTests
     {
         var service = Create(false);
         var ended = Session; SessionLifecyclePolicy.End(ended, DateTimeOffset.UtcNow, "completed");
-        repository.Setup(r => r.EndAsync(depotId, keyId, sessionId, It.IsAny<DateTimeOffset>(), "completed", It.IsAny<CancellationToken>())).ReturnsAsync(ended);
+        repository.Setup(r => r.EndAsync(keyId, sessionId, It.IsAny<DateTimeOffset>(), "completed", It.IsAny<CancellationToken>())).ReturnsAsync(ended);
         Assert.Equal("ended", (await service.EndAsync(sessionId, "completed", default)).Status);
         bootstrap.VerifyNoOtherCalls();
-        repository.Verify(r => r.CountEventsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        repository.Verify(r => r.CountEventsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -123,7 +130,7 @@ public sealed class SessionAppServiceTests
     {
         var service = Create();
         var receipt = Guid.CreateVersion7();
-        repository.Setup(r => r.CountEventsAsync(depotId, keyId, sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(new SessionEventCounts(0, 0, 0, 0, 0, 0));
+        repository.Setup(r => r.CountEventsAsync(keyId, sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(new SessionEventCounts(0, 0, 0, 0, 0, 0));
         var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => service.StatusAsync(sessionId, receipt, default));
         Assert.Equal(ApplicationErrorCodes.SessionUnavailable, error.ErrorCode);
         bootstrap.VerifyNoOtherCalls();

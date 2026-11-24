@@ -3,25 +3,25 @@ using ContextDepot.Application.Settings.Contracts;
 using ContextDepot.Application.Settings.Dtos;
 using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Application.Shared.Runtime.Contracts;
-using ContextDepot.Domain.Depots;
+using ContextDepot.Domain.Access;
 using Moq;
 
 namespace ContextDepot.Application.Tests.Settings;
 
 public sealed class SettingsManagementTests
 {
-    private readonly Guid depotId = Guid.CreateVersion7();
+
     private readonly Guid workspaceId = Guid.CreateVersion7();
     private readonly Mock<IAccessKeyRepository> keys = new(MockBehavior.Strict);
     private readonly Mock<IAccessKeySecretGenerator> secrets = new(MockBehavior.Strict);
     private readonly Mock<IInferenceSettingsRepository> inference = new(MockBehavior.Strict);
-    private readonly Mock<ICurrentDepotContext> depot = new();
+
     private readonly Mock<IWorkspaceAccessContext> access = new();
     private readonly Mock<IIdGenerator> ids = new(MockBehavior.Strict);
 
     public SettingsManagementTests()
     {
-        depot.SetupGet(x => x.DepotId).Returns(depotId);
+
         access.SetupGet(x => x.HasUnrestrictedAccess).Returns(true);
     }
 
@@ -31,7 +31,7 @@ public sealed class SettingsManagementTests
     public async Task McpKeysCannotManageSettings(bool unrestricted, bool hasKey)
     {
         access.SetupGet(x => x.HasUnrestrictedAccess).Returns(unrestricted);
-        access.SetupGet(x => x.DepotAccessKeyId).Returns(hasKey ? Guid.CreateVersion7() : null);
+        access.SetupGet(x => x.AccessKeyId).Returns(hasKey ? Guid.CreateVersion7() : null);
         var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => KeyService().ListAsync(default));
         Assert.Equal(ApplicationErrorCodes.SettingsForbidden, error.ErrorCode);
         error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => InferenceService().GetAsync(default));
@@ -46,16 +46,16 @@ public sealed class SettingsManagementTests
         var generated = new GeneratedAccessKey("example-secret", "cdk_example", "example-hash");
         secrets.Setup(x => x.Generate()).Returns(generated);
         ids.Setup(x => x.NewId()).Returns(id);
-        keys.Setup(x => x.WorkspacesBelongToDepotAsync(depotId, It.Is<IReadOnlyList<Guid>>(value => value.SequenceEqual(new[] { workspaceId })), default)).ReturnsAsync(true);
-        DepotAccessKey? stored = null;
-        keys.Setup(x => x.CreateAsync(It.IsAny<DepotAccessKey>(), default)).ReturnsAsync((DepotAccessKey key, CancellationToken _) =>
+        keys.Setup(x => x.WorkspacesExistAsync(It.Is<IReadOnlyList<Guid>>(value => value.SequenceEqual(new[] { workspaceId })), default)).ReturnsAsync(true);
+        AccessKey? stored = null;
+        keys.Setup(x => x.CreateAsync(It.IsAny<AccessKey>(), default)).ReturnsAsync((AccessKey key, CancellationToken _) =>
         {
             stored = key;
             return new AccessKeyDto(key.Id, key.Name, key.KeyPrefix, key.CreatedAt, null, null, [workspaceId]);
         });
         var result = await KeyService().CreateAsync(new CreateAccessKeyRequest("  My client  ", [workspaceId, workspaceId]), default);
         Assert.Equal(generated.Plaintext, result.Secret);
-        Assert.Equal(id, stored!.Id); Assert.Equal(depotId, stored.DepotId);
+        Assert.Equal(id, stored!.Id);
         Assert.Equal("My client", stored.Name); Assert.Equal(generated.SecretHash, stored.SecretHash);
         Assert.Single(stored.WorkspaceGrants); Assert.Equal(workspaceId, stored.WorkspaceGrants.Single().WorkspaceId);
         Assert.DoesNotContain(generated.Plaintext, result.ToString());
@@ -65,7 +65,7 @@ public sealed class SettingsManagementTests
     [Fact]
     public async Task ForeignWorkspaceCannotBeGrantedOrIssueASecret()
     {
-        keys.Setup(x => x.WorkspacesBelongToDepotAsync(depotId, It.IsAny<IReadOnlyList<Guid>>(), default)).ReturnsAsync(false);
+        keys.Setup(x => x.WorkspacesExistAsync(It.IsAny<IReadOnlyList<Guid>>(), default)).ReturnsAsync(false);
         var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() =>
             KeyService().CreateAsync(new CreateAccessKeyRequest("Client", [workspaceId]), default));
         Assert.Equal(ApplicationErrorCodes.InvalidRequest, error.ErrorCode);
@@ -94,7 +94,7 @@ public sealed class SettingsManagementTests
     public async Task MissingOrForeignKeyHasSameNotFoundResult()
     {
         var id = Guid.CreateVersion7();
-        keys.Setup(x => x.RevokeAsync(depotId, id, It.IsAny<DateTimeOffset>(), default)).ReturnsAsync((AccessKeyDto?)null);
+        keys.Setup(x => x.RevokeAsync(id, It.IsAny<DateTimeOffset>(), default)).ReturnsAsync((AccessKeyDto?)null);
         var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => KeyService().RevokeAsync(id, default));
         Assert.Equal(ApplicationErrorCodes.AccessKeyNotFound, error.ErrorCode);
     }
@@ -173,7 +173,7 @@ public sealed class SettingsManagementTests
         await Assert.ThrowsAsync<ContextDepotApplicationException>(() => InferenceService().SaveProviderAsync(request, default));
         inference.VerifyNoOtherCalls();
     }
-    private AccessKeyAppService KeyService() => new(keys.Object, secrets.Object, depot.Object, access.Object, ids.Object, TimeProvider.System);
+    private AccessKeyAppService KeyService() => new(keys.Object, secrets.Object, access.Object, ids.Object, TimeProvider.System);
 
     [Theory]
     [InlineData("deepseek", "https://api.deepseek.com/v1/", true)]
@@ -204,5 +204,5 @@ public sealed class SettingsManagementTests
         Assert.Same(result, await InferenceService().SaveProviderAsync(request, default));
     }
 
-    private InferenceSettingsAppService InferenceService() => new(inference.Object, depot.Object, access.Object);
+    private InferenceSettingsAppService InferenceService() => new(inference.Object, access.Object);
 }

@@ -6,8 +6,6 @@ internal sealed class DocumentVectorRecord
 
     public required Guid DocumentId { get; init; }
 
-    public required Guid DepotId { get; init; }
-
     public required Guid WorkspaceId { get; init; }
 
     public required string EmbeddingInputHash { get; init; }

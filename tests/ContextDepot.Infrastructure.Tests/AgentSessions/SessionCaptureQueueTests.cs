@@ -6,7 +6,7 @@ using ContextDepot.Application.AgentSessions.Dtos;
 using ContextDepot.Application.AgentSessions.Enums;
 using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Domain.AgentSessions;
-using ContextDepot.Domain.Depots;
+using ContextDepot.Domain.Access;
 using ContextDepot.Domain.Workspaces;
 using ContextDepot.Infrastructure.AgentSessions;
 using ContextDepot.Infrastructure.Repositories;
@@ -23,27 +23,27 @@ public sealed class SessionCaptureQueueTests
     {
         await using var fixture = await SetupDatabaseFixture.CreateAsync();
         await using var db = fixture.CreateDb(true);
-        var (depot, workspace, key) = await SeedAsync(db);
+        var (workspace, key) = await SeedAsync(db);
         var options = new Monitor { CurrentValue = new() { Enabled = true, MaxCallsPerHour = 1 } };
         var protector = new SessionContentProtector(new EphemeralDataProtectionProvider());
         var queue = new SessionCaptureRepository(db, protector, options, TimeProvider.System);
-        var user = Message(depot, workspace, key, "turn", "user", protector);
-        var assistant = Message(depot, workspace, key, "turn", "assistant", protector);
+        var user = Message(workspace, key, "turn", "user", protector);
+        var assistant = Message(workspace, key, "turn", "assistant", protector);
         await queue.EnqueueTurnAsync(user, assistant, default);
         var turn = Assert.IsType<CapturedTurn>(await queue.ClaimAsync(default));
         Assert.Equal(0, user.AttemptCount);
         Assert.Equal(user.LeaseToken, assistant.LeaseToken);
         var budget = new SessionCaptureCallBudget(db, options);
-        var extractionLease = new CaptureWorkLease(depot.Id, key.Id, "extraction", user.Id, turn.LeaseToken!.Value);
+        var extractionLease = new CaptureWorkLease(key.Id, "extraction", user.Id, turn.LeaseToken!.Value);
         Assert.Equal("granted", (await budget.TryReserveAsync(extractionLease, ProviderCallKind.ExtractionChat, default)).Status);
         Assert.Equal(1, user.ProviderCallCount);
         Assert.Equal(1, user.AttemptCount);
         Assert.Equal(0, assistant.ProviderCallCount);
         Assert.Equal(0, assistant.AttemptCount);
-        var route = Route(depot, key, "other");
+        var route = Route(key, "other");
         route.State = "resolving"; route.LeaseToken = Guid.NewGuid(); route.LeaseUntil = DateTimeOffset.UtcNow.AddMinutes(1);
         db.SessionCaptureTurnRoutes.Add(route); await db.SaveChangesAsync();
-        var waiting = await budget.TryReserveAsync(new(depot.Id, key.Id, "route", route.Id, route.LeaseToken.Value), ProviderCallKind.RoutingChat, default);
+        var waiting = await budget.TryReserveAsync(new(key.Id, "route", route.Id, route.LeaseToken.Value), ProviderCallKind.RoutingChat, default);
         Assert.Equal("wait", waiting.Status);
         Assert.True(waiting.WaitUntil > DateTimeOffset.UtcNow.AddMinutes(59));
         Assert.Equal(0, route.ProviderCallCount);
@@ -97,7 +97,7 @@ public sealed class SessionCaptureQueueTests
         var token = timeout.Token;
         await using var fixture = await SetupDatabaseFixture.CreateAsync();
         await using var db = fixture.CreateDb(true);
-        var (depot, workspace, key) = await SeedAsync(db);
+        var (workspace, key) = await SeedAsync(db);
         var protector = new SessionContentProtector(new EphemeralDataProtectionProvider());
         var options = new Monitor();
         var leaseToken = Guid.NewGuid();
@@ -105,8 +105,8 @@ public sealed class SessionCaptureQueueTests
         var boundaryAt = now.AddSeconds(2);
         var leaseUntil = boundary == "lease" ? boundaryAt : now.AddMinutes(1);
         var expiresAt = boundary == "deadline" ? boundaryAt : now.AddHours(24);
-        var route = Route(depot, key, "blocked");
-        var user = Message(depot, workspace, key, "blocked", "user", protector);
+        var route = Route(key, "blocked");
+        var user = Message(workspace, key, "blocked", "user", protector);
         if (ownerKind == "route")
         {
             route.State = "resolving"; route.LeaseToken = leaseToken;
@@ -127,11 +127,11 @@ public sealed class SessionCaptureQueueTests
         await using var transaction = await blocker.Database.BeginTransactionAsync(token);
         var blockingPid = await blocker.Database.SqlQuery<int>($"SELECT pg_backend_pid() AS \"Value\"").SingleAsync(token);
         if (ownerKind == "route")
-            await blocker.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM public.depot_access_keys WHERE id = {key.Id} FOR UPDATE", token);
+            await blocker.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM public.access_keys WHERE id = {key.Id} FOR UPDATE", token);
         else
-            await blocker.Database.ExecuteSqlInterpolatedAsync($"SELECT workspace_id FROM public.workspace_access_grants WHERE depot_access_key_id = {key.Id} AND workspace_id = {workspace.Id} FOR UPDATE", token);
+            await blocker.Database.ExecuteSqlInterpolatedAsync($"SELECT workspace_id FROM public.workspace_access_grants WHERE access_key_id = {key.Id} AND workspace_id = {workspace.Id} FOR UPDATE", token);
         var budget = new SessionCaptureCallBudget(db, options);
-        var reservation = budget.TryReserveAsync(new(depot.Id, key.Id, ownerKind,
+        var reservation = budget.TryReserveAsync(new(key.Id, ownerKind,
             ownerKind == "route" ? route.Id : user.Id, leaseToken),
             ownerKind == "route" ? ProviderCallKind.RoutingChat : ProviderCallKind.ExtractionChat, token);
         // A database-observed wait is the barrier: no scheduling assumptions or blind sleeps.
@@ -172,11 +172,11 @@ public sealed class SessionCaptureQueueTests
     {
         await using var fixture = await SetupDatabaseFixture.CreateAsync();
         await using var db = fixture.CreateDb(true);
-        var (depot, workspace, key) = await SeedAsync(db);
+        var (workspace, key) = await SeedAsync(db);
         var protector = new SessionContentProtector(new EphemeralDataProtectionProvider());
         var queue = new SessionCaptureRepository(db, protector, new Monitor(), TimeProvider.System);
-        var user = Message(depot, workspace, key, "turn", "user", protector);
-        var assistant = Message(depot, workspace, key, "turn", "assistant", protector);
+        var user = Message(workspace, key, "turn", "user", protector);
+        var assistant = Message(workspace, key, "turn", "assistant", protector);
         await queue.EnqueueTurnAsync(user, assistant, default);
         var turn = Assert.IsType<CapturedTurn>(await queue.ClaimAsync(default));
         await queue.FinishAsync(turn with { LeaseToken = Guid.NewGuid() }, new(SessionCaptureDisposition.Completed, "wrong"), default);
@@ -196,20 +196,24 @@ public sealed class SessionCaptureQueueTests
     {
         await using var fixture = await SetupDatabaseFixture.CreateAsync();
         await using var db = fixture.CreateDb(true);
-        var (depot, workspace, key) = await SeedAsync(db);
+        var (workspace, key) = await SeedAsync(db);
         var protector = new SessionContentProtector(new EphemeralDataProtectionProvider());
         var queue = new SessionCaptureRepository(db, protector, new Monitor(), TimeProvider.System);
-        var user = Message(depot, workspace, key, "turn", "user", protector);
+        var user = Message(workspace, key, "turn", "user", protector);
         // Simulate a promoted message plus its permanent route authority.
         db.SessionCaptureEvents.Add(user);
-        var route = Route(depot, key, "turn"); route.State = "promoted"; route.WorkspaceId = workspace.Id;
+        var route = Route(key, "turn"); route.State = "promoted"; route.WorkspaceId = workspace.Id;
         db.SessionCaptureTurnRoutes.Add(route); await db.SaveChangesAsync();
         var conflict = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => queue.EnqueueAsync(user, default));
         Assert.Equal(ApplicationErrorCodes.SessionCaptureConflict, conflict.ErrorCode);
         var start = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => new SessionRepository(db).StartAsync(new()
         {
-            Id = Guid.NewGuid(), DepotId = depot.Id, WorkspaceId = workspace.Id, AccessKeyId = key.Id,
-            Agent = "test", ClientSessionId = "client", CreatedAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            WorkspaceId = workspace.Id,
+            AccessKeyId = key.Id,
+            Agent = "test",
+            ClientSessionId = "client",
+            CreatedAt = DateTimeOffset.UtcNow
         }, default));
         Assert.Equal(ApplicationErrorCodes.SessionConflict, start.ErrorCode);
     }
@@ -219,12 +223,12 @@ public sealed class SessionCaptureQueueTests
     {
         await using var fixture = await SetupDatabaseFixture.CreateAsync();
         await using var db = fixture.CreateDb(true);
-        var (depot, workspace, key) = await SeedAsync(db);
+        var (workspace, key) = await SeedAsync(db);
         var protector = new SessionContentProtector(new EphemeralDataProtectionProvider());
         var queue = new SessionCaptureRepository(db, protector, new Monitor(), TimeProvider.System);
-        var user = Message(depot, workspace, key, "turn", "user", protector);
+        var user = Message(workspace, key, "turn", "user", protector);
         await queue.EnqueueAsync(user, default);
-        var assistant = Message(depot, workspace, key, "turn", "assistant", protector);
+        var assistant = Message(workspace, key, "turn", "assistant", protector);
         assistant.EncryptedContent = null; assistant.ResultCode = "skipped_sensitive";
         await queue.EnqueueAsync(assistant, default);
         Assert.All(new[] { user, assistant }, e =>
@@ -232,7 +236,7 @@ public sealed class SessionCaptureQueueTests
             Assert.Equal("completed", e.Status); Assert.Equal("skipped_sensitive", e.ResultCode);
             Assert.Null(e.EncryptedContent); Assert.NotNull(e.ContentPurgedAt); Assert.Null(e.LeaseToken);
         });
-        var changed = Message(depot, workspace, key, "turn", "user", protector);
+        var changed = Message(workspace, key, "turn", "user", protector);
         changed.ContentHash = new string('F', 64); changed.EncryptedContent = null; changed.ResultCode = "skipped_sensitive";
         var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => queue.EnqueueAsync(changed, default));
         Assert.Equal(ApplicationErrorCodes.SessionCaptureConflict, error.ErrorCode);
@@ -243,19 +247,27 @@ public sealed class SessionCaptureQueueTests
     {
         await using var fixture = await SetupDatabaseFixture.CreateAsync();
         await using var db = fixture.CreateDb(true);
-        var (depot, workspace, key) = await SeedAsync(db);
-        var route = Route(depot, key, "auto");
+        var (workspace, key) = await SeedAsync(db);
+        var route = Route(key, "auto");
         db.SessionCaptureTurnRoutes.Add(route);
         db.SessionCaptureInboxEvents.Add(new()
         {
-            Id = Guid.NewGuid(), TurnRouteId = route.Id, DepotId = depot.Id, AccessKeyId = key.Id,
-            Agent = route.Agent, ClientSessionId = route.ClientSessionId, TurnId = route.TurnId,
-            EventId = "auto-user", Phase = "user", EncryptedContent = "protected", ContentHash = new string('A', 64), CreatedAt = route.CreatedAt
+            Id = Guid.NewGuid(),
+            TurnRouteId = route.Id,
+            AccessKeyId = key.Id,
+            Agent = route.Agent,
+            ClientSessionId = route.ClientSessionId,
+            TurnId = route.TurnId,
+            EventId = "auto-user",
+            Phase = "user",
+            EncryptedContent = "protected",
+            ContentHash = new string('A', 64),
+            CreatedAt = route.CreatedAt
         });
         await db.SaveChangesAsync();
         var protector = new SessionContentProtector(new EphemeralDataProtectionProvider());
         var queue = new SessionCaptureRepository(db, protector, new Monitor { CurrentValue = new() { Enabled = true, MaxPendingEventsPerKey = 1 } }, TimeProvider.System);
-        var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => queue.EnqueueAsync(Message(depot, workspace, key, "explicit", "user", protector), default));
+        var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => queue.EnqueueAsync(Message(workspace, key, "explicit", "user", protector), default));
         Assert.Equal(ApplicationErrorCodes.SessionCaptureCapacity, error.ErrorCode);
     }
 
@@ -268,17 +280,17 @@ public sealed class SessionCaptureQueueTests
         var second = await SeedAsync(db);
         var protector = new SessionContentProtector(new EphemeralDataProtectionProvider());
         var queue = new SessionCaptureRepository(db, protector, new Monitor(), TimeProvider.System);
-        await queue.EnqueueTurnAsync(Message(first.Item1, first.Item2, first.Item3, "first", "user", protector),
-            Message(first.Item1, first.Item2, first.Item3, "first", "assistant", protector), default);
-        await queue.EnqueueTurnAsync(Message(second.Item1, second.Item2, second.Item3, "second", "user", protector),
-            Message(second.Item1, second.Item2, second.Item3, "second", "assistant", protector), default);
+        await queue.EnqueueTurnAsync(Message(first.Item1, first.Item2, "first", "user", protector),
+            Message(first.Item1, first.Item2, "first", "assistant", protector), default);
+        await queue.EnqueueTurnAsync(Message(second.Item1, second.Item2, "second", "user", protector),
+            Message(second.Item1, second.Item2, "second", "assistant", protector), default);
         await using var blocker = fixture.CreateDb(true);
         await using var transaction = await blocker.Database.BeginTransactionAsync();
-        var lockKey = $"session-capture:{first.Item1.Id}:{first.Item3.Id}";
+        var lockKey = $"session-capture:{first.Item2.Id}";
         await blocker.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({lockKey}, 0))");
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         var turn = Assert.IsType<CapturedTurn>(await queue.ClaimAsync(timeout.Token));
-        Assert.Equal(second.Item3.Id, turn.AccessKeyId);
+        Assert.Equal(second.Item2.Id, turn.AccessKeyId);
     }
 
     [PostgreSqlFact]
@@ -286,7 +298,17 @@ public sealed class SessionCaptureQueueTests
     {
         await using var fixture = await SetupDatabaseFixture.CreateAsync("20261022000000_RemoveApplicationSettingKeyPrefix");
         await using var db = fixture.CreateDb(true);
-        var (depot, workspace, key) = await SeedAsync(db);
+        var legacyId = Guid.NewGuid();
+        var workspaceId = Guid.NewGuid();
+        var keyId = Guid.NewGuid();
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO public.depots (id, display_name, metadata, created_at, updated_at)
+            VALUES ({legacyId}, 'Capture', {"{}"}::jsonb, now(), now());
+            INSERT INTO public.workspaces (id, depot_id, name, slug, metadata, created_at, updated_at)
+            VALUES ({workspaceId}, {legacyId}, 'Capture', 'capture', {"{}"}::jsonb, now(), now());
+            INSERT INTO public.depot_access_keys (id, depot_id, name, key_prefix, secret_hash, created_at)
+            VALUES ({keyId}, {legacyId}, 'Capture', 'fixture-key', 'hash', now());
+            """);
         var userId = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow;
         var leaseUntil = now.AddMinutes(2);
@@ -294,7 +316,7 @@ public sealed class SessionCaptureQueueTests
             INSERT INTO public.session_capture_events
                 (id,depot_id,access_key_id,workspace_id,agent,client_session_id,turn_id,event_id,phase,
                  encrypted_content,content_hash,status,attempt_count,next_attempt_at,created_at,lease_until)
-            VALUES ({userId},{depot.Id},{key.Id},{workspace.Id},'test','client','turn','user','user',
+            VALUES ({userId},{legacyId},{keyId},{workspaceId},'test','client','turn','user','user',
                 'legacy-ciphertext',{new string('A', 64)},'processing',2,{now},{now},{leaseUntil})
             """);
         await db.Database.MigrateAsync();
@@ -306,29 +328,43 @@ public sealed class SessionCaptureQueueTests
         Assert.Equal(leaseUntil.ToUnixTimeMilliseconds(), user.LeaseUntil!.Value.ToUnixTimeMilliseconds());
     }
 
-    private static async Task<(Depot, Workspace, DepotAccessKey)> SeedAsync(ContextDepotDbContext db)
+    private static async Task<(Workspace, AccessKey)> SeedAsync(ContextDepotDbContext db)
     {
         var now = DateTimeOffset.UtcNow;
-        var depot = new Depot(Guid.NewGuid(), "Capture", now);
-        var workspace = new Workspace(Guid.NewGuid(), depot.Id, null, "Capture", "capture", null, now);
-        var key = new DepotAccessKey(Guid.NewGuid(), depot.Id, "Capture", Guid.NewGuid().ToString("N")[..12], "hash", now);
-        key.WorkspaceGrants.Add(new WorkspaceAccessGrant(key.Id, depot.Id, workspace.Id, now));
-        db.AddRange(depot, workspace, key); await db.SaveChangesAsync();
-        return (depot, workspace, key);
+        var workspace = new Workspace(Guid.NewGuid(), null, "Capture", "capture-" + Guid.NewGuid().ToString("N"), null, now);
+        var key = new AccessKey(Guid.NewGuid(), "Capture", Guid.NewGuid().ToString("N")[..12], "hash", now);
+        key.WorkspaceGrants.Add(new WorkspaceAccessGrant(key.Id, workspace.Id, now));
+        db.AddRange(workspace, key); await db.SaveChangesAsync();
+        return (workspace, key);
     }
 
-    private static SessionCaptureEvent Message(Depot depot, Workspace workspace, DepotAccessKey key, string turn, string phase, ISessionContentProtector protector) => new()
+    private static SessionCaptureEvent Message(Workspace workspace, AccessKey key, string turn, string phase, ISessionContentProtector protector) => new()
     {
-        Id = Guid.NewGuid(), DepotId = depot.Id, AccessKeyId = key.Id, WorkspaceId = workspace.Id,
-        Agent = "test", ClientSessionId = "client", TurnId = turn, EventId = turn + "-" + phase, Phase = phase,
-        EncryptedContent = protector.Protect(phase), ContentHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(phase))),
-        CreatedAt = DateTimeOffset.UtcNow, NextAttemptAt = DateTimeOffset.UtcNow.AddSeconds(-1)
+        Id = Guid.NewGuid(),
+        AccessKeyId = key.Id,
+        WorkspaceId = workspace.Id,
+        Agent = "test",
+        ClientSessionId = "client",
+        TurnId = turn,
+        EventId = turn + "-" + phase,
+        Phase = phase,
+        EncryptedContent = protector.Protect(phase),
+        ContentHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(phase))),
+        CreatedAt = DateTimeOffset.UtcNow,
+        NextAttemptAt = DateTimeOffset.UtcNow.AddSeconds(-1)
     };
 
-    private static SessionCaptureTurnRoute Route(Depot depot, DepotAccessKey key, string turn) => new()
+    private static SessionCaptureTurnRoute Route(AccessKey key, string turn) => new()
     {
-        Id = Guid.NewGuid(), DepotId = depot.Id, AccessKeyId = key.Id, Agent = "test", ClientSessionId = "client", TurnId = turn,
-        State = "pending", CreatedAt = DateTimeOffset.UtcNow, ExpiresAt = DateTimeOffset.UtcNow.AddHours(24), NextAttemptAt = DateTimeOffset.UtcNow
+        Id = Guid.NewGuid(),
+        AccessKeyId = key.Id,
+        Agent = "test",
+        ClientSessionId = "client",
+        TurnId = turn,
+        State = "pending",
+        CreatedAt = DateTimeOffset.UtcNow,
+        ExpiresAt = DateTimeOffset.UtcNow.AddHours(24),
+        NextAttemptAt = DateTimeOffset.UtcNow
     };
 
     private sealed class Monitor : IOptionsMonitor<SessionCaptureOptions>

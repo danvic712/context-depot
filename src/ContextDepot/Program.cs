@@ -107,8 +107,7 @@ try
         .WithTools<ContextTools>(mcpJsonOptions)
         .WithTools<SessionTools>(mcpJsonOptions)
         .WithTools<DocumentTools>(mcpJsonOptions)
-        .WithTools<WorkspaceTools>(mcpJsonOptions)
-        .WithTools<DepotTools>(mcpJsonOptions);
+        .WithTools<WorkspaceTools>(mcpJsonOptions);
 
     var app = builder.Build();
 
@@ -118,9 +117,9 @@ try
     app.Services.GetRequiredService<BackgroundJobRegistrar>().Register();
 
     app.UseExceptionHandler();
-    app.UseMiddleware<DepotAccessKeyAuthenticationMiddleware>();
+    app.UseMiddleware<AccessKeyAuthenticationMiddleware>();
     app.UseMiddleware<InstallationSetupMiddleware>();
-    app.UseMiddleware<WebDepotContextMiddleware>();
+    app.UseMiddleware<WebWorkspaceAccessMiddleware>();
     app.UseDefaultFiles();
     app.UseStaticFiles();
     app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));

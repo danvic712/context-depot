@@ -2,7 +2,7 @@ using ContextDepot.Application.Settings;
 using ContextDepot.Application.Settings.Dtos;
 using ContextDepot.Application.Setup.Contracts;
 using ContextDepot.Application.Shared.Exceptions;
-using ContextDepot.Domain.Depots;
+using ContextDepot.Domain.Access;
 using ContextDepot.Domain.Inferences;
 using ContextDepot.Domain.Setup;
 using ContextDepot.Domain.Workspaces;
@@ -64,7 +64,6 @@ public sealed class SetupRepository(ContextDepotDbContext db, InferenceRuntimeSn
             {
                 if (!resources.ExistingWorkspace)
                 {
-                    db.Depots.Add(resources.Depot);
                     db.Workspaces.Add(resources.Workspace);
                 }
                 else
@@ -94,8 +93,8 @@ public sealed class SetupRepository(ContextDepotDbContext db, InferenceRuntimeSn
                     if (route.Capability == "chat") route.IndexState = "not-applicable";
                     route.EmbeddingProfileFingerprint = fingerprint;
                 }
-                if (resources.AccessKey is not null) db.DepotAccessKeys.Add(resources.AccessKey);
-                snapshot = snapshot with { Workspace = resources.Workspace, InitialDepotExists = true, HasAnyDepot = true };
+                if (resources.AccessKey is not null) db.AccessKeys.Add(resources.AccessKey);
+                snapshot = snapshot with { Workspace = resources.Workspace, HasWorkspaces = true };
             }
             await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
@@ -104,7 +103,7 @@ public sealed class SetupRepository(ContextDepotDbContext db, InferenceRuntimeSn
         {
             // Rolled-back values must not be committed by a later operation in this request scope.
             foreach (var entry in db.ChangeTracker.Entries().Where(entry => entry.Entity is InstallationState ||
-                entry.Entity is Depot or Workspace or InferenceProvider or InferenceRoute or DepotAccessKey or WorkspaceAccessGrant &&
+                entry.Entity is Workspace or InferenceProvider or InferenceRoute or AccessKey or WorkspaceAccessGrant &&
                 entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted).ToArray())
                 entry.State = EntityState.Detached;
             throw;
@@ -121,11 +120,9 @@ public sealed class SetupRepository(ContextDepotDbContext db, InferenceRuntimeSn
 
     private async Task<SetupSnapshot> LoadSnapshotAsync(InstallationState state, CancellationToken cancellationToken)
     {
-        var workspace = state.InitialWorkspaceId is Guid workspaceId && state.InitialDepotId is Guid depotId
+        var workspace = state.InitialWorkspaceId is Guid workspaceId
             ? await db.Workspaces.IgnoreQueryFilters().AsNoTracking().SingleOrDefaultAsync(
-                workspace => workspace.Id == workspaceId && workspace.DepotId == depotId, cancellationToken) : null;
-        var initialDepotExists = state.InitialDepotId is Guid initialDepotId &&
-            await db.Depots.AsNoTracking().AnyAsync(depot => depot.Id == initialDepotId, cancellationToken);
-        return new(state, workspace, initialDepotExists, initialDepotExists || await db.Depots.AsNoTracking().AnyAsync(cancellationToken));
+                workspace => workspace.Id == workspaceId, cancellationToken) : null;
+        return new(state, workspace, workspace is not null || await db.Workspaces.IgnoreQueryFilters().AnyAsync(cancellationToken));
     }
 }

@@ -7,7 +7,6 @@ using ContextDepot.Domain.Contexts.Enums;
 namespace ContextDepot.Application.Overview;
 
 public sealed partial class OverviewAppService(
-    ICurrentDepotContext currentDepot,
     IOverviewRepository repository,
     IIdGenerator idGenerator,
     TimeProvider timeProvider,
@@ -16,13 +15,13 @@ public sealed partial class OverviewAppService(
     public Task<ResourceCollection<WorkspaceSummary>> ListWorkspacesAsync(int limit, string sort, CancellationToken cancellationToken)
     {
         ValidateQuery(limit, 8, sort, "-activityAt");
-        return repository.ListWorkspacesAsync(currentDepot.DepotId, limit, timeProvider.GetUtcNow(), cancellationToken);
+        return repository.ListWorkspacesAsync(limit, timeProvider.GetUtcNow(), cancellationToken);
     }
 
     public Task<ResourceCollection<KnowledgeSummary>> ListKnowledgeAsync(int limit, string sort, CancellationToken cancellationToken)
     {
         ValidateQuery(limit, 20, sort, "-updatedAt");
-        return repository.ListKnowledgeAsync(currentDepot.DepotId, limit, timeProvider.GetUtcNow(), cancellationToken);
+        return repository.ListKnowledgeAsync(limit, timeProvider.GetUtcNow(), cancellationToken);
     }
 
     /// <summary>Lists recently updated knowledge within the search page's current conditions.</summary>
@@ -48,7 +47,7 @@ public sealed partial class OverviewAppService(
             selectedKind = parsed;
         }
         var filter = new RecentKnowledgeFilter(string.IsNullOrWhiteSpace(workspace) ? null : workspace.Trim(), type, selectedKind);
-        return repository.ListRecentKnowledgeAsync(currentDepot.DepotId, limit, filter, timeProvider.GetUtcNow(), cancellationToken);
+        return repository.ListRecentKnowledgeAsync(limit, filter, timeProvider.GetUtcNow(), cancellationToken);
     }
 
     public async Task<WorkspaceSummary> CreateWorkspaceAsync(CreateWorkspaceRequest request, CancellationToken cancellationToken)
@@ -64,7 +63,7 @@ public sealed partial class OverviewAppService(
         sourceSafety.EnsureSafe(description);
         var id = idGenerator.NewId();
         var now = timeProvider.GetUtcNow();
-        if (!await repository.CreateWorkspaceAsync(currentDepot.DepotId, id, name, path, description, now, cancellationToken))
+        if (!await repository.CreateWorkspaceAsync(id, name, path, description, now, cancellationToken))
         {
             throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspacePathConflict,
                 new Dictionary<string, string[]> { ["path"] = [ApplicationErrorCodes.WorkspacePathConflict] });

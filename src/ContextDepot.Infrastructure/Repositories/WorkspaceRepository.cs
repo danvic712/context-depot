@@ -15,24 +15,24 @@ public sealed partial class WorkspaceRepository(
     IWorkspaceAccessContext workspaceAccess,
     VisibleWorkspaceTopologyProvider topologyProvider) : IWorkspaceRepository
 {
-    public async Task<WorkspaceTopology> LoadVisibleTopologyAsync(Guid depotId, CancellationToken cancellationToken) =>
-        (await topologyProvider.GetAsync(depotId, cancellationToken)).Topology;
+    public async Task<WorkspaceTopology> LoadVisibleTopologyAsync(CancellationToken cancellationToken) =>
+        (await topologyProvider.GetAsync(cancellationToken)).Topology;
 
-    public Task<Workspace?> GetByIdAsync(Guid depotId, Guid workspaceId, CancellationToken cancellationToken) =>
+    public Task<Workspace?> GetByIdAsync(Guid workspaceId, CancellationToken cancellationToken) =>
         workspaceAccess.CanAccess(workspaceId)
             ? db.Workspaces.AsNoTracking().SingleOrDefaultAsync(
-                x => x.DepotId == depotId && x.Id == workspaceId,
+                x => x.Id == workspaceId,
                 cancellationToken)
             : Task.FromResult<Workspace?>(null);
 
-    public async Task<WorkspacePathLookup?> GetByIdWithPathAsync(Guid depotId, Guid workspaceId, CancellationToken cancellationToken)
+    public async Task<WorkspacePathLookup?> GetByIdWithPathAsync(Guid workspaceId, CancellationToken cancellationToken)
     {
         if (!workspaceAccess.CanAccess(workspaceId))
         {
             return null;
         }
 
-        var tree = await topologyProvider.GetAsync(depotId, cancellationToken);
+        var tree = await topologyProvider.GetAsync(cancellationToken);
         var workspace = tree.Workspaces.SingleOrDefault(x => x.Id == workspaceId);
         if (workspace is null)
         {
@@ -42,9 +42,9 @@ public sealed partial class WorkspaceRepository(
         return new WorkspacePathLookup(workspace, tree.Topology.Paths[workspace.Id]);
     }
 
-    public async Task<Workspace?> GetByPathAsync(Guid depotId, string normalizedPath, CancellationToken cancellationToken)
+    public async Task<Workspace?> GetByPathAsync(string normalizedPath, CancellationToken cancellationToken)
     {
-        var tree = await topologyProvider.GetAsync(depotId, cancellationToken);
+        var tree = await topologyProvider.GetAsync(cancellationToken);
         if (!tree.Topology.TryGetId(normalizedPath, out var workspaceId) || !workspaceAccess.CanAccess(workspaceId))
         {
             return null;
@@ -53,9 +53,9 @@ public sealed partial class WorkspaceRepository(
         return tree.Workspaces.SingleOrDefault(workspace => workspace.Id == workspaceId);
     }
 
-    public async Task<IReadOnlyList<WorkspacePathLookup>> ListWithPathsAsync(Guid depotId, string? parentPath, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<WorkspacePathLookup>> ListWithPathsAsync(string? parentPath, CancellationToken cancellationToken)
     {
-        var tree = await topologyProvider.GetAsync(depotId, cancellationToken);
+        var tree = await topologyProvider.GetAsync(cancellationToken);
         Guid? parentId = null;
         if (!string.IsNullOrWhiteSpace(parentPath))
         {
@@ -75,9 +75,9 @@ public sealed partial class WorkspaceRepository(
     }
 
     /// <summary>Reuses the request's topology snapshot while retaining workspace grant filtering.</summary>
-    public async Task<IReadOnlyList<WorkspacePathLookup>> ListVisibleWithPathsAsync(Guid depotId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<WorkspacePathLookup>> ListVisibleWithPathsAsync(CancellationToken cancellationToken)
     {
-        var tree = await topologyProvider.GetAsync(depotId, cancellationToken);
+        var tree = await topologyProvider.GetAsync(cancellationToken);
         return tree.Workspaces
             .Where(workspace => workspaceAccess.CanAccess(workspace.Id))
             .OrderBy(workspace => tree.Topology.Paths[workspace.Id], StringComparer.Ordinal)
@@ -87,12 +87,12 @@ public sealed partial class WorkspaceRepository(
 
     // Compatibility for existing repository callers; all decisions live in Application.
     public async Task<WorkspaceUpsertPersistenceResult> UpsertPathAsync(
-        Guid depotId, string normalizedPath, string name, string? description, string metadataJson,
+        string normalizedPath, string name, string? description, string metadataJson,
         bool createMissingParents, DateTimeOffset now, CancellationToken cancellationToken)
     {
         try
         {
-            var plan = await new WorkspaceWriter(this, idGenerator, workspaceAccess).UpsertAsync(depotId,
+            var plan = await new WorkspaceWriter(this, idGenerator, workspaceAccess).UpsertAsync(
                 new UpsertWorkspaceCommand(normalizedPath, name, description, metadataJson, createMissingParents), now, cancellationToken);
             return new(plan.Target.Workspace, plan.Outcome);
         }

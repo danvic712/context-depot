@@ -1,16 +1,13 @@
 namespace ContextDepot.Application.Overview;
 
 /// <summary>
-/// Loads depot-scoped overview collections and creates workspaces without overwriting existing ones.
+/// Loads collections for the workspace overview and creates workspaces without overwriting existing ones.
 /// </summary>
 public interface IOverviewRepository
 {
     /// <summary>
-    /// Lists recently active workspaces in the selected depot at the requested observation time.
+    /// Lists recently active workspaces visible to the caller at the requested observation time.
     /// </summary>
-    /// <param name="depotId">
-    /// The server-selected depot identifier.
-    /// </param>
     /// <param name="limit">
     /// The validated maximum number of items to return.
     /// </param>
@@ -24,19 +21,16 @@ public interface IOverviewRepository
     /// A task whose result contains the requested workspaces, observation time and continuation indicator.
     /// </returns>
     /// <remarks>
-    /// The caller is responsible for authorizing depot-wide overview access before invoking the repository.
+    /// The caller is responsible for authorizing overview access before invoking the repository.
     /// </remarks>
     /// <exception cref="OperationCanceledException">
     /// The operation was canceled before completion.
     /// </exception>
-    Task<ResourceCollection<WorkspaceSummary>> ListWorkspacesAsync(Guid depotId, int limit, DateTimeOffset asOf, CancellationToken cancellationToken);
+    Task<ResourceCollection<WorkspaceSummary>> ListWorkspacesAsync(int limit, DateTimeOffset asOf, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Lists retrievable contexts and active documents in the selected depot.
+    /// Lists retrievable contexts and active documents visible to the caller.
     /// </summary>
-    /// <param name="depotId">
-    /// The server-selected depot identifier.
-    /// </param>
     /// <param name="limit">
     /// The validated maximum number of items to return.
     /// </param>
@@ -50,29 +44,25 @@ public interface IOverviewRepository
     /// A task whose result contains recent knowledge, observation time and continuation indicator.
     /// </returns>
     /// <remarks>
-    /// The caller is responsible for authorizing depot-wide overview access before invoking the repository.
+    /// The caller is responsible for authorizing overview access before invoking the repository.
     /// </remarks>
     /// <exception cref="OperationCanceledException">
     /// The operation was canceled before completion.
     /// </exception>
-    Task<ResourceCollection<KnowledgeSummary>> ListKnowledgeAsync(Guid depotId, int limit, DateTimeOffset asOf, CancellationToken cancellationToken);
+    Task<ResourceCollection<KnowledgeSummary>> ListKnowledgeAsync(int limit, DateTimeOffset asOf, CancellationToken cancellationToken);
 
     /// <summary>Lists recent readable knowledge after applying the requested scope and categories.</summary>
-    /// <param name="depotId">The server-selected depot.</param>
     /// <param name="limit">The validated collection limit.</param>
     /// <param name="filter">The validated search conditions.</param>
     /// <param name="asOf">The time used to evaluate context visibility.</param>
     /// <param name="cancellationToken">Cancels the operation.</param>
     /// <returns>The ordered recent collection and continuation indicator.</returns>
-    Task<ResourceCollection<KnowledgeSummary>> ListRecentKnowledgeAsync(Guid depotId, int limit,
+    Task<ResourceCollection<KnowledgeSummary>> ListRecentKnowledgeAsync(int limit,
         RecentKnowledgeFilter filter, DateTimeOffset asOf, CancellationToken cancellationToken);
 
     /// <summary>
     /// Creates a root workspace without updating an existing workspace.
     /// </summary>
-    /// <param name="depotId">
-    /// The owning depot identifier.
-    /// </param>
     /// <param name="id">
     /// The identifier assigned to the new workspace.
     /// </param>
@@ -92,7 +82,7 @@ public interface IOverviewRepository
     /// Cancels the asynchronous operation.
     /// </param>
     /// <returns>
-    /// A task whose result is true after creation, or false when the depot already contains the root path.
+    /// A task whose result is true after creation, or false when the root path already exists.
     /// </returns>
     /// <remarks>
     /// A path conflict never overwrites an existing workspace.
@@ -100,5 +90,5 @@ public interface IOverviewRepository
     /// <exception cref="OperationCanceledException">
     /// The operation was canceled before completion.
     /// </exception>
-    Task<bool> CreateWorkspaceAsync(Guid depotId, Guid id, string name, string path, string? description, DateTimeOffset now, CancellationToken cancellationToken);
+    Task<bool> CreateWorkspaceAsync(Guid id, string name, string path, string? description, DateTimeOffset now, CancellationToken cancellationToken);
 }

@@ -71,7 +71,7 @@ public sealed class ContextTools(MCPToolExecutor executor, ILogger<ContextTools>
         IContextQueryAppService service,
         [Description("The information you explicitly want to find.")]
         string query,
-        [Description("Optional explicit workspace paths. Omit to search the current depot across all workspaces.")]
+        [Description("Optional explicit workspace paths. Omit to search across all authorized workspaces.")]
         IReadOnlyList<string>? workspaces = null,
         [Description("Include child workspaces below each explicit workspace.")]
         bool includeDescendants = false,
@@ -91,7 +91,7 @@ public sealed class ContextTools(MCPToolExecutor executor, ILogger<ContextTools>
     [McpServerTool(Name = "context_get", Title = "Get context details", ReadOnly = true, Idempotent = true,
         UseStructuredContent = true)]
     [Description(
-        "Read a known Context ID in the current depot scope, including archived and superseded lifecycle details. This never reads another depot and never changes lifecycle state.")]
+        "Read a known Context ID in an authorized workspace, including archived and superseded lifecycle details.")]
     public async Task<ContextDetailModel?> GetAsync(
         IContextQueryAppService service,
         Guid contextId,
@@ -105,7 +105,7 @@ public sealed class ContextTools(MCPToolExecutor executor, ILogger<ContextTools>
     [McpServerTool(Name = "context_save", Title = "Save durable context", Destructive = false,
         UseStructuredContent = true)]
     [Description(
-        "Save durable fact, preference, decision, goal, state, or event after the user explicitly asks to remember it or it is clearly long-lived. The current depot is configured by the host; never provide depotId.")]
+        "Save durable fact, preference, decision, goal, state, or event after the user explicitly asks to remember it or it is clearly long-lived. Provide the authorized workspace path.")]
     public async Task<SaveContextResult> SaveAsync(
         IContextAppService service,
         [Description("Workspace path.")] string workspace,
@@ -149,7 +149,7 @@ public sealed class ContextTools(MCPToolExecutor executor, ILogger<ContextTools>
     [McpServerTool(Name = "context_archive", Title = "Archive context", Destructive = true,
         UseStructuredContent = true)]
     [Description(
-        "Archive a known Context ID in the current depot scope. Archived data is retained but excluded from ordinary bootstrap retrieval.")]
+        "Archive a known Context ID in an authorized workspace. Archived data is retained but excluded from ordinary bootstrap retrieval.")]
     public async Task<ArchiveContextResult> ArchiveAsync(IContextAppService service, Guid contextId,
         CancellationToken cancellationToken = default)
     {

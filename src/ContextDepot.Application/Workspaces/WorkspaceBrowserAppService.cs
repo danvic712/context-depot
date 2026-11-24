@@ -8,12 +8,11 @@ using ContextDepot.Application.Shared.Dtos;
 namespace ContextDepot.Application.Workspaces;
 
 public sealed class WorkspaceBrowserAppService(
-    ICurrentDepotContext currentDepot,
     IWorkspaceBrowserRepository repository,
     TimeProvider timeProvider)
 {
     /// <summary>
-    /// Returns a filtered, ordered directory within the current depot and workspace authorization scope.
+    /// Returns a filtered, ordered directory within the caller’s workspace authorization scope.
     /// </summary>
     /// <param name="query">
     /// The requested scope, conditions and pagination.
@@ -38,9 +37,9 @@ public sealed class WorkspaceBrowserAppService(
             (query.Status == WorkspaceContentStatus.Empty && query.Content != WorkspaceContentType.All))
             throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidResourceQuery);
         var now = timeProvider.GetUtcNow();
-        if (query.ParentId is Guid id && await repository.GetAsync(currentDepot.DepotId, id, now, cancellationToken) is null)
+        if (query.ParentId is Guid id && await repository.GetAsync(id, now, cancellationToken) is null)
             throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspaceNotFound);
-        return await repository.BrowseAsync(currentDepot.DepotId, query, now, cancellationToken);
+        return await repository.BrowseAsync(query, now, cancellationToken);
     }
 
     /// <summary>
@@ -59,7 +58,7 @@ public sealed class WorkspaceBrowserAppService(
     /// The workspace is outside the visible scope.
     /// </exception>
     public async Task<WorkspaceDetail> GetAsync(Guid id, CancellationToken cancellationToken) =>
-        await repository.GetAsync(currentDepot.DepotId, id, timeProvider.GetUtcNow(), cancellationToken)
+        await repository.GetAsync(id, timeProvider.GetUtcNow(), cancellationToken)
         ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspaceNotFound);
 
     /// <summary>
@@ -84,7 +83,7 @@ public sealed class WorkspaceBrowserAppService(
     {
         if (!query.IsValid())
             throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidResourceQuery);
-        return await repository.ListKnowledgeAsync(currentDepot.DepotId, id, query,
+        return await repository.ListKnowledgeAsync(id, query,
             timeProvider.GetUtcNow(), cancellationToken)
             ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspaceNotFound);
     }

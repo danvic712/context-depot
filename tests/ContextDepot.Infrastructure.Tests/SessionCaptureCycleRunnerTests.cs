@@ -5,7 +5,7 @@ using ContextDepot.Application.AgentSessions.Enums;
 using ContextDepot.Domain.AgentSessions;
 using ContextDepot.Application.Shared.Safety;
 using ContextDepot.Infrastructure.AgentSessions;
-using ContextDepot.Infrastructure.CurrentDepot;
+using ContextDepot.Infrastructure.Access;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -67,12 +67,12 @@ public sealed class SessionCaptureCycleRunnerTests
         Assert.Equal("cleanup", queue.Calls[^1]);
     }
 
-    private static CapturedTurn Turn(string quote) => new(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
+    private static CapturedTurn Turn(string quote) => new(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
         DateTimeOffset.UtcNow.AddMinutes(1), quote, "好的。", LeaseToken: Guid.NewGuid());
     private static ServiceProvider Provider(Queue queue, EmptyInbox inbox, Func<MemoryCaptureProcessor>? processor = null)
     {
         var services = new ServiceCollection();
-        services.AddScoped<CurrentDepotAccessContext>();
+        services.AddScoped<WorkspaceAccessContext>();
         services.AddSingleton<ISessionCaptureRepository>(queue);
         services.AddSingleton<ISessionCaptureInboxRepository>(inbox);
         if (processor is not null) services.AddScoped(_ => processor());

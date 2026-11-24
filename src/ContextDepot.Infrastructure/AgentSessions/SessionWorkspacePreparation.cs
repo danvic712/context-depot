@@ -9,7 +9,7 @@ using ContextDepot.Application.Shared.Safety.Contracts;
 using ContextDepot.Application.Workspaces.Contracts;
 using ContextDepot.Application.Workspaces.Dtos;
 using ContextDepot.Domain.Workspaces;
-using ContextDepot.Infrastructure.CurrentDepot;
+using ContextDepot.Infrastructure.Access;
 using ContextDepot.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,7 +33,7 @@ public sealed partial class SessionWorkspacePreparation(ContextDepotDbContext db
         var ct = timeout.Token;
 
         var locator = lease.Locator;
-        var reservation = await budget.TryReserveAsync(new(locator.DepotId, locator.KeyId, "route", locator.RouteId,
+        var reservation = await budget.TryReserveAsync(new(locator.KeyId, "route", locator.RouteId,
             lease.LeaseToken), ProviderCallKind.ExtractionChat, ct);
         if (reservation.Status != "granted") return SessionRoutingCandidateRepository.ReservationDecision(reservation);
         var candidates = await extraction.ExtractAsync(lease.UserContent, lease.AssistantContent, ct);
@@ -43,9 +43,8 @@ public sealed partial class SessionWorkspacePreparation(ContextDepotDbContext db
                 RoutingCandidatePolicy.ContainsExact(fragment.Text, preparation.Name))))
             return new("no_match", ResolverVersion: decision.ResolverVersion);
 
-        var key = await db.DepotAccessKeys.IgnoreQueryFilters().AsNoTracking()
-            .Include(item => item.WorkspaceGrants).SingleOrDefaultAsync(item => item.Id == locator.KeyId &&
-                item.DepotId == locator.DepotId && item.RevokedAt == null, ct);
+        var key = await db.AccessKeys.IgnoreQueryFilters().AsNoTracking()
+            .Include(item => item.WorkspaceGrants).SingleOrDefaultAsync(item => item.Id == locator.KeyId && item.RevokedAt == null, ct);
         if (key is null) return Unavailable();
         var grants = key.WorkspaceGrants.Select(item => item.WorkspaceId).ToArray();
         if (preparation.ParentId is Guid requestedParent ? !grants.Contains(requestedParent) : !key.CanCreateRootWorkspaces)
@@ -53,8 +52,7 @@ public sealed partial class SessionWorkspacePreparation(ContextDepotDbContext db
 
         // Run Ensure as the capture key. The writer checks the live creation permission and handles concurrent writes.
         await using var scope = scopes.CreateAsyncScope();
-        scope.ServiceProvider.GetRequiredService<CurrentDepotAccessContext>().Initialize(new(key.Id, key.DepotId,
-            string.Empty, grants, grants, key.CanCreateRootWorkspaces, key.AccessVersion));
+        scope.ServiceProvider.GetRequiredService<WorkspaceAccessContext>().Initialize(new(key.Id, grants, grants, key.CanCreateRootWorkspaces, key.AccessVersion));
         var workspaces = scope.ServiceProvider.GetRequiredService<IWorkspaceAppService>();
         var slug = ProjectSlug(preparation.Name);
         var path = slug;
@@ -66,7 +64,7 @@ public sealed partial class SessionWorkspacePreparation(ContextDepotDbContext db
         }
         var now = await SessionCaptureLocks.NowAsync(db, ct);
         if (!options.CurrentValue.Enabled || now >= lease.ExpiresAt || !await db.SessionCaptureTurnRoutes.IgnoreQueryFilters()
-                .AnyAsync(route => route.Id == locator.RouteId && route.DepotId == locator.DepotId &&
+                .AnyAsync(route => route.Id == locator.RouteId &&
                     route.AccessKeyId == locator.KeyId && route.State == "resolving" &&
                     route.LeaseToken == lease.LeaseToken && route.LeaseUntil > now, ct))
             return new("transient_failure", ResultCode: "lease_lost");

@@ -64,7 +64,6 @@ public sealed class HybridCandidateRankerTests
 
     private static BootstrapContextCandidate Context(Guid workspaceId, string key, string content) => new(
         Guid.CreateVersion7(),
-        Guid.CreateVersion7(),
         workspaceId,
         ContextKind.Decision,
         key,
@@ -86,7 +85,6 @@ public sealed class HybridCandidateRankerTests
         "{}");
 
     private static BootstrapDocumentChunkCandidate Document(Guid workspaceId, Guid documentId, string path) => new(
-        Guid.CreateVersion7(),
         Guid.CreateVersion7(),
         documentId,
         workspaceId,

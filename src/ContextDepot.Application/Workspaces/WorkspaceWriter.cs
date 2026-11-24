@@ -7,22 +7,22 @@ namespace ContextDepot.Application.Workspaces;
 
 public sealed class WorkspaceWriter(IWorkspaceRepository repository, IIdGenerator ids, IWorkspaceAccessContext access)
 {
-    public Task<WorkspaceWritePlan> EnsureAsync(Guid depotId, EnsureWorkspaceCommand command,
-        DateTimeOffset now, CancellationToken cancellationToken) => ApplyAsync(depotId, command.Subject,
-            snapshot => WorkspaceEnsurePolicy.Ensure(snapshot, command, depotId, ids, now), now, cancellationToken);
+    public Task<WorkspaceWritePlan> EnsureAsync(EnsureWorkspaceCommand command,
+        DateTimeOffset now, CancellationToken cancellationToken) => ApplyAsync(command.Subject,
+            snapshot => WorkspaceEnsurePolicy.Ensure(snapshot, command, ids, now), now, cancellationToken);
 
-    public Task<WorkspaceWritePlan> UpsertAsync(Guid depotId, UpsertWorkspaceCommand command,
-        DateTimeOffset now, CancellationToken cancellationToken) => ApplyAsync(depotId, null,
-            snapshot => WorkspaceEnsurePolicy.Upsert(snapshot, command, depotId, ids, now), now, cancellationToken);
+    public Task<WorkspaceWritePlan> UpsertAsync(UpsertWorkspaceCommand command,
+        DateTimeOffset now, CancellationToken cancellationToken) => ApplyAsync(null,
+            snapshot => WorkspaceEnsurePolicy.Upsert(snapshot, command, ids, now), now, cancellationToken);
 
-    private async Task<WorkspaceWritePlan> ApplyAsync(Guid depotId, WorkspaceSubject? subject,
+    private async Task<WorkspaceWritePlan> ApplyAsync(WorkspaceSubject? subject,
         Func<WorkspaceWriteSnapshot, WorkspaceWritePlan> prepare, DateTimeOffset now, CancellationToken cancellationToken)
     {
         for (var attempt = 0; attempt < 2; attempt++)
         {
-            var snapshot = await repository.LoadEnsureSnapshotAsync(depotId, subject, cancellationToken);
+            var snapshot = await repository.LoadEnsureSnapshotAsync(subject, cancellationToken);
             var plan = prepare(snapshot);
-            var result = await repository.TryApplyEnsureAsync(depotId, plan, now, cancellationToken);
+            var result = await repository.TryApplyEnsureAsync(plan, now, cancellationToken);
             if (!result.Applied) continue;
             // A retry may reuse a Workspace created concurrently by this same Key.
             var verifiedIds = plan.Expected.Access.WorkspaceIds.Concat(plan.Created.Select(item => item.Id)).Distinct().ToArray();

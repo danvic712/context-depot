@@ -1,4 +1,4 @@
-using ContextDepot.Infrastructure.CurrentDepot;
+using ContextDepot.Infrastructure.Access;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -46,12 +46,12 @@ internal sealed class SetupDatabaseFixture : IAsyncDisposable
 
     public ContextDepotDbContext CreateDb(bool unrestricted = false)
     {
-        var access = new CurrentDepotAccessContext();
+        var access = new WorkspaceAccessContext();
         if (unrestricted) access.AllowInternalAccess();
         return new ContextDepotDbContext(options, access);
     }
 
-    public ContextDepotDbContext CreateDb(CurrentDepotAccessContext access) => new(options, access);
+    public ContextDepotDbContext CreateDb(WorkspaceAccessContext access) => new(options, access);
 
     public async ValueTask DisposeAsync()
     {

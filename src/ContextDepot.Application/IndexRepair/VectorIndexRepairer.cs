@@ -68,7 +68,6 @@ public sealed class VectorIndexRepairer(
                 cancellationToken);
             var writes = stale.Select((input, index) => new ContextVectorIndexWrite(
                     input.Candidate.ContextItemId,
-                    input.Candidate.DepotId,
                     input.Candidate.WorkspaceId,
                     input.Candidate.Kind,
                     input.Hash,
@@ -141,7 +140,6 @@ public sealed class VectorIndexRepairer(
             var writes = stale.Select((input, index) => new DocumentVectorIndexWrite(
                     input.Candidate.DocumentChunkId,
                     input.Candidate.DocumentId,
-                    input.Candidate.DepotId,
                     input.Candidate.WorkspaceId,
                     input.Hash,
                     vectors[index]))

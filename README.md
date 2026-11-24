@@ -247,6 +247,10 @@ Before rolling back to a version that requires the old database setting, stop th
 
 ## Back up and update
 
+Workspace is the top level for organizing knowledge. Create independent root workspaces or group related work in child workspaces. Each access key has its own workspace grants.
+
+When upgrading a database that still contains the former Depot tables, back up PostgreSQL and the Markdown directory first. The upgrade removes the Depot tables and preserves existing keys, workspace IDs, grants and Markdown files in place. The migration stops if the database contains multiple legacy Depots. Restore the pre-upgrade backup to return to a version that uses those tables.
+
 Compose stores persistent data under `DATA_DIR` (default: `./data`):
 
 | Directory | Contents |

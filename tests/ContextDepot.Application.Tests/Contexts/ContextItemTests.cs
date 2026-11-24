@@ -38,6 +38,6 @@ public sealed class ContextItemTests
     }
 
     private static ContextItem CreateContext() => new(
-        Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(),
+        Guid.CreateVersion7(), Guid.CreateVersion7(),
         ContextKind.Fact, null, null, "content", DateTimeOffset.UtcNow);
 }

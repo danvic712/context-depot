@@ -14,13 +14,12 @@ public sealed class BootstrapRepository(ContextDepotDbContext db, VisibleWorkspa
         BootstrapQuery query,
         CancellationToken cancellationToken) =>
         await ApplyWorkspaceScope(
-                db.Workspaces.AsNoTracking().Where(x => x.DepotId == query.DepotId),
+                db.Workspaces.AsNoTracking(),
                 query.WorkspaceIds)
             .OrderBy(x => x.Slug)
             .Take(query.CandidateLimit)
             .Select(x => new BootstrapWorkspaceCandidate(
                 x.Id,
-                x.DepotId,
                 x.ParentWorkspaceId,
                 x.Name,
                 x.Slug))
@@ -30,17 +29,15 @@ public sealed class BootstrapRepository(ContextDepotDbContext db, VisibleWorkspa
         BootstrapQuery query,
         CancellationToken cancellationToken)
     {
-        var paths = (await topologyProvider.GetAsync(query.DepotId, cancellationToken)).Topology.Paths;
+        var paths = (await topologyProvider.GetAsync(cancellationToken)).Topology.Paths;
         return await ApplyWorkspaceScope(
                 db.ContextItems.AsNoTracking()
-                    .WhereRetrievableAt(query.Now)
-                    .Where(x => x.DepotId == query.DepotId),
+                    .WhereRetrievableAt(query.Now),
                 query.WorkspaceIds)
             .OrderForQuery(query.Query, paths)
             .Take(query.CandidateLimit)
             .Select(x => new BootstrapContextCandidate(
                 x.Id,
-                x.DepotId,
                 x.WorkspaceId,
                 x.Kind,
                 x.Key,
@@ -67,10 +64,10 @@ public sealed class BootstrapRepository(ContextDepotDbContext db, VisibleWorkspa
         BootstrapQuery query,
         CancellationToken cancellationToken)
     {
-        var paths = (await topologyProvider.GetAsync(query.DepotId, cancellationToken)).Topology.Paths;
+        var paths = (await topologyProvider.GetAsync(cancellationToken)).Topology.Paths;
         return await ApplyWorkspaceScope(
                 db.DocumentChunks.AsNoTracking()
-                    .Where(x => x.DepotId == query.DepotId && x.Document != null &&
+                    .Where(x => x.Document != null &&
                                 x.Document.Status == DocumentStatus.Active &&
                                 x.Document.IndexStatus == DocumentIndexStatus.Indexed),
                 query.WorkspaceIds)
@@ -78,7 +75,6 @@ public sealed class BootstrapRepository(ContextDepotDbContext db, VisibleWorkspa
             .Take(query.CandidateLimit)
             .Select(x => new BootstrapDocumentChunkCandidate(
                 x.Id,
-                x.DepotId,
                 x.DocumentId,
                 x.WorkspaceId,
                 x.Ordinal,

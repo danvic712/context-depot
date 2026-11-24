@@ -3,7 +3,7 @@ using ContextDepot.Application;
 using ContextDepot.Application.AgentSessions.Contracts;
 using ContextDepot.Application.AgentSessions.Dtos;
 using ContextDepot.Infrastructure.AgentSessions;
-using ContextDepot.Infrastructure.CurrentDepot;
+using ContextDepot.Infrastructure.Access;
 using ContextDepot.Infrastructure.Repositories;
 using ContextDepot.Infrastructure.RuntimeConfiguration;
 using Microsoft.EntityFrameworkCore;
@@ -30,7 +30,7 @@ public sealed class SessionWorkspacePreparationTests(CapturePostgreSqlFixture fi
         var seed = await fixture.SeedAsync(canCreateRootWorkspaces: true, grantWorkspace: false);
         var locator = await fixture.AcceptPairAsync(seed);
         await using var db = fixture.CreateDb();
-        var key = await db.DepotAccessKeys.SingleAsync();
+        var key = await db.AccessKeys.SingleAsync();
         key.ChangeCreationCapability(false);
         await db.SaveChangesAsync();
 
@@ -64,8 +64,7 @@ public sealed class SessionWorkspacePreparationTests(CapturePostgreSqlFixture fi
         {
             await using var scope = provider.CreateAsyncScope();
             Guid[] grants = createRoot ? [] : [seed.WorkspaceId];
-            scope.ServiceProvider.GetRequiredService<CurrentDepotAccessContext>().Initialize(new(seed.KeyId,
-                seed.DepotId, "Capture test", grants, grants, CanCreateRootWorkspaces: createRoot));
+            scope.ServiceProvider.GetRequiredService<WorkspaceAccessContext>().Initialize(new(seed.KeyId, grants, grants, CanCreateRootWorkspaces: createRoot));
             return await scope.ServiceProvider.GetRequiredService<ISessionCaptureAppService>().CaptureAsync(new(2,
                 "codex", "session", turn, null, $"codex:{turn}:{role}", null, null, "message", [new(role, text)],
                 WorkspaceMode: "auto"), default);
@@ -78,20 +77,20 @@ public sealed class SessionWorkspacePreparationTests(CapturePostgreSqlFixture fi
         Assert.Empty(await fixture.Inbox(db).FindRoutingCandidatesAsync(64, default));
         Assert.Equal(1, await db.Workspaces.CountAsync());
         var status = new SessionCaptureStatusRepository(db);
-        Assert.NotNull(await status.GetAsync(seed.DepotId, seed.KeyId, new(null, user.TurnReceiptId), default));
+        Assert.NotNull(await status.GetAsync(seed.KeyId, new(null, user.TurnReceiptId), default));
 
         var assistant = await SubmitAsync("turn-1", "assistant", "Understood.");
         Assert.Equal(user.TurnReceiptId, assistant.TurnReceiptId);
         await worker.RunAsync(default);
         await worker.RunAsync(default);
-        var completed = await status.GetAsync(seed.DepotId, seed.KeyId, new(null, user.TurnReceiptId), default);
+        var completed = await status.GetAsync(seed.KeyId, new(null, user.TurnReceiptId), default);
         Assert.True(completed?.ResultCode == "saved",
             $"Expected a saved turn, got {completed?.RoutingState}/{completed?.ProcessingState}: {completed?.ResultCode ?? completed?.LastErrorCode}");
         Assert.Equal(createRoot ? "sample-project" : "storage/sample-project", completed!.Workspace);
         var project = await db.Workspaces.SingleAsync(item => item.Slug == "sample-project");
         Assert.Equal(createRoot ? null : seed.WorkspaceId, project.ParentWorkspaceId);
         Assert.Equal("sample-project", (await db.WorkspaceSubjectBindings.SingleAsync()).SubjectKey);
-        Assert.True(await db.WorkspaceAccessGrants.AnyAsync(grant => grant.DepotAccessKeyId == seed.KeyId && grant.WorkspaceId == project.Id));
+        Assert.True(await db.WorkspaceAccessGrants.AnyAsync(grant => grant.AccessKeyId == seed.KeyId && grant.WorkspaceId == project.Id));
         Assert.Equal(project.Id, (await db.ContextItems.SingleAsync()).WorkspaceId);
         Assert.True(await db.ContextCaptureEvidence.AnyAsync(item => item.WorkspaceId == project.Id));
         Assert.Equal(1, extractor.Invocations);

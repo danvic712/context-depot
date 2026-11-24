@@ -1,9 +1,9 @@
-using ContextDepot.Application.Depots.Contracts;
 using ContextDepot.Application.IndexRepair;
 using ContextDepot.Application.IndexRepair.Contracts;
 using ContextDepot.Application.IndexRepair.Dtos;
+using ContextDepot.Infrastructure.Access;
 using ContextDepot.Infrastructure.RuntimeConfiguration;
-using ContextDepot.Infrastructure.CurrentDepot;
+using ContextDepot.Infrastructure.VectorStore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -14,7 +14,8 @@ public sealed class IndexRepairCycleRunner(
     InferenceRuntimeSnapshotAccessor inferenceSnapshotAccessor,
     ILogger<IndexRepairCycleRunner> logger)
 {
-    private readonly Dictionary<Guid, DepotRepairCursor> cursors = new();
+    private Guid? contextAfterId;
+    private Guid? documentChunkAfterId;
     private string? lastProfileFingerprint;
 
     public async Task RunAsync(IndexRepairOptions repairOptions, CancellationToken cancellationToken)
@@ -25,81 +26,39 @@ public sealed class IndexRepairCycleRunner(
         if (embedding is not null &&
             !string.Equals(lastProfileFingerprint, embedding.ProfileFingerprint, StringComparison.OrdinalIgnoreCase))
         {
-            cursors.Clear();
+            contextAfterId = null;
+            documentChunkAfterId = null;
             lastProfileFingerprint = embedding.ProfileFingerprint;
         }
 
-        IReadOnlyList<ContextDepot.Application.Depots.Dtos.DepotSummary> depots;
-        await using (var listingScope = scopeFactory.CreateAsyncScope())
+        await using var scope = scopeFactory.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<WorkspaceAccessContext>().AllowInternalAccess();
+        var repairService = scope.ServiceProvider.GetRequiredService<IIndexRepairAppService>();
+        try
         {
-            listingScope.ServiceProvider.GetRequiredService<CurrentDepotAccessContext>().AllowInternalAccess();
-            var depotRepository = listingScope.ServiceProvider.GetRequiredService<IDepotRepository>();
-            depots = await depotRepository.ListAsync(cancellationToken);
+            await scope.ServiceProvider.GetRequiredService<PostgreSqlVectorStore>()
+                .RemoveObsoleteVectorsAsync(repairOptions.BatchSize,
+                    scope.ServiceProvider.GetRequiredService<TimeProvider>().GetUtcNow(), cancellationToken);
         }
-        var activeDepotIds = depots.Select(depot => depot.Id).ToHashSet();
-
-        foreach (var depot in depots)
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            cursors.TryGetValue(depot.Id, out var cursor);
-            try
-            {
-                await using var scope = scopeFactory.CreateAsyncScope();
-                scope.ServiceProvider.GetRequiredService<CurrentDepotAccessContext>().AllowInternalAccess();
-                var repairService = scope.ServiceProvider.GetRequiredService<IIndexRepairAppService>();
-                try
-                {
-                    await scope.ServiceProvider.GetRequiredService<ContextDepot.Infrastructure.VectorStore.PostgreSqlVectorStore>()
-                        .RemoveObsoleteVectorsAsync(depot.Id, repairOptions.BatchSize,
-                            scope.ServiceProvider.GetRequiredService<TimeProvider>().GetUtcNow(), cancellationToken);
-                }
-                catch (Exception exception) when (exception is not OperationCanceledException)
-                {
-                    logger.LogWarning(exception, "Obsolete vector cleanup failed for depot {DepotId}; the next cycle will retry.", depot.Id);
-                }
-                var result = await repairService.RepairAsync(
-                    depot.Id,
-                    new IndexRepairRequest(
-                        repairOptions.BatchSize,
-                        repairOptions.MaxBatchesPerCycle,
-                        cursor?.ContextAfterId,
-                        cursor?.DocumentChunkAfterId,
-                        RepairVectors: embedding is not null),
-                    cancellationToken);
-                cursors[depot.Id] = new DepotRepairCursor(
-                    result.NextContextAfterId,
-                    result.NextDocumentChunkAfterId);
-
-                logger.LogInformation(
-                    "Index repair cycle completed for depot {DepotId} ({DepotDisplayName}). {DocumentsReconciled} documents reconciled, {ContextVectorsCreatedOrUpdated} context vectors updated, {DocumentVectorsCreatedOrUpdated} document vectors updated, context wrapped={ContextScanWrapped}, document wrapped={DocumentScanWrapped}, retrieval degraded={RetrievalDegraded}.",
-                    depot.Id,
-                    depot.DisplayName,
-                    result.DocumentsReconciled,
-                    result.ContextVectorsCreatedOrUpdated,
-                    result.DocumentVectorsCreatedOrUpdated,
-                    result.ContextScanWrapped,
-                    result.DocumentScanWrapped,
-                    result.RetrievalDegraded);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception exception)
-            {
-                logger.LogError(
-                    exception,
-                    "Index repair cycle failed for depot {DepotId}; its current cursor will be retried.",
-                    depot.Id);
-            }
+            logger.LogWarning(exception, "Obsolete vector cleanup failed. The next cycle will retry.");
         }
 
-        foreach (var depotId in cursors.Keys.Where(depotId => !activeDepotIds.Contains(depotId)).ToArray())
+        try
         {
-            cursors.Remove(depotId);
+            var result = await repairService.RepairAsync(new IndexRepairRequest(repairOptions.BatchSize,
+                repairOptions.MaxBatchesPerCycle, contextAfterId, documentChunkAfterId, RepairVectors: embedding is not null), cancellationToken);
+            contextAfterId = result.NextContextAfterId;
+            documentChunkAfterId = result.NextDocumentChunkAfterId;
+            logger.LogInformation(
+                "Index repair completed. {DocumentsReconciled} documents reconciled, {ContextVectorsUpdated} context vectors updated, {DocumentVectorsUpdated} document vectors updated, context wrapped={ContextScanWrapped}, document wrapped={DocumentScanWrapped}, retrieval degraded={RetrievalDegraded}.",
+                result.DocumentsReconciled, result.ContextVectorsCreatedOrUpdated, result.DocumentVectorsCreatedOrUpdated,
+                result.ContextScanWrapped, result.DocumentScanWrapped, result.RetrievalDegraded);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogError(exception, "Index repair failed. The next cycle will retry with the same cursors.");
         }
     }
-
-    private sealed record DepotRepairCursor(
-        Guid? ContextAfterId,
-        Guid? DocumentChunkAfterId);
 }

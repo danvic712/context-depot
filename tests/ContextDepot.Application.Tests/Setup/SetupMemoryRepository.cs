@@ -8,7 +8,7 @@ namespace ContextDepot.Application.Tests.Setup;
 internal sealed class SetupMemoryRepository : ISetupRepository
 {
     private static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-10-04T12:00:00Z");
-    public SetupSnapshot Snapshot { get; set; } = new(new InstallationState(Guid.CreateVersion7(), Now), null, false, false)
+    public SetupSnapshot Snapshot { get; set; } = new(new InstallationState(Guid.CreateVersion7(), Now), null, false)
     {
         Routes = [new InferenceRoute { Id = Guid.CreateVersion7(), Capability = "embedding", CreatedAt = Now, UpdatedAt = Now, TimeoutSeconds = 30 },
             new InferenceRoute { Id = Guid.CreateVersion7(), Capability = "chat", CreatedAt = Now, UpdatedAt = Now, TimeoutSeconds = 30 }]
@@ -27,7 +27,7 @@ internal sealed class SetupMemoryRepository : ISetupRepository
         if (resources is not null)
         {
             Created = resources; CreatedCount++;
-            Snapshot = Snapshot with { Workspace = resources.Workspace, InitialDepotExists = true, HasAnyDepot = true };
+            Snapshot = Snapshot with { Workspace = resources.Workspace, HasWorkspaces = true };
         }
         return Task.FromResult(Snapshot);
     }

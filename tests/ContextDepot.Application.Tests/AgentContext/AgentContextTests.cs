@@ -189,6 +189,6 @@ public sealed class AgentContextTests
 
     private AgentContextAppService Service() => new(bootstrap.Object, workspaces.Object, access.Object,
         new Mock<ISourceSafetyService>().Object, ids.Object, TimeProvider.System);
-    private static WorkspaceModel Workspace(string path) => new(Guid.CreateVersion7(), Guid.CreateVersion7(), path,
+    private static WorkspaceModel Workspace(string path) => new(Guid.CreateVersion7(), path,
         "Workspace", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
 }

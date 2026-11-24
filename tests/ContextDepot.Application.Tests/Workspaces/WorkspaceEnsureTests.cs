@@ -12,7 +12,7 @@ namespace ContextDepot.Application.Tests.Workspaces;
 
 public sealed class WorkspaceEnsureTests
 {
-    private readonly Guid depotId = Guid.CreateVersion7();
+
     private readonly DateTimeOffset now = DateTimeOffset.UtcNow;
     private readonly WorkspaceSubject subject = new(WorkspaceSubjectType.Project, "context-depot");
     private readonly Mock<IIdGenerator> ids = new();
@@ -24,7 +24,7 @@ public sealed class WorkspaceEnsureTests
     {
         var existing = Workspace("actual", "Original");
         var snapshot = Snapshot([existing], [existing.Workspace.Id], true, bound: existing.Workspace.Id);
-        var plan = WorkspaceEnsurePolicy.Ensure(snapshot, Command("different"), depotId, ids.Object, now);
+        var plan = WorkspaceEnsurePolicy.Ensure(snapshot, Command("different"), ids.Object, now);
         Assert.Same(existing, plan.Target);
         Assert.False(plan.UpdateTarget);
         Assert.Empty(plan.Created);
@@ -41,7 +41,7 @@ public sealed class WorkspaceEnsureTests
         var hidden = Workspace("existing");
         var snapshot = Snapshot([hidden], [], true, bound: bound ? hidden.Workspace.Id : null);
         var error = Assert.Throws<ContextDepotApplicationException>(() =>
-            WorkspaceEnsurePolicy.Ensure(snapshot, Command(bound ? "other" : "existing"), depotId, ids.Object, now));
+            WorkspaceEnsurePolicy.Ensure(snapshot, Command(bound ? "other" : "existing"), ids.Object, now));
         Assert.Equal(ApplicationErrorCodes.WorkspaceUnavailable, error.ErrorCode);
         ids.Verify(item => item.NewId(), Times.Never);
     }
@@ -50,7 +50,7 @@ public sealed class WorkspaceEnsureTests
     public void Readable_path_is_bound_without_updating_existing_management_fields()
     {
         var existing = Workspace("existing", "Original");
-        var plan = WorkspaceEnsurePolicy.Ensure(Snapshot([existing], [existing.Workspace.Id]), Command("existing"), depotId, ids.Object, now);
+        var plan = WorkspaceEnsurePolicy.Ensure(Snapshot([existing], [existing.Workspace.Id]), Command("existing"), ids.Object, now);
         Assert.Same(existing, plan.Target);
         Assert.False(plan.UpdateTarget);
         Assert.Empty(plan.Created);
@@ -68,10 +68,10 @@ public sealed class WorkspaceEnsureTests
         if (!allowed)
         {
             Assert.Equal(ApplicationErrorCodes.WorkspaceUnavailable,
-                Assert.Throws<ContextDepotApplicationException>(() => WorkspaceEnsurePolicy.Ensure(snapshot, Command("new"), depotId, ids.Object, now)).ErrorCode);
+                Assert.Throws<ContextDepotApplicationException>(() => WorkspaceEnsurePolicy.Ensure(snapshot, Command("new"), ids.Object, now)).ErrorCode);
             return;
         }
-        var plan = WorkspaceEnsurePolicy.Ensure(snapshot, Command("new"), depotId, ids.Object, now);
+        var plan = WorkspaceEnsurePolicy.Ensure(snapshot, Command("new"), ids.Object, now);
         Assert.Single(plan.Created);
         Assert.Equal(plan.Target.Workspace.Id, plan.NewBinding!.WorkspaceId);
         Assert.Null(plan.Target.Workspace.ParentWorkspaceId);
@@ -87,7 +87,7 @@ public sealed class WorkspaceEnsureTests
         var snapshot = Snapshot([parent, child], [child.Workspace.Id], true);
         foreach (var path in new[] { "parent/new", "missing/new" })
             Assert.Equal(ApplicationErrorCodes.WorkspaceUnavailable,
-                Assert.Throws<ContextDepotApplicationException>(() => WorkspaceEnsurePolicy.Ensure(snapshot, Command(path), depotId, ids.Object, now)).ErrorCode);
+                Assert.Throws<ContextDepotApplicationException>(() => WorkspaceEnsurePolicy.Ensure(snapshot, Command(path), ids.Object, now)).ErrorCode);
     }
 
     [Fact]
@@ -95,7 +95,7 @@ public sealed class WorkspaceEnsureTests
     {
         var parent = Workspace("parent");
         var plan = WorkspaceEnsurePolicy.Upsert(Snapshot([parent], [parent.Workspace.Id]),
-            new("parent/new/deep", "Deep", CreateMissingParents: true), depotId, ids.Object, now);
+            new("parent/new/deep", "Deep", CreateMissingParents: true), ids.Object, now);
         Assert.Equal(2, plan.Created.Count);
         Assert.Equal(parent.Workspace.Id, plan.Created[0].ParentWorkspaceId);
         Assert.Equal(plan.Created[0].Id, plan.Created[1].ParentWorkspaceId);
@@ -108,7 +108,7 @@ public sealed class WorkspaceEnsureTests
         existing.Workspace.Update("Original", "Old description", "{\"label\":\"old\"}", now.AddDays(-1));
         var snapshot = Snapshot([existing], [existing.Workspace.Id]);
         var plan = WorkspaceEnsurePolicy.Upsert(snapshot,
-            new("existing", "Renamed", "New description", "{\"label\":\"new\"}"), depotId, ids.Object, now);
+            new("existing", "Renamed", "New description", "{\"label\":\"new\"}"), ids.Object, now);
 
         Assert.Equal(WorkspaceUpsertPersistenceOutcome.Updated, plan.Outcome);
         Assert.Empty(plan.Created);
@@ -130,25 +130,25 @@ public sealed class WorkspaceEnsureTests
         var first = Snapshot([], [], true);
         var existing = Workspace("new");
         var second = Snapshot([existing], [existing.Workspace.Id], true, existing.Workspace.Id);
-        repository.SetupSequence(item => item.LoadEnsureSnapshotAsync(depotId, subject, default)).ReturnsAsync(first).ReturnsAsync(second);
-        repository.SetupSequence(item => item.TryApplyEnsureAsync(depotId, It.IsAny<WorkspaceWritePlan>(), now, default))
+        repository.SetupSequence(item => item.LoadEnsureSnapshotAsync(subject, default)).ReturnsAsync(first).ReturnsAsync(second);
+        repository.SetupSequence(item => item.TryApplyEnsureAsync(It.IsAny<WorkspaceWritePlan>(), now, default))
             .ReturnsAsync(new WorkspaceWritePersistenceResult(false, 0)).ReturnsAsync(new WorkspaceWritePersistenceResult(true, 1));
         access.Setup(item => item.UpdateWorkspaceAccess(It.Is<IReadOnlyCollection<Guid>>(values => values.SequenceEqual(new[] { existing.Workspace.Id })),
             It.Is<IReadOnlyCollection<Guid>>(values => values.SequenceEqual(new[] { existing.Workspace.Id })), true, 1));
         var writer = new WorkspaceWriter(repository.Object, ids.Object, access.Object);
-        var plan = await writer.EnsureAsync(depotId, Command("new"), now, default);
+        var plan = await writer.EnsureAsync(Command("new"), now, default);
         Assert.Empty(plan.Created);
         Assert.Null(plan.NewBinding);
         access.VerifyAll();
 
         repository = new(MockBehavior.Strict);
-        repository.SetupSequence(item => item.LoadEnsureSnapshotAsync(depotId, subject, default)).ReturnsAsync(first)
+        repository.SetupSequence(item => item.LoadEnsureSnapshotAsync(subject, default)).ReturnsAsync(first)
             .ReturnsAsync(Snapshot([existing], [], true, existing.Workspace.Id));
-        repository.Setup(item => item.TryApplyEnsureAsync(depotId, It.IsAny<WorkspaceWritePlan>(), now, default))
+        repository.Setup(item => item.TryApplyEnsureAsync(It.IsAny<WorkspaceWritePlan>(), now, default))
             .ReturnsAsync(new WorkspaceWritePersistenceResult(false, 0));
         var deniedAccess = new Mock<IWorkspaceAccessContext>(MockBehavior.Strict);
         var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() =>
-            new WorkspaceWriter(repository.Object, ids.Object, deniedAccess.Object).EnsureAsync(depotId, Command("new"), now, default));
+            new WorkspaceWriter(repository.Object, ids.Object, deniedAccess.Object).EnsureAsync(Command("new"), now, default));
         Assert.Equal(ApplicationErrorCodes.WorkspaceUnavailable, error.ErrorCode);
         deniedAccess.VerifyNoOtherCalls();
     }
@@ -157,18 +157,18 @@ public sealed class WorkspaceEnsureTests
     public async Task Newly_authorized_child_updates_navigation_without_granting_ancestors()
     {
         var parent = Workspace("parent");
-        var child = new WorkspacePathLookup(new Workspace(Guid.CreateVersion7(), depotId, parent.Workspace.Id,
+        var child = new WorkspacePathLookup(new Workspace(Guid.CreateVersion7(), parent.Workspace.Id,
             "Child", "child", null, now), "parent/child");
         var repository = new Mock<IWorkspaceRepository>();
-        repository.Setup(item => item.LoadEnsureSnapshotAsync(depotId, subject, default))
+        repository.Setup(item => item.LoadEnsureSnapshotAsync(subject, default))
             .ReturnsAsync(Snapshot([parent, child], [child.Workspace.Id]));
-        repository.Setup(item => item.TryApplyEnsureAsync(depotId, It.IsAny<WorkspaceWritePlan>(), now, default))
+        repository.Setup(item => item.TryApplyEnsureAsync(It.IsAny<WorkspaceWritePlan>(), now, default))
             .ReturnsAsync(new WorkspaceWritePersistenceResult(true, 1));
         var access = new Mock<IWorkspaceAccessContext>(MockBehavior.Strict);
         access.Setup(item => item.UpdateWorkspaceAccess(
             It.Is<IReadOnlyCollection<Guid>>(values => values.Count == 1 && values.Contains(child.Workspace.Id)),
             It.Is<IReadOnlyCollection<Guid>>(values => values.Count == 2 && values.Contains(child.Workspace.Id) && values.Contains(parent.Workspace.Id)), false, 1));
-        await new WorkspaceWriter(repository.Object, ids.Object, access.Object).EnsureAsync(depotId, Command("parent/child"), now, default);
+        await new WorkspaceWriter(repository.Object, ids.Object, access.Object).EnsureAsync(Command("parent/child"), now, default);
         access.VerifyAll();
     }
 
@@ -176,14 +176,14 @@ public sealed class WorkspaceEnsureTests
     public async Task Repeated_competition_is_bounded_and_never_updates_request_permissions()
     {
         var repository = new Mock<IWorkspaceRepository>();
-        repository.Setup(item => item.LoadEnsureSnapshotAsync(depotId, subject, default)).ReturnsAsync(Snapshot([], [], true));
-        repository.Setup(item => item.TryApplyEnsureAsync(depotId, It.IsAny<WorkspaceWritePlan>(), now, default))
+        repository.Setup(item => item.LoadEnsureSnapshotAsync(subject, default)).ReturnsAsync(Snapshot([], [], true));
+        repository.Setup(item => item.TryApplyEnsureAsync(It.IsAny<WorkspaceWritePlan>(), now, default))
             .ReturnsAsync(new WorkspaceWritePersistenceResult(false, 0));
         var access = new Mock<IWorkspaceAccessContext>(MockBehavior.Strict);
         var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() =>
-            new WorkspaceWriter(repository.Object, ids.Object, access.Object).EnsureAsync(depotId, Command("new"), now, default));
+            new WorkspaceWriter(repository.Object, ids.Object, access.Object).EnsureAsync(Command("new"), now, default));
         Assert.Equal(ApplicationErrorCodes.WorkspaceConcurrencyConflict, error.ErrorCode);
-        repository.Verify(item => item.TryApplyEnsureAsync(depotId, It.IsAny<WorkspaceWritePlan>(), now, default), Times.Exactly(2));
+        repository.Verify(item => item.TryApplyEnsureAsync(It.IsAny<WorkspaceWritePlan>(), now, default), Times.Exactly(2));
         access.VerifyNoOtherCalls();
     }
 
@@ -193,11 +193,11 @@ public sealed class WorkspaceEnsureTests
         var hidden = Workspace("hidden", "Private");
         var normalized = new WorkspaceSubject(WorkspaceSubjectType.Topic, "Café");
         var repository = new Mock<IWorkspaceRepository>(MockBehavior.Strict);
-        repository.Setup(item => item.LoadEnsureSnapshotAsync(depotId, normalized, default))
+        repository.Setup(item => item.LoadEnsureSnapshotAsync(normalized, default))
             .ReturnsAsync(Snapshot([hidden], [], true, hidden.Workspace.Id));
-        var depot = new Mock<ICurrentDepotContext>(); depot.SetupGet(item => item.DepotId).Returns(depotId);
+
         var safety = new Mock<ISourceSafetyService>();
-        var service = new WorkspaceAppService(depot.Object, repository.Object, TimeProvider.System, safety.Object,
+        var service = new WorkspaceAppService(repository.Object, TimeProvider.System, safety.Object,
             new WorkspaceWriter(repository.Object, ids.Object, new Mock<IWorkspaceAccessContext>().Object));
         var result = await service.ResolveSubjectAsync(new(WorkspaceSubjectType.Topic, "  Cafe\u0301  "), default);
         Assert.Equal(normalized, result.Subject);
@@ -208,9 +208,9 @@ public sealed class WorkspaceEnsureTests
 
     private EnsureWorkspaceCommand Command(string path) => new(subject, path, "Proposed", "Changed");
     private WorkspacePathLookup Workspace(string path, string name = "Existing") => new(
-        new Workspace(Guid.CreateVersion7(), depotId, null, name, path.Split('/')[^1], null, now), path);
+        new Workspace(Guid.CreateVersion7(), null, name, path.Split('/')[^1], null, now), path);
     private WorkspaceWriteSnapshot Snapshot(IReadOnlyList<WorkspacePathLookup> workspaces, IReadOnlyList<Guid> grants,
         bool canCreate = false, Guid? bound = null) => new(subject,
-        bound is null ? null : new WorkspaceSubjectBinding(Guid.CreateVersion7(), depotId, bound.Value, subject.Type, subject.Key, now),
+        bound is null ? null : new WorkspaceSubjectBinding(Guid.CreateVersion7(), bound.Value, subject.Type, subject.Key, now),
         workspaces, new(Guid.CreateVersion7(), false, true, canCreate, 0, grants));
 }

@@ -9,15 +9,15 @@ internal static class SessionCaptureLocks
     internal static Task<DateTimeOffset> NowAsync(ContextDepotDbContext db, CancellationToken ct) =>
         db.Database.SqlQuery<DateTimeOffset>($"SELECT clock_timestamp() AS \"Value\"").SingleAsync(ct);
 
-    internal static Task LockKeyAsync(ContextDepotDbContext db, Guid depotId, Guid keyId, CancellationToken ct)
+    internal static Task LockKeyAsync(ContextDepotDbContext db, Guid keyId, CancellationToken ct)
     {
-        var key = $"session-capture:{depotId}:{keyId}";
+        var key = $"session-capture:{keyId}";
         return db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({key}, 0))", ct);
     }
 
-    internal static async Task<bool> TryLockKeyAsync(ContextDepotDbContext db, Guid depotId, Guid keyId, CancellationToken ct)
+    internal static async Task<bool> TryLockKeyAsync(ContextDepotDbContext db, Guid keyId, CancellationToken ct)
     {
-        var key = $"session-capture:{depotId}:{keyId}";
+        var key = $"session-capture:{keyId}";
         return await db.Database.SqlQuery<bool>($"SELECT pg_try_advisory_xact_lock(hashtextextended({key}, 0)) AS \"Value\"").SingleAsync(ct);
     }
 

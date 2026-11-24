@@ -15,7 +15,6 @@ using ContextDepot.Domain.Contexts;
 namespace ContextDepot.Application.Contexts;
 
 public sealed partial class ContextAppService(
-    ICurrentDepotContext currentDepot,
     IWorkspaceAppService workspaceAppService,
     IContextRepository repository,
     ISourceSafetyService sourceSafety,
@@ -26,7 +25,7 @@ public sealed partial class ContextAppService(
     {
         var workspace = await workspaceAppService.ResolveAsync(command.Workspace, cancellationToken)
             ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspaceNotFound);
-        var context = PrepareContext(command, currentDepot.DepotId, workspace.Id, workspace.Path);
+        var context = PrepareContext(command, workspace.Id, workspace.Path);
         var normalizedKey = context.Key;
         var now = context.CreatedAt;
 
@@ -74,10 +73,10 @@ public sealed partial class ContextAppService(
             candidate.Summary, Key: candidate.Key, Confidence: 0.95m, SourceType: SourceType.Agent,
             SourceAgent: turn.Agent, SourceRef: $"session-capture:{turn.UserEventId}:{turn.AssistantEventId}",
             WriteMode: ContextWriteMode.CreateOnly);
-        return new(PrepareContext(command, turn.DepotId, turn.WorkspaceId, workspacePath));
+        return new(PrepareContext(command, turn.WorkspaceId, workspacePath));
     }
 
-    private ContextItem PrepareContext(SaveContextCommand command, Guid depotId, Guid workspaceId, string workspacePath)
+    private ContextItem PrepareContext(SaveContextCommand command, Guid workspaceId, string workspacePath)
     {
         var content = NormalizeContent(command.Content);
         if (content.Length == 0)
@@ -116,7 +115,6 @@ public sealed partial class ContextAppService(
         var now = timeProvider.GetUtcNow();
         var context = new ContextItem(
             idGenerator.NewId(),
-            depotId,
             workspaceId,
             command.Kind,
             normalizedKey,
@@ -139,7 +137,7 @@ public sealed partial class ContextAppService(
 
     public async Task ArchiveAsync(Guid contextId, CancellationToken cancellationToken)
     {
-        var result = await repository.ArchiveAsync(currentDepot.DepotId, contextId, timeProvider.GetUtcNow(), cancellationToken);
+        var result = await repository.ArchiveAsync(contextId, timeProvider.GetUtcNow(), cancellationToken);
         if (result.Outcome == ContextPersistenceOutcome.NotFound)
         {
             throw new ContextDepotApplicationException(ApplicationErrorCodes.ContextNotFound);
@@ -223,7 +221,7 @@ public sealed partial class ContextAppService(
     private static ContextModel ToModel(ContextItem context)
     {
         var tags = JsonSerializer.Deserialize<string[]>(context.TagsJson) ?? [];
-        return new ContextModel(context.Id, context.DepotId, context.WorkspaceId, context.Kind, context.Key, context.Title, context.Content, tags, context.Importance, context.Confidence, context.Status, context.VerificationStatus, context.ProvenanceTrust, context.SourceType, context.SourceAgent, context.SourceRef, context.SupersedesId, context.ExpiresAt, context.CreatedAt, context.UpdatedAt);
+        return new ContextModel(context.Id, context.WorkspaceId, context.Kind, context.Key, context.Title, context.Content, tags, context.Importance, context.Confidence, context.Status, context.VerificationStatus, context.ProvenanceTrust, context.SourceType, context.SourceAgent, context.SourceRef, context.SupersedesId, context.ExpiresAt, context.CreatedAt, context.UpdatedAt);
     }
 
     [GeneratedRegex("^[a-z0-9]+(?:[._-][a-z0-9]+)*$", RegexOptions.CultureInvariant)]

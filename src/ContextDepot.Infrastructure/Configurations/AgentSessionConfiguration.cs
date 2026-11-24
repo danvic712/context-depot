@@ -1,5 +1,5 @@
 using ContextDepot.Domain.AgentSessions;
-using ContextDepot.Domain.Depots;
+using ContextDepot.Domain.Access;
 using ContextDepot.Domain.Workspaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -21,12 +21,12 @@ public sealed class AgentSessionConfiguration : IEntityTypeConfiguration<AgentSe
         entity.Property(s => s.Agent).HasMaxLength(30);
         entity.Property(s => s.ClientSessionId).HasMaxLength(200);
         entity.Property(s => s.EndReason).HasMaxLength(20);
-        entity.HasIndex(s => new { s.DepotId, s.AccessKeyId, s.Agent, s.ClientSessionId }).IsUnique()
+        entity.HasIndex(s => new { s.AccessKeyId, s.Agent, s.ClientSessionId }).IsUnique()
             .HasDatabaseName("ux_agent_session_client");
-        entity.HasAlternateKey(s => new { s.Id, s.DepotId, s.AccessKeyId, s.WorkspaceId });
-        entity.HasOne<Workspace>().WithMany().HasForeignKey(s => new { s.WorkspaceId, s.DepotId })
-            .HasPrincipalKey(w => new { w.Id, w.DepotId }).OnDelete(DeleteBehavior.Restrict);
-        entity.HasOne<DepotAccessKey>().WithMany().HasForeignKey(s => new { s.AccessKeyId, s.DepotId })
-            .HasPrincipalKey(k => new { k.Id, k.DepotId }).OnDelete(DeleteBehavior.Restrict);
+        entity.HasAlternateKey(s => new { s.Id, s.AccessKeyId, s.WorkspaceId });
+        entity.HasOne<Workspace>().WithMany().HasForeignKey(s => s.WorkspaceId)
+            .OnDelete(DeleteBehavior.Restrict);
+        entity.HasOne<AccessKey>().WithMany().HasForeignKey(s => s.AccessKeyId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

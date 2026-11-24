@@ -30,6 +30,11 @@ internal static class PostgreSqlVectorFilterTranslator
     {
         expression = UnwrapConvert(expression);
 
+        if (expression is ConstantExpression { Value: bool flag })
+        {
+            return flag ? "TRUE" : "FALSE";
+        }
+
         if (expression is BinaryExpression { NodeType: ExpressionType.AndAlso or ExpressionType.And } conjunction)
         {
             var left = TranslateExpression(conjunction.Left, recordParameter, properties, parameters);

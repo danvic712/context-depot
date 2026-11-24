@@ -9,8 +9,7 @@ using Microsoft.Extensions.Options;
 
 namespace ContextDepot.Application.AgentSessions;
 
-public sealed class SessionAppService(IOptionsMonitor<SessionCaptureOptions> options, ICurrentDepotContext depot,
-    IWorkspaceAccessContext access, IWorkspaceAppService workspaces, ISessionRepository repository,
+public sealed class SessionAppService(IOptionsMonitor<SessionCaptureOptions> options, IWorkspaceAccessContext access, IWorkspaceAppService workspaces, ISessionRepository repository,
     IContextBootstrapAppService bootstrap, IIdGenerator ids, TimeProvider clock) : ISessionAppService
 {
     public async Task<SessionStartResult> StartAsync(SessionStartRequest request, CancellationToken cancellationToken)
@@ -19,11 +18,17 @@ public sealed class SessionAppService(IOptionsMonitor<SessionCaptureOptions> opt
         SessionLifecyclePolicy.ValidateStart(request);
         var keyId = CurrentKey();
         var workspace = await workspaces.ResolveAsync(request.Workspace, cancellationToken);
-        if (workspace is null || workspace.DepotId != depot.DepotId || workspace.Path != request.Workspace || !access.CanAccess(workspace.Id))
+        if (workspace is null || workspace.Path != request.Workspace || !access.CanAccess(workspace.Id))
             throw Unavailable();
-        var candidate = new AgentSession { Id = ids.NewId(), DepotId = depot.DepotId, AccessKeyId = keyId,
-            WorkspaceId = workspace.Id, Agent = request.Agent, ClientSessionId = request.ClientSessionId,
-            CreatedAt = clock.GetUtcNow() };
+        var candidate = new AgentSession
+        {
+            Id = ids.NewId(),
+            AccessKeyId = keyId,
+            WorkspaceId = workspace.Id,
+            Agent = request.Agent,
+            ClientSessionId = request.ClientSessionId,
+            CreatedAt = clock.GetUtcNow()
+        };
         var stored = await repository.StartAsync(candidate, cancellationToken);
         return new(stored.Id == candidate.Id ? "started" : "existing", Model(stored, workspace.Path));
     }
@@ -32,16 +37,16 @@ public sealed class SessionAppService(IOptionsMonitor<SessionCaptureOptions> opt
     {
         SessionLifecyclePolicy.ValidateEndReason(reason);
         var (session, path) = await ResolveAsync(sessionId, cancellationToken);
-        var ended = await repository.EndAsync(depot.DepotId, CurrentKey(), session.Id, clock.GetUtcNow(), reason, cancellationToken);
+        var ended = await repository.EndAsync(CurrentKey(), session.Id, clock.GetUtcNow(), reason, cancellationToken);
         return Model(ended, path);
     }
 
     public async Task<SessionStatusResult> StatusAsync(Guid sessionId, Guid? receiptId, CancellationToken cancellationToken)
     {
         var (session, path) = await ResolveAsync(sessionId, cancellationToken);
-        var counts = await repository.CountEventsAsync(depot.DepotId, CurrentKey(), sessionId, cancellationToken);
+        var counts = await repository.CountEventsAsync(CurrentKey(), sessionId, cancellationToken);
         var receipt = receiptId is Guid id
-            ? await repository.GetReceiptAsync(depot.DepotId, CurrentKey(), sessionId, id, cancellationToken) : null;
+            ? await repository.GetReceiptAsync(CurrentKey(), sessionId, id, cancellationToken) : null;
         if (receiptId.HasValue && receipt is null) throw Unavailable();
         return new(Model(session, path), counts, receipt);
     }
@@ -58,14 +63,14 @@ public sealed class SessionAppService(IOptionsMonitor<SessionCaptureOptions> opt
     private async Task<(AgentSession Session, string Path)> ResolveAsync(Guid sessionId, CancellationToken cancellationToken)
     {
         if (sessionId == Guid.Empty) throw Unavailable();
-        var session = await repository.GetAsync(depot.DepotId, CurrentKey(), sessionId, cancellationToken);
+        var session = await repository.GetAsync(CurrentKey(), sessionId, cancellationToken);
         if (session is null || !access.CanAccess(session.WorkspaceId)) throw Unavailable();
         var workspace = await workspaces.GetAsync(session.WorkspaceId, cancellationToken);
-        if (workspace is null || workspace.DepotId != depot.DepotId) throw Unavailable();
+        if (workspace is null) throw Unavailable();
         return (session, workspace.Path);
     }
 
-    private Guid CurrentKey() => depot.DepotId != Guid.Empty && access.DepotAccessKeyId is Guid keyId ? keyId : throw Unavailable();
+    private Guid CurrentKey() => access.AccessKeyId is Guid keyId ? keyId : throw Unavailable();
     private static ContextDepotApplicationException Unavailable() => new(ApplicationErrorCodes.SessionUnavailable);
     private static SessionModel Model(AgentSession session, string path) => new(session.Id, session.Agent,
         session.ClientSessionId, path, session.EndedAt is null ? "active" : "ended", session.CreatedAt, session.EndedAt, session.EndReason);

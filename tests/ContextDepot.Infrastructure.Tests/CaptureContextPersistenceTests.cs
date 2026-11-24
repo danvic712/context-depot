@@ -38,7 +38,7 @@ public sealed class CaptureContextPersistenceTests(CapturePostgreSqlFixture fixt
         PreparedCaptureContext Prepare()
         {
             var candidate = plan.Candidates[0];
-            var context = new ContextItem(Guid.NewGuid(), seed.DepotId, seed.WorkspaceId, ContextKind.Fact,
+            var context = new ContextItem(Guid.NewGuid(), seed.WorkspaceId, ContextKind.Fact,
                 candidate.Key, null, candidate.Summary, DateTimeOffset.UtcNow);
             context.ConfigureProvenance(VerificationStatus.Unknown, ProvenanceTrust.Asserted, SourceType.Agent,
                 turn.Agent, $"session-capture:{turn.UserEventId}:{turn.AssistantEventId}");
@@ -109,7 +109,7 @@ public sealed class CaptureContextPersistenceTests(CapturePostgreSqlFixture fixt
             Assert.Equal(1, (await db.SessionCaptureEvents.SingleAsync(x => x.Id == turn.UserEventId)).PersistenceAttemptCount);
         }
         var candidate = plan.Candidates[0];
-        var item = new ContextItem(Guid.NewGuid(), seed.DepotId, seed.WorkspaceId, ContextKind.Fact,
+        var item = new ContextItem(Guid.NewGuid(), seed.WorkspaceId, ContextKind.Fact,
             candidate.Key, null, candidate.Summary, DateTimeOffset.UtcNow);
         item.ConfigureProvenance(VerificationStatus.Unknown, ProvenanceTrust.Asserted, SourceType.Agent,
             turn.Agent, $"session-capture:{turn.UserEventId}:{turn.AssistantEventId}");

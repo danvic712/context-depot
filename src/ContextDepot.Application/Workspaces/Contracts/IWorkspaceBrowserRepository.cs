@@ -11,9 +11,6 @@ public interface IWorkspaceBrowserRepository
     /// <summary>
     /// Filters and counts authorized spaces before applying ordering and pagination.
     /// </summary>
-    /// <param name="depotId">
-    /// The current depot boundary.
-    /// </param>
     /// <param name="query">
     /// The complete, validated directory request.
     /// </param>
@@ -26,15 +23,12 @@ public interface IWorkspaceBrowserRepository
     /// <returns>
     /// A directory page and its filtered total count.
     /// </returns>
-    Task<WorkspaceDirectory> BrowseAsync(Guid depotId, WorkspaceDirectoryQuery query,
+    Task<WorkspaceDirectory> BrowseAsync(WorkspaceDirectoryQuery query,
         DateTimeOffset asOf, CancellationToken cancellationToken);
 
     /// <summary>
     /// Reads one authorized workspace and its navigable ancestors.
     /// </summary>
-    /// <param name="depotId">
-    /// The current depot boundary.
-    /// </param>
     /// <param name="id">
     /// The workspace identifier.
     /// </param>
@@ -47,14 +41,11 @@ public interface IWorkspaceBrowserRepository
     /// <returns>
     /// The detail, or null when the workspace is outside the visible scope.
     /// </returns>
-    Task<WorkspaceDetail?> GetAsync(Guid depotId, Guid id, DateTimeOffset asOf, CancellationToken cancellationToken);
+    Task<WorkspaceDetail?> GetAsync(Guid id, DateTimeOffset asOf, CancellationToken cancellationToken);
 
     /// <summary>
     /// Reads a page of visible knowledge belonging directly to a workspace.
     /// </summary>
-    /// <param name="depotId">
-    /// The current depot boundary.
-    /// </param>
     /// <param name="id">
     /// The workspace identifier.
     /// </param>
@@ -70,6 +61,6 @@ public interface IWorkspaceBrowserRepository
     /// <returns>
     /// A knowledge page, or null when the workspace is outside the visible scope.
     /// </returns>
-    Task<WorkspaceKnowledge?> ListKnowledgeAsync(Guid depotId, Guid id, PaginationQuery query,
+    Task<WorkspaceKnowledge?> ListKnowledgeAsync(Guid id, PaginationQuery query,
         DateTimeOffset asOf, CancellationToken cancellationToken);
 }

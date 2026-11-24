@@ -2,7 +2,7 @@ namespace ContextDepot.Application.Shared.Runtime.Contracts;
 
 public interface IWorkspaceAccessContext
 {
-    Guid? DepotAccessKeyId { get; }
+    Guid? AccessKeyId { get; }
 
     bool HasUnrestrictedAccess { get; }
 

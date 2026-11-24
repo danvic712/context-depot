@@ -13,7 +13,7 @@ namespace ContextDepot.Application.Tests.Documents;
 
 public sealed class DocumentManagementAppServiceTests
 {
-    private readonly Guid depotId = Guid.CreateVersion7();
+
     private readonly Guid spaceId = Guid.CreateVersion7();
     private readonly DateTimeOffset now = DateTimeOffset.Parse("2026-10-15T00:00:00Z");
     private readonly Mock<IDocumentRepository> documents = new();
@@ -22,12 +22,12 @@ public sealed class DocumentManagementAppServiceTests
 
     private DocumentManagementAppService Service(bool management = true)
     {
-        var depot = new Mock<ICurrentDepotContext>(); depot.SetupGet(x => x.DepotId).Returns(depotId);
+
         var access = new Mock<IWorkspaceAccessContext>(); access.SetupGet(x => x.HasUnrestrictedAccess).Returns(management);
-        if (!management) access.SetupGet(x => x.DepotAccessKeyId).Returns(Guid.CreateVersion7());
+        if (!management) access.SetupGet(x => x.AccessKeyId).Returns(Guid.CreateVersion7());
         workspaces.Setup(x => x.GetAsync(spaceId, It.IsAny<CancellationToken>())).ReturnsAsync(
-            new WorkspaceModel(spaceId, depotId, "notes", "Notes", null, "{}", now, now));
-        return new(depot.Object, access.Object, workspaces.Object, documents.Object, archived.Object, new DocumentWriteCoordinator());
+            new WorkspaceModel(spaceId, "notes", "Notes", null, "{}", now, now));
+        return new(access.Object, workspaces.Object, documents.Object, archived.Object, new DocumentWriteCoordinator());
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public sealed class DocumentManagementAppServiceTests
         Assert.Equal(ApplicationErrorCodes.WorkspaceNotFound, error.ErrorCode);
         archived.VerifyNoOtherCalls();
         var result = new ArchivedDocumentPage([], 0, 1, 12);
-        archived.Setup(x => x.ListArchivedAsync(depotId, spaceId, It.IsAny<PaginationQuery>(), default)).ReturnsAsync(result);
+        archived.Setup(x => x.ListArchivedAsync(spaceId, It.IsAny<PaginationQuery>(), default)).ReturnsAsync(result);
         Assert.Same(result, await service.ListArchivedAsync(spaceId, new PaginationQuery(), default));
     }
 
@@ -58,9 +58,9 @@ public sealed class DocumentManagementAppServiceTests
     [InlineData(true, true)]
     public async Task Changed_documents_are_never_deleted(bool isArchived, bool stale)
     {
-        var document = new Document(Guid.CreateVersion7(), depotId, spaceId, "old.md", "Old", now);
+        var document = new Document(Guid.CreateVersion7(), spaceId, "old.md", "Old", now);
         if (isArchived) document.MarkArchived(now);
-        documents.Setup(x => x.GetByIdAsync(depotId, document.Id, default)).ReturnsAsync(document);
+        documents.Setup(x => x.GetByIdAsync(document.Id, default)).ReturnsAsync(document);
         var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => Service().DeleteAsync(document.Id, stale ? now.AddSeconds(-1) : now, default));
         Assert.Equal(ApplicationErrorCodes.DocumentConflict, error.ErrorCode);
         archived.VerifyNoOtherCalls();
@@ -71,10 +71,10 @@ public sealed class DocumentManagementAppServiceTests
     [InlineData(true)]
     public async Task Deletion_uses_server_resolved_canonical_path_for_active_and_archived_documents(bool isArchived)
     {
-        var document = new Document(Guid.CreateVersion7(), depotId, spaceId, "docs/old.md", "Old", now);
+        var document = new Document(Guid.CreateVersion7(), spaceId, "docs/old.md", "Old", now);
         if (isArchived) document.MarkArchived(now);
-        documents.Setup(x => x.GetByIdAsync(depotId, document.Id, default)).ReturnsAsync(document);
-        archived.Setup(x => x.DeleteAsync(depotId, document.Id, spaceId, "notes/docs/old.md", now, default)).Returns(Task.CompletedTask);
+        documents.Setup(x => x.GetByIdAsync(document.Id, default)).ReturnsAsync(document);
+        archived.Setup(x => x.DeleteAsync(document.Id, spaceId, $"workspaces/{spaceId:N}/docs/old.md", now, default)).Returns(Task.CompletedTask);
         await Service().DeleteAsync(document.Id, now, default);
         archived.VerifyAll();
     }

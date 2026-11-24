@@ -18,10 +18,10 @@ public sealed class ContextRepository(ContextDepotDbContext db) : IContextReposi
         if (db.CurrentAccessKeyId is not Guid keyId || string.IsNullOrWhiteSpace(candidate.Key))
             throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspaceUnavailable);
         // FOR SHARE prevents revoke/grant deletion from racing the subsequent business write.
-        var authorized = await db.DepotAccessKeys.FromSqlInterpolated($"""
-            SELECT k.* FROM public.depot_access_keys k
-            JOIN public.workspace_access_grants g ON g.depot_access_key_id = k.id AND g.depot_id = k.depot_id
-            WHERE k.id = {keyId} AND k.depot_id = {candidate.DepotId} AND k.revoked_at IS NULL
+        var authorized = await db.AccessKeys.FromSqlInterpolated($"""
+            SELECT k.* FROM public.access_keys k
+            JOIN public.workspace_access_grants g ON g.access_key_id = k.id
+            WHERE k.id = {keyId} AND k.revoked_at IS NULL
               AND g.workspace_id = {candidate.WorkspaceId} FOR SHARE OF k, g
             """).AsNoTracking().ToArrayAsync(cancellationToken);
         if (authorized.Length != 1)
@@ -35,9 +35,8 @@ public sealed class ContextRepository(ContextDepotDbContext db) : IContextReposi
     // Caller owns the transaction and (for capture) has already locked the original Key and grant.
     internal async Task<ContextPersistenceResult> CompareAndStageCreateOnlyAsync(ContextItem candidate, CancellationToken cancellationToken)
     {
-        await LockWorkspaceAsync(candidate.DepotId, candidate.WorkspaceId, cancellationToken);
-        var existing = await db.ContextItems.AsNoTracking().Where(x => x.DepotId == candidate.DepotId &&
-            x.WorkspaceId == candidate.WorkspaceId && x.Status == ContextStatus.Active)
+        await LockWorkspaceAsync(candidate.WorkspaceId, cancellationToken);
+        var existing = await db.ContextItems.AsNoTracking().Where(x => x.WorkspaceId == candidate.WorkspaceId && x.Status == ContextStatus.Active)
             .OrderBy(x => x.Id).Take(ContextCreateOnlyPolicy.MaxComparisonCount + 1).ToArrayAsync(cancellationToken);
         var duplicate = ContextCreateOnlyPolicy.FindExisting(candidate, existing);
         if (duplicate is not null) return new(duplicate, ContextPersistenceOutcome.ReusedExisting, duplicate.Id);
@@ -45,9 +44,9 @@ public sealed class ContextRepository(ContextDepotDbContext db) : IContextReposi
         return new(candidate, ContextPersistenceOutcome.Created);
     }
 
-    public Task<ContextItem?> GetByIdAsync(Guid depotId, Guid contextId, CancellationToken cancellationToken) =>
+    public Task<ContextItem?> GetByIdAsync(Guid contextId, CancellationToken cancellationToken) =>
         db.ContextItems.AsNoTracking()
-            .SingleOrDefaultAsync(x => x.DepotId == depotId && x.Id == contextId, cancellationToken);
+            .SingleOrDefaultAsync(x => x.Id == contextId, cancellationToken);
 
     public async Task<ContextPersistenceResult> SaveKeyedAsync(ContextItem candidate, DateTimeOffset now,
         CancellationToken cancellationToken)
@@ -77,7 +76,7 @@ public sealed class ContextRepository(ContextDepotDbContext db) : IContextReposi
         try
         {
             var current = await db.ContextItems.SingleOrDefaultAsync(x =>
-                    x.DepotId == candidate.DepotId && x.WorkspaceId == candidate.WorkspaceId &&
+                    x.WorkspaceId == candidate.WorkspaceId &&
                     x.Key == candidate.Key && x.Status == ContextStatus.Active,
                 cancellationToken);
             if (current is not null && current.Kind != candidate.Kind)
@@ -126,16 +125,16 @@ public sealed class ContextRepository(ContextDepotDbContext db) : IContextReposi
             await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
         try
         {
-            await LockWorkspaceAsync(candidate.DepotId, candidate.WorkspaceId, cancellationToken);
+            await LockWorkspaceAsync(candidate.WorkspaceId, cancellationToken);
             ContextItem? duplicate = duplicatePolicy switch
             {
                 UnkeyedDuplicatePolicy.ExactContent => await db.ContextItems.SingleOrDefaultAsync(x =>
-                        x.DepotId == candidate.DepotId && x.WorkspaceId == candidate.WorkspaceId &&
+                        x.WorkspaceId == candidate.WorkspaceId &&
                         x.Kind == candidate.Kind && x.Status == ContextStatus.Active && x.Content == candidate.Content,
                     cancellationToken),
                 UnkeyedDuplicatePolicy.SourceIdentity when !string.IsNullOrWhiteSpace(candidate.SourceRef) => await db
                     .ContextItems.SingleOrDefaultAsync(x =>
-                            x.DepotId == candidate.DepotId && x.WorkspaceId == candidate.WorkspaceId &&
+                            x.WorkspaceId == candidate.WorkspaceId &&
                             x.Kind == candidate.Kind && x.Status == ContextStatus.Active &&
                             x.SourceType == candidate.SourceType && x.SourceRef == candidate.SourceRef,
                         cancellationToken),
@@ -166,7 +165,7 @@ public sealed class ContextRepository(ContextDepotDbContext db) : IContextReposi
         try
         {
             var target = await db.ContextItems.SingleOrDefaultAsync(x =>
-                    x.DepotId == candidate.DepotId && x.Id == targetId && x.WorkspaceId == candidate.WorkspaceId &&
+                    x.Id == targetId && x.WorkspaceId == candidate.WorkspaceId &&
                     x.Status == ContextStatus.Active,
                 cancellationToken);
             if (target is null)
@@ -188,14 +187,14 @@ public sealed class ContextRepository(ContextDepotDbContext db) : IContextReposi
         }
     }
 
-    public async Task<ContextPersistenceResult> ArchiveAsync(Guid depotId, Guid contextId, DateTimeOffset now,
+    public async Task<ContextPersistenceResult> ArchiveAsync(Guid contextId, DateTimeOffset now,
         CancellationToken cancellationToken)
     {
         await using var transaction =
             await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
         try
         {
-            var context = await db.ContextItems.SingleOrDefaultAsync(x => x.DepotId == depotId && x.Id == contextId,
+            var context = await db.ContextItems.SingleOrDefaultAsync(x => x.Id == contextId,
                 cancellationToken);
             if (context is null)
             {
@@ -219,11 +218,11 @@ public sealed class ContextRepository(ContextDepotDbContext db) : IContextReposi
         }
     }
 
-    private async Task LockWorkspaceAsync(Guid depotId, Guid workspaceId, CancellationToken cancellationToken)
+    private async Task LockWorkspaceAsync(Guid workspaceId, CancellationToken cancellationToken)
     {
         var locked = await db.Database.SqlQuery<Guid>($"""
             SELECT id AS "Value" FROM public.workspaces
-            WHERE id = {workspaceId} AND depot_id = {depotId} FOR UPDATE
+            WHERE id = {workspaceId} FOR UPDATE
             """).ToArrayAsync(cancellationToken);
         if (locked.Length != 1)
             throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspaceUnavailable);

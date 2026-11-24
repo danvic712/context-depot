@@ -238,6 +238,10 @@ Hangfire 的定义、排队任务和执行历史只保存在内存中。重启�
 
 ## 备份与更新
 
+Workspace 是知识组织的最高层。可以创建独立的根空间，也可以通过子空间组织相关知识。每把访问密钥分别获得 Workspace 授权。
+
+如果旧数据库仍有 Depot 表，请先备份 PostgreSQL 和 Markdown 目录。升级会移除 Depot 表，并保留现有密钥、Workspace ID、授权和原位置的 Markdown 文件。如果旧数据库有多个 Depot，迁移会停止。若需回退到仍使用这些表的版本，请恢复升级前的备份。
+
 Compose 将持久化数据保存在 `DATA_DIR` 下，默认是 `./data`：
 
 | 目录 | 内容 |

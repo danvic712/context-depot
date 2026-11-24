@@ -11,11 +11,11 @@ namespace ContextDepot.Infrastructure.Repositories;
 
 public sealed partial class OverviewRepository(ContextDepotDbContext db) : IOverviewRepository
 {
-    public async Task<ResourceCollection<WorkspaceSummary>> ListWorkspacesAsync(Guid depotId, int limit, DateTimeOffset asOf, CancellationToken cancellationToken)
+    public async Task<ResourceCollection<WorkspaceSummary>> ListWorkspacesAsync(int limit, DateTimeOffset asOf, CancellationToken cancellationToken)
     {
-        var contexts = db.ContextItems.AsNoTracking().Where(x => x.DepotId == depotId).WhereRetrievableAt(asOf);
-        var documents = db.Documents.AsNoTracking().Where(x => x.DepotId == depotId && x.Status == DocumentStatus.Active);
-        var rows = await db.Workspaces.AsNoTracking().Where(x => x.DepotId == depotId)
+        var contexts = db.ContextItems.AsNoTracking().WhereRetrievableAt(asOf);
+        var documents = db.Documents.AsNoTracking().Where(x => x.Status == DocumentStatus.Active);
+        var rows = await db.Workspaces.AsNoTracking()
             .Select(x => new
             {
                 x.Id,
@@ -40,27 +40,27 @@ public sealed partial class OverviewRepository(ContextDepotDbContext db) : IOver
             })
             .OrderByDescending(x => x.ActivityAt).ThenBy(x => x.Id).Take(limit + 1)
             .ToArrayAsync(cancellationToken);
-        var paths = await LoadPathsAsync(depotId, cancellationToken);
+        var paths = await LoadPathsAsync(cancellationToken);
         return new(asOf, rows.Take(limit).Select(x => new WorkspaceSummary(x.Id, x.Name, x.Description,
             paths[x.Id], x.ContextCount, x.DocumentCount, x.ActivityAt)).ToArray(), rows.Length > limit);
     }
 
-    public Task<ResourceCollection<KnowledgeSummary>> ListKnowledgeAsync(Guid depotId, int limit, DateTimeOffset asOf, CancellationToken cancellationToken) =>
-        ListRecentKnowledgeAsync(depotId, limit, new(null, null, null), asOf, cancellationToken);
+    public Task<ResourceCollection<KnowledgeSummary>> ListKnowledgeAsync(int limit, DateTimeOffset asOf, CancellationToken cancellationToken) =>
+        ListRecentKnowledgeAsync(limit, new(null, null, null), asOf, cancellationToken);
 
     /// <inheritdoc />
-    public async Task<ResourceCollection<KnowledgeSummary>> ListRecentKnowledgeAsync(Guid depotId, int limit,
+    public async Task<ResourceCollection<KnowledgeSummary>> ListRecentKnowledgeAsync(int limit,
         RecentKnowledgeFilter filter, DateTimeOffset asOf, CancellationToken cancellationToken)
     {
-        var paths = await LoadPathsAsync(depotId, cancellationToken);
+        var paths = await LoadPathsAsync(cancellationToken);
         Guid? workspaceId = null;
         if (filter.Workspace is not null)
         {
             workspaceId = paths.Where(x => x.Value == filter.Workspace).Select(x => (Guid?)x.Key).FirstOrDefault();
             if (workspaceId is null) throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspaceNotFound);
         }
-        var contextQuery = db.ContextItems.AsNoTracking().Where(x => x.DepotId == depotId).WhereRetrievableAt(asOf);
-        var documentQuery = db.Documents.AsNoTracking().Where(x => x.DepotId == depotId && x.Status == DocumentStatus.Active);
+        var contextQuery = db.ContextItems.AsNoTracking().WhereRetrievableAt(asOf);
+        var documentQuery = db.Documents.AsNoTracking().Where(x => x.Status == DocumentStatus.Active);
         if (workspaceId is not null)
         {
             contextQuery = contextQuery.Where(x => x.WorkspaceId == workspaceId);
@@ -86,9 +86,9 @@ public sealed partial class OverviewRepository(ContextDepotDbContext db) : IOver
         return new(asOf, merged.Take(limit).ToArray(), merged.Length > limit);
     }
 
-    public async Task<bool> CreateWorkspaceAsync(Guid depotId, Guid id, string name, string path, string? description, DateTimeOffset now, CancellationToken cancellationToken)
+    public async Task<bool> CreateWorkspaceAsync(Guid id, string name, string path, string? description, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        var workspace = new Workspace(id, depotId, null, name, path, description, now);
+        var workspace = new Workspace(id, null, name, path, description, now);
         db.Workspaces.Add(workspace);
         try
         {
@@ -103,9 +103,9 @@ public sealed partial class OverviewRepository(ContextDepotDbContext db) : IOver
         }
     }
 
-    private async Task<IReadOnlyDictionary<Guid, string>> LoadPathsAsync(Guid depotId, CancellationToken cancellationToken)
+    private async Task<IReadOnlyDictionary<Guid, string>> LoadPathsAsync(CancellationToken cancellationToken)
     {
-        var nodes = await db.Workspaces.AsNoTracking().Where(x => x.DepotId == depotId)
+        var nodes = await db.Workspaces.AsNoTracking()
             .Select(x => new WorkspaceTreeNode(x.Id, x.ParentWorkspaceId, x.Slug)).ToArrayAsync(cancellationToken);
         return new WorkspaceTopology(nodes).Paths;
     }

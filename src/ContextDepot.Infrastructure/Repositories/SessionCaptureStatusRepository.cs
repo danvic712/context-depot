@@ -11,28 +11,28 @@ namespace ContextDepot.Infrastructure.Repositories;
 
 public sealed class SessionCaptureStatusRepository(ContextDepotDbContext db) : ISessionCaptureStatusRepository
 {
-    public async Task<SessionCaptureStatusResult?> GetAsync(Guid depotId, Guid keyId, SessionCaptureStatusRequest request, CancellationToken cancellationToken)
+    public async Task<SessionCaptureStatusResult?> GetAsync(Guid keyId, SessionCaptureStatusRequest request, CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
-        var canCreateRoot = await db.DepotAccessKeys.IgnoreQueryFilters().Where(k => k.Id == keyId && k.DepotId == depotId && k.RevokedAt == null)
+        var canCreateRoot = await db.AccessKeys.IgnoreQueryFilters().Where(k => k.Id == keyId && k.RevokedAt == null)
             .Select(k => (bool?)k.CanCreateRootWorkspaces).SingleOrDefaultAsync(cancellationToken);
         if (canCreateRoot is null) return null;
-        var grants = await db.WorkspaceAccessGrants.IgnoreQueryFilters().Where(g => g.DepotId == depotId && g.DepotAccessKeyId == keyId)
+        var grants = await db.WorkspaceAccessGrants.IgnoreQueryFilters().Where(g => g.AccessKeyId == keyId)
             .Select(g => g.WorkspaceId).ToArrayAsync(cancellationToken);
         if (grants.Length == 0 && !canCreateRoot.Value) return null;
         SessionCaptureTurnRoute? route = null;
-        var inbox = db.SessionCaptureInboxEvents.IgnoreQueryFilters().AsNoTracking().Where(e => e.DepotId == depotId && e.AccessKeyId == keyId);
+        var inbox = db.SessionCaptureInboxEvents.IgnoreQueryFilters().AsNoTracking().Where(e => e.AccessKeyId == keyId);
         if (request.TurnReceiptId is Guid turnId)
-            route = await db.SessionCaptureTurnRoutes.IgnoreQueryFilters().AsNoTracking().SingleOrDefaultAsync(r => r.Id == turnId && r.DepotId == depotId && r.AccessKeyId == keyId, cancellationToken);
+            route = await db.SessionCaptureTurnRoutes.IgnoreQueryFilters().AsNoTracking().SingleOrDefaultAsync(r => r.Id == turnId && r.AccessKeyId == keyId, cancellationToken);
         else if (request.ReceiptId is Guid receiptId)
         {
             var inboxMessage = await inbox.SingleOrDefaultAsync(e => e.Id == receiptId, cancellationToken);
             if (inboxMessage is not null)
-                route = await db.SessionCaptureTurnRoutes.IgnoreQueryFilters().AsNoTracking().SingleOrDefaultAsync(r => r.Id == inboxMessage.TurnRouteId && r.DepotId == depotId && r.AccessKeyId == keyId, cancellationToken);
+                route = await db.SessionCaptureTurnRoutes.IgnoreQueryFilters().AsNoTracking().SingleOrDefaultAsync(r => r.Id == inboxMessage.TurnRouteId && r.AccessKeyId == keyId, cancellationToken);
         }
         if (request.TurnReceiptId is not null && route is null) return null;
         if (route?.WorkspaceId is Guid routedWorkspace && !grants.Contains(routedWorkspace)) return null;
-        var queue = db.SessionCaptureEvents.IgnoreQueryFilters().AsNoTracking().Where(e => e.DepotId == depotId && e.AccessKeyId == keyId);
+        var queue = db.SessionCaptureEvents.IgnoreQueryFilters().AsNoTracking().Where(e => e.AccessKeyId == keyId);
         SessionCaptureEvent[] messages = [];
         SessionCaptureInboxEvent[] inboxMessages = [];
         Guid? workspaceId;
@@ -54,13 +54,13 @@ public sealed class SessionCaptureStatusRepository(ContextDepotDbContext db) : I
         string? path = null;
         if (workspaceId is Guid target)
         {
-            var workspaces = await db.Workspaces.IgnoreQueryFilters().AsNoTracking().Where(w => w.DepotId == depotId).ToArrayAsync(cancellationToken);
+            var workspaces = await db.Workspaces.IgnoreQueryFilters().AsNoTracking().ToArrayAsync(cancellationToken);
             path = new WorkspaceTopology(workspaces.Select(w => new WorkspaceTreeNode(w.Id, w.ParentWorkspaceId, w.Slug))).Paths.GetValueOrDefault(target);
             if (path is null) return null;
         }
         var user = messages.SingleOrDefault(m => m.Phase == "user");
         var createdIds = ReadCreatedIds(user?.CandidateOutcomesJson);
-        var visibleIds = await db.ContextItems.IgnoreQueryFilters().Where(c => c.DepotId == depotId && c.WorkspaceId == workspaceId &&
+        var visibleIds = await db.ContextItems.IgnoreQueryFilters().Where(c => c.WorkspaceId == workspaceId &&
             c.Status == ContextStatus.Active && createdIds.Contains(c.Id)).Select(c => c.Id).ToArrayAsync(cancellationToken);
         var processing = messages.Any(m => m.Status == "processing") ? "processing" : messages.Any(m => m.Status == "pending") ? "pending" :
             messages.Any(m => m.Status == "failed") ? "failed" : messages.Length > 0 ? "completed" : "not_started";

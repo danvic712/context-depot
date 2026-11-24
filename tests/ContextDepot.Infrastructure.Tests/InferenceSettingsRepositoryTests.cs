@@ -2,7 +2,7 @@ using ContextDepot.Application.DataProtection;
 using ContextDepot.Application.Settings.Dtos;
 using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Application.Shared.Runtime.Contracts;
-using ContextDepot.Infrastructure.CurrentDepot;
+using ContextDepot.Infrastructure.Access;
 using ContextDepot.Infrastructure.DataProtection;
 using ContextDepot.Infrastructure.Repositories;
 using ContextDepot.Infrastructure.RuntimeConfiguration;
@@ -31,7 +31,7 @@ public sealed class InferenceSettingsRepositoryTests
             await create.ExecuteNonQueryAsync();
         try
         {
-            var access = new CurrentDepotAccessContext(); access.AllowInternalAccess();
+            var access = new WorkspaceAccessContext(); access.AllowInternalAccess();
             var options = new DbContextOptionsBuilder<ContextDepotDbContext>()
                 .UseNpgsql(connection, o => o.MigrationsHistoryTable("ef_migrations", "public"))
                 .AddInterceptors(new InferenceTestSchemaInterceptor(schema)).Options;
@@ -82,7 +82,7 @@ public sealed class InferenceSettingsRepositoryTests
             var builder = new NpgsqlConnectionStringBuilder(connection);
             var services = new ServiceCollection();
             services.AddLogging();
-            services.AddScoped<IWorkspaceAccessContext>(_ => { var access = new CurrentDepotAccessContext(); access.AllowInternalAccess(); return access; });
+            services.AddScoped<IWorkspaceAccessContext>(_ => { var access = new WorkspaceAccessContext(); access.AllowInternalAccess(); return access; });
             services.AddDbContext<ContextDepotDbContext>(options => options.UseNpgsql(builder.ConnectionString,
                 o => o.MigrationsHistoryTable("ef_migrations", "public")).AddInterceptors(new InferenceTestSchemaInterceptor(schema)));
             services.AddSingleton<ISecretProtector>(new DataProtectionSecretProtector(new EphemeralDataProtectionProvider()));

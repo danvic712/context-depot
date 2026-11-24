@@ -9,16 +9,15 @@ using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Application.Shared.Runtime.Contracts;
 using ContextDepot.Application.Shared.Safety.Contracts;
 using ContextDepot.Application.Workspaces;
-using ContextDepot.Domain.Depots;
+using ContextDepot.Domain.Access;
 using ContextDepot.Domain.Inferences;
 using ContextDepot.Domain.Setup;
 using ContextDepot.Domain.Workspaces;
-using Microsoft.Extensions.Options;
 
 namespace ContextDepot.Application.Setup;
 
 public sealed class SetupAppService(ISetupRepository repository, IIdGenerator ids, TimeProvider clock,
-    IOptions<SetupOptions> options, ISourceSafetyService sourceSafety, ISecretProtector protector,
+    ISourceSafetyService sourceSafety, ISecretProtector protector,
     IAccessKeySecretGenerator keyGenerator) : ISetupAppService
 {
     public async Task<SetupStatusDto> GetAsync(CancellationToken cancellationToken) =>
@@ -40,7 +39,7 @@ public sealed class SetupAppService(ISetupRepository repository, IIdGenerator id
             throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidInferenceConfiguration);
         var keyName = request.AccessKeyName?.Trim();
         GeneratedAccessKey? generated = null;
-        DepotAccessKey? accessKey = null;
+        AccessKey? accessKey = null;
         var snapshot = await repository.MutateAsync(current =>
         {
             // A lost completion response must never create another Workspace or credential.
@@ -48,19 +47,16 @@ public sealed class SetupAppService(ISetupRepository repository, IIdGenerator id
             var now = clock.GetUtcNow();
             var existing = current.Installation.State == InstallationState.InProgress;
             Workspace workspace;
-            Depot depot;
             if (existing)
             {
                 EnsureInitialResources(current);
                 workspace = current.Workspace!;
                 workspace.UpdateDetails(workspaceDraft.Name, workspaceDraft.Path, workspaceDraft.Description, now);
-                depot = new Depot(workspace.DepotId, "ContextDepot", now);
             }
             else
             {
-                if (current.HasAnyDepot) throw new ContextDepotApplicationException(ApplicationErrorCodes.SetupConflict);
-                depot = new Depot(NewDepotId(), "ContextDepot", now);
-                workspace = new Workspace(ids.NewId(), depot.Id, null, workspaceDraft.Name, workspaceDraft.Path, workspaceDraft.Description, now);
+                if (current.HasWorkspaces) throw new ContextDepotApplicationException(ApplicationErrorCodes.SetupConflict);
+                workspace = new Workspace(ids.NewId(), null, workspaceDraft.Name, workspaceDraft.Path, workspaceDraft.Description, now);
             }
             var configuredProviders = new List<InferenceProvider>();
             foreach (var draft in providers)
@@ -96,14 +92,14 @@ public sealed class SetupAppService(ISetupRepository repository, IIdGenerator id
             if (keyName is not null)
             {
                 generated = keyGenerator.Generate();
-                accessKey = new DepotAccessKey(ids.NewId(), depot.Id, keyName, generated.Prefix, generated.SecretHash, now);
-                accessKey.WorkspaceGrants.Add(new WorkspaceAccessGrant(accessKey.Id, depot.Id, workspace.Id, now));
+                accessKey = new AccessKey(ids.NewId(), keyName, generated.Prefix, generated.SecretHash, now);
+                accessKey.WorkspaceGrants.Add(new WorkspaceAccessGrant(accessKey.Id, workspace.Id, now));
             }
-            current.Installation.Begin(depot.Id, workspace.Id, now);
+            current.Installation.Begin(workspace.Id, now);
             current.Installation.ReviewInference(now);
             current.Installation.ReviewAccessKey(now);
             current.Installation.Complete(now);
-            return new SetupResources(depot, workspace)
+            return new SetupResources(workspace)
             {
                 ExistingWorkspace = existing, Providers = configuredProviders, Routes = current.Routes, AccessKey = accessKey
             };
@@ -133,28 +129,17 @@ public sealed class SetupAppService(ISetupRepository repository, IIdGenerator id
         return new(name, path, description);
     }
 
-    private Guid NewDepotId()
+    private static void EnsureInitialResources(SetupSnapshot snapshot)
     {
-        if (string.IsNullOrWhiteSpace(options.Value.DepotId)) return ids.NewId();
-        if (!Guid.TryParse(options.Value.DepotId, out var id) || id.Version != 7)
-            throw new ContextDepotApplicationException(ApplicationErrorCodes.SetupUnavailable);
-        return id;
-    }
-
-    private void EnsureInitialResources(SetupSnapshot snapshot)
-    {
-        if (!snapshot.InitialDepotExists || snapshot.Workspace is not { } workspace ||
-            workspace.Id != snapshot.Installation.InitialWorkspaceId || workspace.DepotId != snapshot.Installation.InitialDepotId || workspace.ParentWorkspaceId is not null)
-            throw new ContextDepotApplicationException(ApplicationErrorCodes.SetupUnavailable);
-        var configured = options.Value.DepotId;
-        if (!string.IsNullOrWhiteSpace(configured) && (!Guid.TryParse(configured, out var id) || id != snapshot.Installation.InitialDepotId))
+        if (snapshot.Workspace is not { } workspace ||
+            workspace.Id != snapshot.Installation.InitialWorkspaceId || workspace.ParentWorkspaceId is not null)
             throw new ContextDepotApplicationException(ApplicationErrorCodes.SetupUnavailable);
     }
 
     private static SetupStatusDto ToDto(SetupSnapshot snapshot)
     {
         var state = snapshot.Installation;
-        var workspace = snapshot.Workspace is { } initial && initial.Id == state.InitialWorkspaceId && initial.DepotId == state.InitialDepotId
+        var workspace = snapshot.Workspace is { } initial && initial.Id == state.InitialWorkspaceId
             ? new SetupWorkspaceDto(initial.Id, initial.Name, initial.Slug, initial.Description) : null;
         // Legacy partial setups can recover their recorded space, but all new progress lives in the browser draft.
         return new(state.State, workspace, state.State == InstallationState.Completed ? "review" : "workspace");

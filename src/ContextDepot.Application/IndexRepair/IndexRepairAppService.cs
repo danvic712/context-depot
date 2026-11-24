@@ -26,21 +26,19 @@ public sealed class IndexRepairAppService(
     private readonly CanonicalDocumentIndexer indexer = new(documentRepository, markdownStore, chunker, sourceSafety, idGenerator, timeProvider);
 
     public async Task<IndexRepairCycleResult> RepairAsync(
-        Guid depotId,
         IndexRepairRequest request,
         CancellationToken cancellationToken)
     {
-        ValidateRequest(depotId, request);
+        ValidateRequest(request);
 
         var documentsReconciled = 0;
         var retrievalDegraded = false;
         var documentCandidates = await repairRepository.FindDocumentIndexRepairCandidatesAsync(
-            depotId,
             request.BatchSize,
             cancellationToken);
         foreach (var candidate in documentCandidates)
         {
-            var result = await RepairDocumentAsync(depotId, candidate, cancellationToken);
+            var result = await RepairDocumentAsync(candidate, cancellationToken);
             if (result.Reconciled)
             {
                 documentsReconciled++;
@@ -71,7 +69,6 @@ public sealed class IndexRepairAppService(
             if (!contextFinished)
             {
                 var contextPage = await repairRepository.FindContextSourcePageAsync(
-                    depotId,
                     contextAfterId,
                     request.BatchSize,
                     timeProvider.GetUtcNow(),
@@ -103,7 +100,6 @@ public sealed class IndexRepairAppService(
             if (!documentFinished)
             {
                 var documentPage = await repairRepository.FindDocumentChunkSourcePageAsync(
-                    depotId,
                     documentChunkAfterId,
                     request.BatchSize,
                     cancellationToken);
@@ -149,16 +145,14 @@ public sealed class IndexRepairAppService(
     }
 
     private async Task<(bool Reconciled, bool Degraded)> RepairDocumentAsync(
-        Guid depotId,
         DocumentIndexRepairCandidate candidate,
         CancellationToken cancellationToken)
     {
         await using var writeLease = await documentWriteCoordinator.AcquireAsync(
-            depotId + ":" + candidate.WorkspaceId + ":" + candidate.Path,
+            candidate.WorkspaceId + ":" + candidate.Path,
             cancellationToken);
 
         var document = await documentRepository.GetByIdAsync(
-            depotId,
             candidate.DocumentId,
             cancellationToken);
         if (document is null ||
@@ -172,8 +166,7 @@ public sealed class IndexRepairAppService(
         try
         {
             markdown = await indexer.ReadAsync(
-                depotId,
-                candidate.WorkspacePath,
+                candidate.StoragePath ?? candidate.WorkspacePath,
                 candidate.Path,
                 cancellationToken);
         }
@@ -189,7 +182,6 @@ public sealed class IndexRepairAppService(
                 ApplicationErrorCodes.MarkdownRootUnavailable,
                 candidate.DocumentId);
             await repairRepository.MarkDocumentIndexFailedAsync(
-                depotId,
                 candidate.DocumentId,
                 ApplicationErrorCodes.MarkdownRootUnavailable,
                 cancellationToken);
@@ -198,7 +190,6 @@ public sealed class IndexRepairAppService(
         if (markdown is null)
         {
             await repairRepository.MarkDocumentIndexFailedAsync(
-                depotId,
                 candidate.DocumentId,
                 ApplicationErrorCodes.MarkdownFileMissing,
                 cancellationToken);
@@ -209,7 +200,6 @@ public sealed class IndexRepairAppService(
         {
             await indexer.ReconcileAsync(new CanonicalDocumentSource(
                 candidate.DocumentId,
-                depotId,
                 candidate.WorkspaceId,
                 candidate.WorkspacePath,
                 candidate.Path,
@@ -220,7 +210,6 @@ public sealed class IndexRepairAppService(
         catch (ContextDepotApplicationException exception)
         {
             await repairRepository.MarkDocumentIndexFailedAsync(
-                depotId,
                 candidate.DocumentId,
                 exception.ErrorCode,
                 cancellationToken);
@@ -238,7 +227,6 @@ public sealed class IndexRepairAppService(
                 ApplicationErrorCodes.DocumentWriteFailed,
                 candidate.DocumentId);
             await repairRepository.MarkDocumentIndexFailedAsync(
-                depotId,
                 candidate.DocumentId,
                 ApplicationErrorCodes.DocumentWriteFailed,
                 cancellationToken);
@@ -246,10 +234,10 @@ public sealed class IndexRepairAppService(
         }
     }
 
-    private static void ValidateRequest(Guid depotId, IndexRepairRequest request)
+    private static void ValidateRequest(IndexRepairRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        if (depotId == Guid.Empty || request.BatchSize is < 1 or > 256 || request.MaxBatches is < 1 or > 100)
+        if (request.BatchSize is < 1 or > 256 || request.MaxBatches is < 1 or > 100)
         {
             throw new ContextDepotApplicationException(ApplicationErrorCodes.IndexRepairRequestInvalid);
         }

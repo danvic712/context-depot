@@ -11,7 +11,7 @@ namespace ContextDepot.Application.Documents;
 /// </summary>
 public sealed class DocumentLinkValidator(IDocumentRepository repository, IMarkdownStore markdownStore)
 {
-    public async Task<DocumentLinkValidation> ValidateAsync(Guid depotId, Guid workspaceId, string workspace,
+    public async Task<DocumentLinkValidation> ValidateAsync(Guid workspaceId, string workspace,
         string sourcePath, string content, CancellationToken cancellationToken)
     {
         var source = MarkdownDocumentAnalysis.Parse(content);
@@ -79,7 +79,7 @@ public sealed class DocumentLinkValidator(IDocumentRepository repository, IMarkd
             {
                 if (!targets.TryGetValue(targetPath, out var target))
                 {
-                    target = await ReadTargetAsync(depotId, workspaceId, workspace, targetPath, cancellationToken);
+                    target = await ReadTargetAsync(workspaceId, workspace, targetPath, cancellationToken);
                     targets.Add(targetPath, target);
                 }
                 if (target.Code is not null)
@@ -95,15 +95,15 @@ public sealed class DocumentLinkValidator(IDocumentRepository repository, IMarkd
         return new(errors, warnings);
     }
 
-    private async Task<(string? Code, HashSet<string>? Headings)> ReadTargetAsync(Guid depotId, Guid workspaceId,
+    private async Task<(string? Code, HashSet<string>? Headings)> ReadTargetAsync(Guid workspaceId,
         string workspace, string path, CancellationToken cancellationToken)
     {
-        var target = await repository.GetByPathAsync(depotId, workspaceId, path, cancellationToken);
+        var target = await repository.GetByPathAsync(workspaceId, path, cancellationToken);
         if (target is null) return ("target_not_found", null);
         if (target.Status != DocumentStatus.Active) return ("target_archived", null);
         try
         {
-            var canonical = await markdownStore.GetAsync(depotId, workspace + "/" + path, cancellationToken);
+            var canonical = await markdownStore.GetAsync(workspace + "/" + path, cancellationToken);
             return canonical is null ? ("target_content_unavailable", null) :
                 (null, MarkdownDocumentAnalysis.Parse(canonical.Content).HeadingIds);
         }

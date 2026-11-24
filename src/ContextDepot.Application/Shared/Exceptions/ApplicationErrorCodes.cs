@@ -20,7 +20,6 @@ public static class ApplicationErrorCodes
     public const string InvalidInferenceConfiguration = "InvalidInferenceConfiguration";
     public const string InvalidRequest = "InvalidRequest";
     public const string Unauthorized = "Unauthorized";
-    public const string WebDepotUnavailable = "web.depot_unavailable";
     public const string WorkspacePathConflict = "workspace.path_conflict";
     public const string DataProtectionKeyRingInvalid = "DataProtectionKeyRingInvalid";
     public const string RetrievalConfigurationInvalid = "RetrievalConfigurationInvalid";

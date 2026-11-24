@@ -14,7 +14,6 @@ public sealed class ContractSerializationTests
         var context = new ContextModel(
             Guid.CreateVersion7(),
             Guid.CreateVersion7(),
-            Guid.CreateVersion7(),
             ContextKind.Preference,
             "editor.theme",
             "Theme",

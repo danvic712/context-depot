@@ -28,7 +28,6 @@ export function saveAgentSessionSettings(
 }
 
 export interface SettingsOverview {
-  depotName: string;
   databaseState: string;
   markdownState: string;
   semanticState: string;
@@ -174,7 +173,6 @@ export function parseOverview(data: unknown): SettingsOverview {
   const v = object(data);
   if (v.mcpPath !== "/mcp") throw new Error("Invalid MCP path");
   return {
-    depotName: string(v.depotName),
     databaseState: state(v.databaseState, ["available", "unavailable"]),
     markdownState: state(v.markdownState, ["available", "unavailable"]),
     semanticState: state(v.semanticState, [

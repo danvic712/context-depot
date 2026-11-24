@@ -8,23 +8,20 @@ namespace ContextDepot.Application.Contexts;
 /// <summary>
 /// Validates trusted management access and optimistic concurrency before permanent context removal.
 /// </summary>
-/// <param name="depot">
-/// The server-selected depot context.
-/// </param>
 /// <param name="access">
 /// The current workspace access scope.
 /// </param>
 /// <param name="repository">
 /// The repository that atomically deletes the context and its vector indexes.
 /// </param>
-public sealed class ContextManagementAppService(ICurrentDepotContext depot, IWorkspaceAccessContext access,
+public sealed class ContextManagementAppService(IWorkspaceAccessContext access,
     IContextManagementRepository repository)
 {
     /// <summary>
     /// Deletes a context and its derived indexes only if the observed revision is still current.
     /// </summary>
     /// <param name="id">
-    /// The context identifier within the server-selected depot.
+    /// The context identifier.
     /// </param>
     /// <param name="expectedUpdatedAt">
     /// The exact revision obtained from the reader.
@@ -46,9 +43,9 @@ public sealed class ContextManagementAppService(ICurrentDepotContext depot, IWor
     /// </exception>
     public async Task DeleteAsync(Guid id, DateTimeOffset expectedUpdatedAt, CancellationToken cancellationToken)
     {
-        ManagementAccess.RequireManagement(depot, access);
+        ManagementAccess.RequireManagement(access);
         if (expectedUpdatedAt == default) throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidResourceQuery);
-        if (!await repository.DeleteAsync(depot.DepotId, id, expectedUpdatedAt, cancellationToken))
+        if (!await repository.DeleteAsync(id, expectedUpdatedAt, cancellationToken))
             throw new ContextDepotApplicationException(ApplicationErrorCodes.KnowledgeDeleteConflict);
     }
 }

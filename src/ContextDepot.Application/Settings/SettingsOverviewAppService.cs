@@ -5,12 +5,11 @@ using ContextDepot.Application.Shared.Runtime.Contracts;
 
 namespace ContextDepot.Application.Settings;
 
-public sealed class SettingsOverviewAppService(ISettingsOverviewRepository repository, ICurrentDepotContext depot,
-    IWorkspaceAccessContext access)
+public sealed class SettingsOverviewAppService(ISettingsOverviewRepository repository, IWorkspaceAccessContext access)
 {
     public Task<SettingsOverviewDto> GetAsync(CancellationToken cancellationToken)
     {
-        ManagementAccess.RequireManagement(depot, access);
-        return repository.GetAsync(depot.DepotId, depot.DisplayName, cancellationToken);
+        ManagementAccess.RequireManagement(access);
+        return repository.GetAsync(cancellationToken);
     }
 }

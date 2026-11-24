@@ -2,7 +2,6 @@ namespace ContextDepot.Application.Documents.Dtos;
 
 public sealed record DocumentIndexWrite(
     Guid DocumentId,
-    Guid DepotId,
     Guid WorkspaceId,
     string Path,
     string Title,

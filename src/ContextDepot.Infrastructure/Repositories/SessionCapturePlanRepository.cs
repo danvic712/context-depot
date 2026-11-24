@@ -54,7 +54,7 @@ public sealed class SessionCapturePlanRepository(ContextDepotDbContext db, ISess
             if (prior is not null) return prior;
             var item = prepared.Context;
             // Prepared values cannot change the immutable plan or its authorization boundary.
-            if (item.DepotId != turn.DepotId || item.WorkspaceId != turn.WorkspaceId || item.Key != candidate.Key ||
+            if (item.WorkspaceId != turn.WorkspaceId || item.Key != candidate.Key ||
                 !string.Equals(item.Kind.ToString(), candidate.Kind, StringComparison.OrdinalIgnoreCase) ||
                 item.Content != string.Join(' ', candidate.Summary.Trim().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)) ||
                 item.SourceType != ContextDepot.Domain.Contexts.Enums.SourceType.Agent ||
@@ -63,7 +63,7 @@ public sealed class SessionCapturePlanRepository(ContextDepotDbContext db, ISess
                 item.SourceAgent != turn.Agent || item.SourceRef != $"session-capture:{turn.UserEventId}:{turn.AssistantEventId}")
                 throw new JsonException(InfrastructureErrorCodes.SessionMemoryResponseInvalid);
             var evidence = await db.ContextCaptureEvidence.IgnoreQueryFilters().AsNoTracking().SingleOrDefaultAsync(x =>
-                x.DepotId == turn.DepotId && x.AccessKeyId == turn.AccessKeyId && x.UserEventId == turn.UserEventId &&
+                x.AccessKeyId == turn.AccessKeyId && x.UserEventId == turn.UserEventId &&
                 x.CandidateIndex == index, cancellationToken);
             CaptureCandidateOutcome outcome;
             if (evidence is not null)
@@ -81,11 +81,18 @@ public sealed class SessionCapturePlanRepository(ContextDepotDbContext db, ISess
                     var fragments = JsonSerializer.Serialize(candidate.Evidence, CapturePlanCodec.Json);
                     db.ContextCaptureEvidence.Add(new ContextCaptureEvidence
                     {
-                        ContextId = item.Id, DepotId = turn.DepotId, WorkspaceId = turn.WorkspaceId, AccessKeyId = turn.AccessKeyId,
-                        UserEventId = turn.UserEventId, AssistantEventId = turn.AssistantEventId, CandidateIndex = index,
-                        UserContentHash = user.ContentHash, EncryptedFragments = evidenceProtector.Protect(fragments),
-                        FragmentsHash = CapturePlanCodec.Hash(fragments), ExtractorVersion = plan.Version,
-                        ProtectionVersion = 1, CreatedAt = item.CreatedAt
+                        ContextId = item.Id,
+                        WorkspaceId = turn.WorkspaceId,
+                        AccessKeyId = turn.AccessKeyId,
+                        UserEventId = turn.UserEventId,
+                        AssistantEventId = turn.AssistantEventId,
+                        CandidateIndex = index,
+                        UserContentHash = user.ContentHash,
+                        EncryptedFragments = evidenceProtector.Protect(fragments),
+                        FragmentsHash = CapturePlanCodec.Hash(fragments),
+                        ExtractorVersion = plan.Version,
+                        ProtectionVersion = 1,
+                        CreatedAt = item.CreatedAt
                     });
                 }
             }
@@ -134,12 +141,12 @@ public sealed class SessionCapturePlanRepository(ContextDepotDbContext db, ISess
 
     private async Task<SessionCaptureEvent?> LockAndValidateAsync(CapturedTurn turn, CancellationToken cancellationToken)
     {
-        await SessionCaptureLocks.LockKeyAsync(db, turn.DepotId, turn.AccessKeyId, cancellationToken);
+        await SessionCaptureLocks.LockKeyAsync(db, turn.AccessKeyId, cancellationToken);
         var rows = await SessionCaptureLocks.LockTurnAsync(db, turn.UserEventId, turn.AssistantEventId, cancellationToken);
         foreach (var row in rows) await db.Entry(row).ReloadAsync(cancellationToken);
         var now = await db.Database.SqlQuery<DateTimeOffset>($"SELECT clock_timestamp() AS \"Value\"").SingleAsync(cancellationToken);
         if (!options.CurrentValue.Enabled || turn.LeaseToken is null || rows.Length != 2 ||
-            rows.Any(x => x.DepotId != turn.DepotId || x.AccessKeyId != turn.AccessKeyId || x.WorkspaceId != turn.WorkspaceId ||
+            rows.Any(x => x.AccessKeyId != turn.AccessKeyId || x.WorkspaceId != turn.WorkspaceId ||
                 x.Status != "processing" || x.LeaseToken != turn.LeaseToken || x.LeaseUntil <= now || x.LeaseUntil is null ||
                 x.EncryptedContent is null || (x.CaptureExpiresAt ?? x.CreatedAt.AddHours(options.CurrentValue.RetentionHours)) <= now)) return null;
         var user = rows.SingleOrDefault(x => x.Id == turn.UserEventId && x.Phase == "user");
@@ -147,7 +154,7 @@ public sealed class SessionCapturePlanRepository(ContextDepotDbContext db, ISess
         if (user is null || assistant is null || user.SessionId != assistant.SessionId || user.Agent != assistant.Agent ||
             user.ClientSessionId != assistant.ClientSessionId || user.TurnId != assistant.TurnId ||
             CapturePlanCodec.Hash(turn.UserContent) != user.ContentHash || CapturePlanCodec.Hash(turn.AssistantContent) != assistant.ContentHash) return null;
-        await SessionAccessGuard.EnsureAsync(db, turn.DepotId, turn.AccessKeyId, turn.WorkspaceId, cancellationToken);
+        await SessionAccessGuard.EnsureAsync(db, turn.AccessKeyId, turn.WorkspaceId, cancellationToken);
         return await IsCurrentAsync(turn, cancellationToken) ? user : null;
     }
 

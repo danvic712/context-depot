@@ -75,22 +75,20 @@ public sealed class SessionCaptureRepository(ContextDepotDbContext db, ISessionC
 
     private async Task LockKeyAsync(SessionCaptureEvent message, CancellationToken cancellationToken)
     {
-        await SessionCaptureLocks.LockKeyAsync(db, message.DepotId, message.AccessKeyId, cancellationToken);
+        await SessionCaptureLocks.LockKeyAsync(db, message.AccessKeyId, cancellationToken);
     }
 
     private async Task<SessionCaptureReceipt> EnqueueMessageAsync(SessionCaptureEvent message, CancellationToken cancellationToken)
     {
         if (!options.CurrentValue.Enabled) return new("disabled");
         // Auto tombstones remain the mode authority even after promotion.
-        if (await db.SessionCaptureTurnRoutes.IgnoreQueryFilters().AnyAsync(r => r.DepotId == message.DepotId &&
-                r.AccessKeyId == message.AccessKeyId && r.Agent == message.Agent && r.ClientSessionId == message.ClientSessionId &&
+        if (await db.SessionCaptureTurnRoutes.IgnoreQueryFilters().AnyAsync(r => r.AccessKeyId == message.AccessKeyId && r.Agent == message.Agent && r.ClientSessionId == message.ClientSessionId &&
                 r.TurnId == message.TurnId, cancellationToken) ||
-            await db.SessionCaptureInboxEvents.IgnoreQueryFilters().AnyAsync(e => e.DepotId == message.DepotId &&
-                e.AccessKeyId == message.AccessKeyId && e.Agent == message.Agent && e.ClientSessionId == message.ClientSessionId &&
+            await db.SessionCaptureInboxEvents.IgnoreQueryFilters().AnyAsync(e => e.AccessKeyId == message.AccessKeyId && e.Agent == message.Agent && e.ClientSessionId == message.ClientSessionId &&
                 e.EventId == message.EventId, cancellationToken))
             throw new ContextDepotApplicationException(ApplicationErrorCodes.SessionCaptureConflict);
         var existing = await db.SessionCaptureEvents.IgnoreQueryFilters().AsNoTracking().Where(e =>
-            e.DepotId == message.DepotId && e.AccessKeyId == message.AccessKeyId && e.Agent == message.Agent &&
+            e.AccessKeyId == message.AccessKeyId && e.Agent == message.Agent &&
             e.ClientSessionId == message.ClientSessionId && (e.EventId == message.EventId ||
                 (e.TurnId == message.TurnId && e.Phase == message.Phase))).ToArrayAsync(cancellationToken);
         if (existing.Length > 0)
@@ -98,33 +96,32 @@ public sealed class SessionCaptureRepository(ContextDepotDbContext db, ISessionC
             if (existing.Any(e => e.ContentHash != message.ContentHash || e.WorkspaceId != message.WorkspaceId ||
                     e.TurnId != message.TurnId || e.Phase != message.Phase || e.SessionId != message.SessionId))
                 throw new ContextDepotApplicationException(ApplicationErrorCodes.SessionCaptureConflict);
-            await SessionAccessGuard.EnsureAsync(db, message.DepotId, message.AccessKeyId, message.WorkspaceId, cancellationToken);
+            await SessionAccessGuard.EnsureAsync(db, message.AccessKeyId, message.WorkspaceId, cancellationToken);
             return new("accepted", existing[0].Id);
         }
         if (message.SessionId is null && await db.AgentSessions.IgnoreQueryFilters().AnyAsync(s =>
-                s.DepotId == message.DepotId && s.AccessKeyId == message.AccessKeyId && s.Agent == message.Agent &&
+                s.AccessKeyId == message.AccessKeyId && s.Agent == message.Agent &&
                 s.ClientSessionId == message.ClientSessionId, cancellationToken))
             throw new ContextDepotApplicationException(ApplicationErrorCodes.SessionUnavailable);
         if (message.SessionId is Guid sessionId)
         {
             var session = await db.AgentSessions.IgnoreQueryFilters().AsNoTracking().SingleOrDefaultAsync(s =>
-                s.Id == sessionId && s.DepotId == message.DepotId && s.AccessKeyId == message.AccessKeyId &&
+                s.Id == sessionId && s.AccessKeyId == message.AccessKeyId &&
                 s.WorkspaceId == message.WorkspaceId && s.Agent == message.Agent && s.ClientSessionId == message.ClientSessionId, cancellationToken)
                 ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.SessionUnavailable);
             SessionLifecyclePolicy.EnsureNewCaptureAllowed(session);
         }
         // The opposite phase cannot silently bind a turn to another workspace.
-        if (await db.SessionCaptureEvents.IgnoreQueryFilters().AnyAsync(e => e.DepotId == message.DepotId &&
-            e.AccessKeyId == message.AccessKeyId && e.Agent == message.Agent && e.ClientSessionId == message.ClientSessionId &&
+        if (await db.SessionCaptureEvents.IgnoreQueryFilters().AnyAsync(e => e.AccessKeyId == message.AccessKeyId && e.Agent == message.Agent && e.ClientSessionId == message.ClientSessionId &&
             e.TurnId == message.TurnId && (e.WorkspaceId != message.WorkspaceId || e.SessionId != message.SessionId), cancellationToken))
             throw new ContextDepotApplicationException(ApplicationErrorCodes.SessionCaptureConflict);
         var partners = await db.SessionCaptureEvents.FromSqlInterpolated($"""
-            SELECT * FROM public.session_capture_events WHERE depot_id = {message.DepotId} AND access_key_id = {message.AccessKeyId}
+            SELECT * FROM public.session_capture_events WHERE access_key_id = {message.AccessKeyId}
               AND agent = {message.Agent} AND client_session_id = {message.ClientSessionId} AND turn_id = {message.TurnId}
             ORDER BY id FOR UPDATE
             """).IgnoreQueryFilters().ToArrayAsync(cancellationToken);
         foreach (var partner in partners) await db.Entry(partner).ReloadAsync(cancellationToken);
-        await SessionAccessGuard.EnsureAsync(db, message.DepotId, message.AccessKeyId, message.WorkspaceId, cancellationToken);
+        await SessionAccessGuard.EnsureAsync(db, message.AccessKeyId, message.WorkspaceId, cancellationToken);
         if (!options.CurrentValue.Enabled) return new("disabled");
         var now = await SessionCaptureLocks.NowAsync(db, cancellationToken);
         var terminal = partners.FirstOrDefault(e => e.Status is "completed" or "failed");
@@ -147,13 +144,12 @@ public sealed class SessionCaptureRepository(ContextDepotDbContext db, ISessionC
         }
         else
         {
-            var queueCount = await db.SessionCaptureEvents.IgnoreQueryFilters().CountAsync(e => e.DepotId == message.DepotId &&
-                e.AccessKeyId == message.AccessKeyId && (e.Status == "pending" || e.Status == "processing"), cancellationToken);
+            var queueCount = await db.SessionCaptureEvents.IgnoreQueryFilters().CountAsync(e => e.AccessKeyId == message.AccessKeyId && (e.Status == "pending" || e.Status == "processing"), cancellationToken);
             var inboxCount = await (from e in db.SessionCaptureInboxEvents.IgnoreQueryFilters()
-                join r in db.SessionCaptureTurnRoutes.IgnoreQueryFilters() on e.TurnRouteId equals r.Id
-                where r.DepotId == message.DepotId && r.AccessKeyId == message.AccessKeyId && e.EncryptedContent != null &&
-                    (r.State == "waiting_user" || r.State == "pending" || r.State == "resolving" || r.State == "resolved")
-                select e.Id).CountAsync(cancellationToken);
+                                    join r in db.SessionCaptureTurnRoutes.IgnoreQueryFilters() on e.TurnRouteId equals r.Id
+                                    where r.AccessKeyId == message.AccessKeyId && e.EncryptedContent != null &&
+                                        (r.State == "waiting_user" || r.State == "pending" || r.State == "resolving" || r.State == "resolved")
+                                    select e.Id).CountAsync(cancellationToken);
             if (queueCount + inboxCount >= options.CurrentValue.MaxPendingEventsPerKey)
                 throw new ContextDepotApplicationException(ApplicationErrorCodes.SessionCaptureCapacity);
         }
@@ -167,14 +163,14 @@ public sealed class SessionCaptureRepository(ContextDepotDbContext db, ISessionC
         var candidates = await db.SessionCaptureEvents.IgnoreQueryFilters().AsNoTracking()
             .Where(SessionCapturePolicy.RequiresCleanup(options.CurrentValue, clock.GetUtcNow()))
             .OrderBy(e => e.CreatedAt).ThenBy(e => e.Id).Take(256)
-            .Select(e => new { e.Id, e.DepotId, e.AccessKeyId }).ToArrayAsync(cancellationToken);
+            .Select(e => new { e.Id, e.AccessKeyId }).ToArrayAsync(cancellationToken);
         foreach (var candidate in candidates)
         {
             await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-            if (!await SessionCaptureLocks.TryLockKeyAsync(db, candidate.DepotId, candidate.AccessKeyId, cancellationToken)) continue;
+            if (!await SessionCaptureLocks.TryLockKeyAsync(db, candidate.AccessKeyId, cancellationToken)) continue;
             var locator = await db.SessionCaptureEvents.IgnoreQueryFilters().AsNoTracking().SingleAsync(e => e.Id == candidate.Id, cancellationToken);
             var messages = await db.SessionCaptureEvents.FromSqlInterpolated($"""
-                SELECT * FROM public.session_capture_events WHERE depot_id = {locator.DepotId} AND access_key_id = {locator.AccessKeyId}
+                SELECT * FROM public.session_capture_events WHERE access_key_id = {locator.AccessKeyId}
                 AND agent = {locator.Agent} AND client_session_id = {locator.ClientSessionId} AND turn_id = {locator.TurnId}
                 ORDER BY id FOR UPDATE
                 """).IgnoreQueryFilters().ToArrayAsync(cancellationToken);
@@ -205,18 +201,17 @@ public sealed class SessionCaptureRepository(ContextDepotDbContext db, ISessionC
             .Where(SessionCapturePolicy.WithinRetention(options.CurrentValue, now))
             .Where(e => (e.Status == "pending" && e.NextAttemptAt <= now) || (e.Status == "processing" && e.LeaseUntil <= now));
         var candidates = await (from user in pending
-            from assistant in pending
-            where user.Phase == "user" && assistant.Phase == "assistant" && user.SessionId == assistant.SessionId &&
-                user.DepotId == assistant.DepotId && user.AccessKeyId == assistant.AccessKeyId && user.WorkspaceId == assistant.WorkspaceId &&
-                user.Agent == assistant.Agent && user.ClientSessionId == assistant.ClientSessionId && user.TurnId == assistant.TurnId &&
-                ((user.EncryptedExtractionPlan == null && user.AttemptCount < options.CurrentValue.MaxAttempts) ||
-                 (user.EncryptedExtractionPlan != null && user.PersistenceAttemptCount < options.CurrentValue.PersistenceMaxAttempts))
-            orderby user.NextAttemptAt, user.CreatedAt, user.Id
-            select new { UserId = user.Id, AssistantId = assistant.Id, user.DepotId, user.AccessKeyId }).Take(64).ToArrayAsync(cancellationToken);
+                                from assistant in pending
+                                where user.Phase == "user" && assistant.Phase == "assistant" && user.SessionId == assistant.SessionId && user.AccessKeyId == assistant.AccessKeyId && user.WorkspaceId == assistant.WorkspaceId &&
+                                    user.Agent == assistant.Agent && user.ClientSessionId == assistant.ClientSessionId && user.TurnId == assistant.TurnId &&
+                                    ((user.EncryptedExtractionPlan == null && user.AttemptCount < options.CurrentValue.MaxAttempts) ||
+                                     (user.EncryptedExtractionPlan != null && user.PersistenceAttemptCount < options.CurrentValue.PersistenceMaxAttempts))
+                                orderby user.NextAttemptAt, user.CreatedAt, user.Id
+                                select new { UserId = user.Id, AssistantId = assistant.Id, user.AccessKeyId }).Take(64).ToArrayAsync(cancellationToken);
         foreach (var candidate in candidates)
         {
             await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-            if (!await SessionCaptureLocks.TryLockKeyAsync(db, candidate.DepotId, candidate.AccessKeyId, cancellationToken)) continue;
+            if (!await SessionCaptureLocks.TryLockKeyAsync(db, candidate.AccessKeyId, cancellationToken)) continue;
             var messages = await SessionCaptureLocks.LockTurnAsync(db, candidate.UserId, candidate.AssistantId, cancellationToken);
             // A previous iteration may have tracked these rows: refresh only after taking their locks.
             foreach (var message in messages) await db.Entry(message).ReloadAsync(cancellationToken);
@@ -225,12 +220,11 @@ public sealed class SessionCaptureRepository(ContextDepotDbContext db, ISessionC
                 !((e.Status == "pending" && e.NextAttemptAt <= now) || (e.Status == "processing" && e.LeaseUntil <= now)))) continue;
             var user = messages.Single(e => e.Phase == "user");
             var assistant = messages.Single(e => e.Phase == "assistant");
-            if (user.SessionId != assistant.SessionId || user.WorkspaceId != assistant.WorkspaceId ||
-                user.DepotId != assistant.DepotId || user.AccessKeyId != assistant.AccessKeyId || user.Agent != assistant.Agent ||
+            if (user.SessionId != assistant.SessionId || user.WorkspaceId != assistant.WorkspaceId || user.AccessKeyId != assistant.AccessKeyId || user.Agent != assistant.Agent ||
                 user.ClientSessionId != assistant.ClientSessionId || user.TurnId != assistant.TurnId ||
                 (user.EncryptedExtractionPlan == null ? user.AttemptCount >= options.CurrentValue.MaxAttempts :
                  user.PersistenceAttemptCount >= options.CurrentValue.PersistenceMaxAttempts)) continue;
-            try { await SessionAccessGuard.EnsureAsync(db, user.DepotId, user.AccessKeyId, user.WorkspaceId, cancellationToken); }
+            try { await SessionAccessGuard.EnsureAsync(db, user.AccessKeyId, user.WorkspaceId, cancellationToken); }
             catch (ContextDepotApplicationException)
             {
                 var saved = HasSavedOutcome(user);
@@ -246,7 +240,7 @@ public sealed class SessionCaptureRepository(ContextDepotDbContext db, ISessionC
             // Preflight only: actual requests still require an atomic provider reservation.
             // Skip budget-blocked keys so one saturated key cannot stall this cycle.
             var waitUntil = user.EncryptedExtractionPlan is null ? await SessionCaptureCallBudget.FindWaitUntilAsync(
-                db, user.DepotId, user.AccessKeyId, options.CurrentValue.MaxCallsPerHour, now, cancellationToken) : null;
+                db, user.AccessKeyId, options.CurrentValue.MaxCallsPerHour, now, cancellationToken) : null;
             if (waitUntil is not null)
             {
                 foreach (var message in messages)
@@ -273,7 +267,7 @@ public sealed class SessionCaptureRepository(ContextDepotDbContext db, ISessionC
             if (lease is null) continue;
             if (user.EncryptedExtractionPlan is not null) user.PersistenceAttemptCount++;
             var expiry = user.CaptureExpiresAt ?? user.CreatedAt.AddHours(options.CurrentValue.RetentionHours);
-            var turn = new CapturedTurn(user.Id, assistant.Id, user.DepotId, user.AccessKeyId, user.WorkspaceId,
+            var turn = new CapturedTurn(user.Id, assistant.Id, user.AccessKeyId, user.WorkspaceId,
                 lease.Value, string.Empty, string.Empty, user.Agent, user.LeaseToken, expiry);
             await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
@@ -314,12 +308,11 @@ public sealed class SessionCaptureRepository(ContextDepotDbContext db, ISessionC
     public async Task FinishAsync(CapturedTurn turn, CaptureProcessingResult result, CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-        await SessionCaptureLocks.LockKeyAsync(db, turn.DepotId, turn.AccessKeyId, cancellationToken);
+        await SessionCaptureLocks.LockKeyAsync(db, turn.AccessKeyId, cancellationToken);
         var messages = await SessionCaptureLocks.LockTurnAsync(db, turn.UserEventId, turn.AssistantEventId, cancellationToken);
         foreach (var message in messages) await db.Entry(message).ReloadAsync(cancellationToken);
         var now = await SessionCaptureLocks.NowAsync(db, cancellationToken);
-        if (turn.LeaseToken is null || messages.Length != 2 || messages.Any(e => e.DepotId != turn.DepotId ||
-            e.AccessKeyId != turn.AccessKeyId || e.WorkspaceId != turn.WorkspaceId || e.Status != "processing" ||
+        if (turn.LeaseToken is null || messages.Length != 2 || messages.Any(e => e.AccessKeyId != turn.AccessKeyId || e.WorkspaceId != turn.WorkspaceId || e.Status != "processing" ||
             e.LeaseToken != turn.LeaseToken || e.LeaseUntil <= now || e.LeaseUntil == null ||
             (e.CaptureExpiresAt ?? e.CreatedAt.AddHours(options.CurrentValue.RetentionHours)) <= now)) return;
         var user = messages.Single(e => e.Phase == "user");
@@ -328,7 +321,7 @@ public sealed class SessionCaptureRepository(ContextDepotDbContext db, ISessionC
         var code = saved ? "saved" : result.ResultCode;
         var error = result.LastErrorCode;
         var purge = result.ResultCode is "skipped_sensitive" or "skipped_unauthorized" or "skipped_expired";
-        try { await SessionAccessGuard.EnsureAsync(db, turn.DepotId, turn.AccessKeyId, turn.WorkspaceId, cancellationToken); }
+        try { await SessionAccessGuard.EnsureAsync(db, turn.AccessKeyId, turn.WorkspaceId, cancellationToken); }
         catch (ContextDepotApplicationException) { disposition = SessionCaptureDisposition.Completed; code = saved ? "saved" : "skipped_unauthorized"; purge = true; }
         if (!options.CurrentValue.Enabled && !purge)
         {

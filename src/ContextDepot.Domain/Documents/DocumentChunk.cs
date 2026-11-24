@@ -6,10 +6,9 @@ public sealed class DocumentChunk
     {
     }
 
-    public DocumentChunk(Guid id, Guid depotId, Guid documentId, Guid workspaceId, int ordinal, string headingPath, string content, string contentHash, DateTimeOffset now)
+    public DocumentChunk(Guid id, Guid documentId, Guid workspaceId, int ordinal, string headingPath, string content, string contentHash, DateTimeOffset now)
     {
         Id = id;
-        DepotId = depotId;
         DocumentId = documentId;
         WorkspaceId = workspaceId;
         Ordinal = ordinal;
@@ -21,8 +20,6 @@ public sealed class DocumentChunk
     }
 
     public Guid Id { get; private set; }
-
-    public Guid DepotId { get; private set; }
 
     public Guid DocumentId { get; private set; }
 

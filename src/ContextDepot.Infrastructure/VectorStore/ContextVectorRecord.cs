@@ -4,8 +4,6 @@ internal sealed class ContextVectorRecord
 {
     public required Guid ContextItemId { get; init; }
 
-    public required Guid DepotId { get; init; }
-
     public required Guid WorkspaceId { get; init; }
 
     public required string Kind { get; init; }

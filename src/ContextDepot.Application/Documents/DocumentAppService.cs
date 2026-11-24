@@ -13,7 +13,6 @@ using ContextDepot.Domain.Documents.Enums;
 namespace ContextDepot.Application.Documents;
 
 public sealed class DocumentAppService(
-    ICurrentDepotContext currentDepot,
     IWorkspaceAppService workspaceAppService,
     IDocumentRepository repository,
     IMarkdownStore markdownStore,
@@ -40,23 +39,22 @@ public sealed class DocumentAppService(
         sourceSafety.EnsureSafe(normalizedPath);
         sourceSafety.EnsureSafe(command.Content);
         sourceSafety.EnsureSafe(command.Title);
-        var depotId = currentDepot.DepotId;
-        var relativePath = workspace.Path + "/" + normalizedPath;
+        var relativePath = workspace.StoragePath + "/" + normalizedPath;
         var incomingHash = DocumentContentHasher.Compute(command.Content);
-        await using var writeLock = await coordinator.AcquireAsync(depotId + ":" + workspace.Id + ":" + normalizedPath, cancellationToken);
+        await using var writeLock = await coordinator.AcquireAsync(workspace.Id + ":" + normalizedPath, cancellationToken);
 
         // Re-read both stores after acquiring the per-document lock. This prevents a stale
         // pre-lock read from overwriting a concurrent writer's canonical content.
         MarkdownDocument? currentFile;
         try
         {
-            currentFile = await indexer.ReadAsync(depotId, workspace.Path, normalizedPath, cancellationToken);
+            currentFile = await indexer.ReadAsync(workspace.StoragePath, normalizedPath, cancellationToken);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             throw new ContextDepotApplicationException(ApplicationErrorCodes.MarkdownRootUnavailable);
         }
-        var document = await repository.GetByPathAsync(depotId, workspace.Id, normalizedPath, cancellationToken);
+        var document = await repository.GetByPathAsync(workspace.Id, normalizedPath, cancellationToken);
         var currentHash = currentFile?.ContentHash ?? document?.ContentHash;
         if (document is not null && currentHash is not null &&
             !string.Equals(currentHash, incomingHash, StringComparison.OrdinalIgnoreCase) &&
@@ -65,7 +63,7 @@ public sealed class DocumentAppService(
             throw new ContextDepotApplicationException(ApplicationErrorCodes.DocumentConflict);
         }
 
-        var links = await linkValidator.ValidateAsync(depotId, workspace.Id, workspace.Path, normalizedPath,
+        var links = await linkValidator.ValidateAsync(workspace.Id, workspace.StoragePath, normalizedPath,
             command.Content, cancellationToken);
         if (!links.IsValid) throw new DocumentLinkValidationException(links.Errors);
 
@@ -80,14 +78,14 @@ public sealed class DocumentAppService(
 
         if (document is not null)
         {
-            await repository.MarkIndexPendingAsync(depotId, workspace.Id, normalizedPath, now, cancellationToken);
+            await repository.MarkIndexPendingAsync(workspace.Id, normalizedPath, now, cancellationToken);
         }
 
         if (currentFile is null || !string.Equals(currentHash, incomingHash, StringComparison.OrdinalIgnoreCase))
         {
             try
             {
-                await markdownStore.WriteAtomicAsync(depotId, relativePath, command.Content, cancellationToken);
+                await markdownStore.WriteAtomicAsync(relativePath, command.Content, cancellationToken);
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
@@ -98,7 +96,7 @@ public sealed class DocumentAppService(
         MarkdownDocument? canonical;
         try
         {
-            canonical = await indexer.ReadAsync(depotId, workspace.Path, normalizedPath, cancellationToken);
+            canonical = await indexer.ReadAsync(workspace.StoragePath, normalizedPath, cancellationToken);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -111,7 +109,6 @@ public sealed class DocumentAppService(
         }
         var result = await indexer.ReconcileAsync(new CanonicalDocumentSource(
             document?.Id ?? idGenerator.NewId(),
-            depotId,
             workspace.Id,
             workspace.Path,
             normalizedPath,
@@ -122,7 +119,7 @@ public sealed class DocumentAppService(
 
     public async Task<DocumentContentModel?> GetAsync(Guid documentId, CancellationToken cancellationToken)
     {
-        var document = await repository.GetByIdAsync(currentDepot.DepotId, documentId, cancellationToken);
+        var document = await repository.GetByIdAsync(documentId, cancellationToken);
         if (document is null)
         {
             return null;
@@ -134,14 +131,14 @@ public sealed class DocumentAppService(
             return null;
         }
 
-        var markdown = await markdownStore.GetAsync(currentDepot.DepotId, workspace.Path + "/" + document.Path, cancellationToken);
+        var markdown = await markdownStore.GetAsync(workspace.StoragePath + "/" + document.Path, cancellationToken);
         if (markdown is null)
         {
             return null;
         }
 
         // Re-read target state on explicit document_get, including unchanged-source retries.
-        var links = await linkValidator.ValidateAsync(currentDepot.DepotId, workspace.Id, workspace.Path,
+        var links = await linkValidator.ValidateAsync(workspace.Id, workspace.StoragePath,
             document.Path, markdown.Content, cancellationToken);
         var model = ToModel(document, workspace.Path) with { LinkValidation = links };
         return new DocumentContentModel(model, markdown.Content, markdown.ContentHash);
@@ -149,7 +146,7 @@ public sealed class DocumentAppService(
 
     public async Task<Guid> ResolveLinkAsync(Guid sourceId, string path, CancellationToken cancellationToken, Guid? workspaceId = null)
     {
-        var source = await repository.GetByIdAsync(currentDepot.DepotId, sourceId, cancellationToken);
+        var source = await repository.GetByIdAsync(sourceId, cancellationToken);
         if (source is null || source.Status != DocumentStatus.Active ||
             (workspaceId is not null && source.WorkspaceId != workspaceId))
             throw new ContextDepotApplicationException(ApplicationErrorCodes.DocumentNotFound);
@@ -159,7 +156,7 @@ public sealed class DocumentAppService(
             throw new ContextDepotApplicationException(ApplicationErrorCodes.DocumentNotFound);
 
         var targetPath = DocumentPath.ResolveLink(source.Path, path);
-        var target = await repository.GetByPathAsync(currentDepot.DepotId, workspace.Id, targetPath, cancellationToken);
+        var target = await repository.GetByPathAsync(workspace.Id, targetPath, cancellationToken);
         if (target is null || target.Status != DocumentStatus.Active)
             throw new ContextDepotApplicationException(ApplicationErrorCodes.DocumentNotFound);
         return target.Id;
@@ -167,12 +164,12 @@ public sealed class DocumentAppService(
 
     public async Task ArchiveAsync(Guid documentId, CancellationToken cancellationToken)
     {
-        var document = await repository.GetByIdAsync(currentDepot.DepotId, documentId, cancellationToken)
+        var document = await repository.GetByIdAsync(documentId, cancellationToken)
             ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.DocumentNotFound);
         var workspace = await workspaceAppService.GetAsync(document.WorkspaceId, cancellationToken)
             ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspaceNotFound);
-        await using var writeLock = await coordinator.AcquireAsync(currentDepot.DepotId + ":" + workspace.Id + ":" + document.Path, cancellationToken);
-        var result = await repository.ArchiveAsync(currentDepot.DepotId, documentId, timeProvider.GetUtcNow(), cancellationToken);
+        await using var writeLock = await coordinator.AcquireAsync(workspace.Id + ":" + document.Path, cancellationToken);
+        var result = await repository.ArchiveAsync(documentId, timeProvider.GetUtcNow(), cancellationToken);
         if (result.Outcome == DocumentArchivePersistenceOutcome.NotFound)
         {
             throw new ContextDepotApplicationException(ApplicationErrorCodes.DocumentNotFound);
@@ -181,7 +178,6 @@ public sealed class DocumentAppService(
 
     private static DocumentModel ToModel(Document document, string workspacePath) => new(
         document.Id,
-        document.DepotId,
         document.WorkspaceId,
         workspacePath,
         document.Path,

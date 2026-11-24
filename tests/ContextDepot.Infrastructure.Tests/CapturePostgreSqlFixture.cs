@@ -3,10 +3,10 @@ using System.Text;
 using ContextDepot.Application.AgentSessions;
 using ContextDepot.Application.AgentSessions.Dtos;
 using ContextDepot.Domain.AgentSessions;
-using ContextDepot.Domain.Depots;
+using ContextDepot.Domain.Access;
 using ContextDepot.Domain.Workspaces;
 using ContextDepot.Infrastructure.AgentSessions;
-using ContextDepot.Infrastructure.CurrentDepot;
+using ContextDepot.Infrastructure.Access;
 using ContextDepot.Infrastructure.Repositories;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
@@ -55,7 +55,7 @@ public sealed class CapturePostgreSqlFixture : IAsyncLifetime
     public ContextDepotDbContext CreateDb(params IInterceptor[] interceptors)
     {
         if (string.IsNullOrWhiteSpace(connectionString)) throw new InvalidOperationException("Capture test connection is unset.");
-        var access = new CurrentDepotAccessContext();
+        var access = new WorkspaceAccessContext();
         access.AllowInternalAccess();
         return new(new DbContextOptionsBuilder<ContextDepotDbContext>().UseNpgsql(connectionString, npgsql => npgsql.MigrationsHistoryTable("ef_migrations", "public"))
             .AddInterceptors(interceptors).Options, access);
@@ -73,18 +73,17 @@ public sealed class CapturePostgreSqlFixture : IAsyncLifetime
             DELETE FROM public.context_items;
             DELETE FROM public.workspace_subject_bindings;
             DELETE FROM public.workspace_access_grants;
-            DELETE FROM public.depot_access_keys;
+            DELETE FROM public.access_keys;
             DELETE FROM public.workspaces;
-            DELETE FROM public.depots;
             """);
         var now = DateTimeOffset.UtcNow;
-        var depot = new Depot(Guid.NewGuid(), "Capture integration", now);
-        var workspace = new Workspace(Guid.NewGuid(), depot.Id, null, "Storage", "storage", null, now);
-        var key = new DepotAccessKey(Guid.NewGuid(), depot.Id, "Capture", "capture-test", "test-only-hash", now, canCreateRootWorkspaces);
-        if (grantWorkspace) key.WorkspaceGrants.Add(new WorkspaceAccessGrant(key.Id, depot.Id, workspace.Id, now));
-        db.AddRange(depot, workspace, key);
+
+        var workspace = new Workspace(Guid.NewGuid(), null, "Storage", "storage", null, now);
+        var key = new AccessKey(Guid.NewGuid(), "Capture", "capture-test", "test-only-hash", now, canCreateRootWorkspaces);
+        if (grantWorkspace) key.WorkspaceGrants.Add(new WorkspaceAccessGrant(key.Id, workspace.Id, now));
+        db.AddRange(workspace, key);
         await db.SaveChangesAsync();
-        return new(depot.Id, key.Id, workspace.Id);
+        return new(key.Id, workspace.Id);
     }
 
     public SessionCaptureInboxRepository Inbox(ContextDepotDbContext db, int capacity = 200) => new(db, Protector, Options(capacity: capacity));
@@ -93,8 +92,13 @@ public sealed class CapturePostgreSqlFixture : IAsyncLifetime
 
     public SessionCaptureInboxEvent Message(CaptureSeed seed, string phase, string text = "I use PostgreSQL for persistent storage.", string turn = "turn-1") => new()
     {
-        Id = Guid.NewGuid(), DepotId = seed.DepotId, AccessKeyId = seed.KeyId, Agent = "codex",
-        ClientSessionId = "capture-session", TurnId = turn, EventId = turn + ":" + phase, Phase = phase,
+        Id = Guid.NewGuid(),
+        AccessKeyId = seed.KeyId,
+        Agent = "codex",
+        ClientSessionId = "capture-session",
+        TurnId = turn,
+        EventId = turn + ":" + phase,
+        Phase = phase,
         ContentHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text))),
         EncryptedContent = Protector.Protect(text), CreatedAt = DateTimeOffset.UtcNow
     };
@@ -103,7 +107,7 @@ public sealed class CapturePostgreSqlFixture : IAsyncLifetime
     {
         await using var db = CreateDb();
         var receipt = await Inbox(db).AcceptAsync(Envelope(Message(seed, "user"), Message(seed, "assistant", "Understood.")), default);
-        return new(seed.DepotId, seed.KeyId, receipt.TurnReceiptId!.Value);
+        return new(seed.KeyId, receipt.TurnReceiptId!.Value);
     }
     public async Task ResolveAsync(RouteLocator locator, Guid workspaceId)
     {
@@ -114,7 +118,7 @@ public sealed class CapturePostgreSqlFixture : IAsyncLifetime
     }
 }
 
-public sealed record CaptureSeed(Guid DepotId, Guid KeyId, Guid WorkspaceId);
+public sealed record CaptureSeed(Guid KeyId, Guid WorkspaceId);
 internal sealed class CaptureOptionsMonitor(SessionCaptureOptions value) : IOptionsMonitor<SessionCaptureOptions>
 {
     public SessionCaptureOptions CurrentValue => value;

@@ -15,7 +15,7 @@ using ContextDepot.Application.Shared.Safety;
 using ContextDepot.Domain.Contexts;
 using ContextDepot.Domain.Contexts.Enums;
 using ContextDepot.Application.Bootstrap.Enums;
-using ContextDepot.Domain.Depots;
+using ContextDepot.Domain.Access;
 using Microsoft.Extensions.AI;
 using Moq;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -25,15 +25,15 @@ namespace ContextDepot.Application.Tests.Bootstrap;
 
 public sealed class BootstrapRetrievalTests
 {
-    private static readonly Guid DepotId = Guid.Parse("0199c000-0000-7000-8000-000000000001");
+
 
     [Fact]
     public async Task Explicit_scope_returns_only_current_workspace_and_respects_budget()
     {
         var workspaceId = Guid.Parse("0199c000-0000-7000-8000-000000000010");
         var otherWorkspaceId = Guid.Parse("0199c000-0000-7000-8000-000000000011");
-        var workspace = new BootstrapWorkspaceCandidate(workspaceId, DepotId, null, "Portwise", "portwise");
-        var otherWorkspace = new BootstrapWorkspaceCandidate(otherWorkspaceId, DepotId, null, "Other", "other");
+        var workspace = new BootstrapWorkspaceCandidate(workspaceId, null, "Portwise", "portwise");
+        var otherWorkspace = new BootstrapWorkspaceCandidate(otherWorkspaceId, null, "Other", "other");
         var matching = Context(workspaceId, "PostgreSQL is the database", "project.database");
         var unrelated = Context(otherWorkspaceId, "SQLite", "project.database");
         var repository = new Mock<IBootstrapRepository>();
@@ -41,10 +41,9 @@ public sealed class BootstrapRetrievalTests
         repository.Setup(x => x.FindContextCandidatesAsync(It.IsAny<BootstrapQuery>(), It.IsAny<CancellationToken>())).ReturnsAsync([matching, unrelated]);
         repository.Setup(x => x.FindDocumentCandidatesAsync(It.IsAny<BootstrapQuery>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
         var workspaces = new Mock<IWorkspaceAppService>();
-        workspaces.Setup(x => x.ResolveAsync("portwise", It.IsAny<CancellationToken>())).ReturnsAsync(new WorkspaceModel(workspaceId, DepotId, "portwise", "Portwise", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
-        var depot = Depot();
+        workspaces.Setup(x => x.ResolveAsync("portwise", It.IsAny<CancellationToken>())).ReturnsAsync(new WorkspaceModel(workspaceId, "portwise", "Portwise", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
 
-        var result = await CreateService(depot, workspaces, repository).BootstrapAsync(new BootstrapRequest("database", ["portwise"], 100), CancellationToken.None);
+        var result = await CreateService(workspaces, repository).BootstrapAsync(new BootstrapRequest("database", ["portwise"], 100), CancellationToken.None);
 
         var item = Assert.Single(result.Contexts);
         Assert.Equal(matching.Id, item.Id);
@@ -62,7 +61,7 @@ public sealed class BootstrapRetrievalTests
     public async Task Importance_without_query_match_does_not_suppress_semantic_fallback()
     {
         var workspaceId = Guid.CreateVersion7();
-        var workspace = new BootstrapWorkspaceCandidate(workspaceId, DepotId, null, "Project", "project");
+        var workspace = new BootstrapWorkspaceCandidate(workspaceId, null, "Project", "project");
         var unrelated = Context(workspaceId, "Unrelated information", null) with { Importance = 80 };
         var relevant = Context(workspaceId, "Database decision", null);
         var repository = new Mock<IBootstrapRepository>();
@@ -71,7 +70,7 @@ public sealed class BootstrapRetrievalTests
         repository.Setup(x => x.FindDocumentCandidatesAsync(It.IsAny<BootstrapQuery>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
         var workspaces = new Mock<IWorkspaceAppService>();
         workspaces.Setup(x => x.ResolveAsync("project", It.IsAny<CancellationToken>())).ReturnsAsync(
-            new WorkspaceModel(workspaceId, DepotId, "project", "Project", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
+            new WorkspaceModel(workspaceId, "project", "Project", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
         var semanticRepository = new Mock<ISemanticRetrievalRepository>();
         semanticRepository.Setup(x => x.FindContextCandidatesAsync(
                 It.IsAny<SemanticCandidateQuery>(), It.IsAny<ReadOnlyMemory<float>>(), It.IsAny<CancellationToken>()))
@@ -84,7 +83,7 @@ public sealed class BootstrapRetrievalTests
                 It.IsAny<IEnumerable<string>>(), It.IsAny<EmbeddingGenerationOptions>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new GeneratedEmbeddings<Embedding<float>>([new(new[] { 1f, 0f, 0f })]));
 
-        var result = await CreateService(Depot(), workspaces, repository, semanticRepository, generator)
+        var result = await CreateService(workspaces, repository, semanticRepository, generator)
             .BootstrapAsync(new BootstrapRequest("database", ["project"], 100), CancellationToken.None);
 
         Assert.Equal(relevant.Id, Assert.Single(result.Contexts).Id);
@@ -96,15 +95,14 @@ public sealed class BootstrapRetrievalTests
     [Fact]
     public async Task Close_auto_scope_candidates_remain_ambiguous()
     {
-        var first = new BootstrapWorkspaceCandidate(Guid.CreateVersion7(), DepotId, null, "Travel", "travel");
-        var second = new BootstrapWorkspaceCandidate(Guid.CreateVersion7(), DepotId, null, "Travel Japan", "travel-japan");
+        var first = new BootstrapWorkspaceCandidate(Guid.CreateVersion7(), null, "Travel", "travel");
+        var second = new BootstrapWorkspaceCandidate(Guid.CreateVersion7(), null, "Travel Japan", "travel-japan");
         var repository = new Mock<IBootstrapRepository>();
         repository.Setup(x => x.FindScopeCandidatesAsync(It.IsAny<BootstrapQuery>(), It.IsAny<CancellationToken>())).ReturnsAsync([first, second]);
         repository.Setup(x => x.FindContextCandidatesAsync(It.IsAny<BootstrapQuery>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
         repository.Setup(x => x.FindDocumentCandidatesAsync(It.IsAny<BootstrapQuery>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
-        var depot = Depot();
 
-        var result = await CreateService(depot, new Mock<IWorkspaceAppService>(), repository)
+        var result = await CreateService(new Mock<IWorkspaceAppService>(), repository)
             .BootstrapAsync(new BootstrapRequest("travel"), CancellationToken.None);
 
         Assert.Equal(ScopeResolutionStatus.Ambiguous, result.ScopeResolution.Status);
@@ -117,10 +115,9 @@ public sealed class BootstrapRetrievalTests
     public async Task Invalid_budget_is_rejected_instead_of_clamped()
     {
         var repository = new Mock<IBootstrapRepository>();
-        var depot = Depot();
 
         var exception = await Assert.ThrowsAsync<ContextDepotApplicationException>(() =>
-            CreateService(depot, new Mock<IWorkspaceAppService>(), repository)
+            CreateService(new Mock<IWorkspaceAppService>(), repository)
                 .BootstrapAsync(new BootstrapRequest("anything", MaxTokens: 0), CancellationToken.None));
 
         Assert.Equal(ApplicationErrorCodes.ContextBudgetInvalid, exception.ErrorCode);
@@ -141,9 +138,7 @@ public sealed class BootstrapRetrievalTests
         var workspaceAccess = new Mock<IWorkspaceAccessContext>();
         workspaceAccess.SetupGet(x => x.HasUnrestrictedAccess).Returns(false);
         workspaceAccess.SetupGet(x => x.WorkspaceIds).Returns([grantedWorkspaceId]);
-        var service = CreateService(
-            Depot(),
-            new Mock<IWorkspaceAppService>(),
+        var service = CreateService(new Mock<IWorkspaceAppService>(),
             repository,
             workspaceAccess: workspaceAccess);
 
@@ -161,11 +156,10 @@ public sealed class BootstrapRetrievalTests
     {
         var parentId = Guid.CreateVersion7();
         var childId = Guid.CreateVersion7();
-        var parent = new BootstrapWorkspaceCandidate(parentId, DepotId, null, "Projects", "projects");
-        var child = new BootstrapWorkspaceCandidate(childId, DepotId, parentId, "Context Depot", "context-depot");
+        var parent = new BootstrapWorkspaceCandidate(parentId, null, "Projects", "projects");
+        var child = new BootstrapWorkspaceCandidate(childId, parentId, "Context Depot", "context-depot");
         var chunk = new BootstrapDocumentChunkCandidate(
             Guid.CreateVersion7(),
-            DepotId,
             Guid.CreateVersion7(),
             childId,
             0,
@@ -180,9 +174,9 @@ public sealed class BootstrapRetrievalTests
         repository.Setup(x => x.FindContextCandidatesAsync(It.IsAny<BootstrapQuery>(), It.IsAny<CancellationToken>())).ReturnsAsync([]);
         repository.Setup(x => x.FindDocumentCandidatesAsync(It.IsAny<BootstrapQuery>(), It.IsAny<CancellationToken>())).ReturnsAsync([chunk]);
         var workspaces = new Mock<IWorkspaceAppService>();
-        workspaces.Setup(x => x.ResolveAsync("projects/context-depot", It.IsAny<CancellationToken>())).ReturnsAsync(new WorkspaceModel(childId, DepotId, "projects/context-depot", child.Name, null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
+        workspaces.Setup(x => x.ResolveAsync("projects/context-depot", It.IsAny<CancellationToken>())).ReturnsAsync(new WorkspaceModel(childId, "projects/context-depot", child.Name, null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
 
-        var result = await CreateService(Depot(), workspaces, repository)
+        var result = await CreateService(workspaces, repository)
             .BootstrapAsync(new BootstrapRequest("postgresql", ["projects/context-depot"], 100), CancellationToken.None);
 
         Assert.Equal("projects/context-depot", Assert.Single(result.ScopeResolution.Workspaces));
@@ -193,7 +187,7 @@ public sealed class BootstrapRetrievalTests
     public async Task Semantic_scope_fallback_reuses_one_query_embedding_for_final_retrieval()
     {
         var workspaceId = Guid.CreateVersion7();
-        var workspace = new BootstrapWorkspaceCandidate(workspaceId, DepotId, null, "Travel", "travel");
+        var workspace = new BootstrapWorkspaceCandidate(workspaceId, null, "Travel", "travel");
         var context = Context(workspaceId, "Prefer hotels.", "travel.accommodation");
         var semanticRepository = new Mock<ISemanticRetrievalRepository>();
         var queryVectors = new List<float[]>();
@@ -221,9 +215,7 @@ public sealed class BootstrapRetrievalTests
                 It.IsAny<EmbeddingGenerationOptions>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new GeneratedEmbeddings<Embedding<float>>([new(new[] { 1f, 0f, 0f })]));
-        var service = CreateService(
-            Depot(),
-            new Mock<IWorkspaceAppService>(),
+        var service = CreateService(new Mock<IWorkspaceAppService>(),
             repository,
             semanticRepository,
             generator);
@@ -243,7 +235,6 @@ public sealed class BootstrapRetrievalTests
 
     private static BootstrapContextCandidate Context(Guid workspaceId, string content, string? key) => new(
         Guid.CreateVersion7(),
-        DepotId,
         workspaceId,
         ContextKind.Decision,
         key,
@@ -264,15 +255,7 @@ public sealed class BootstrapRetrievalTests
         DateTimeOffset.UtcNow,
         "{}");
 
-    private static Mock<ICurrentDepotContext> Depot()
-    {
-        var depot = new Mock<ICurrentDepotContext>();
-        depot.SetupGet(x => x.DepotId).Returns(DepotId);
-        return depot;
-    }
-
     private static ContextBootstrapAppService CreateService(
-        Mock<ICurrentDepotContext> depot,
         Mock<IWorkspaceAppService> workspaces,
         Mock<IBootstrapRepository> repository,
         Mock<ISemanticRetrievalRepository>? semanticRepository = null,
@@ -300,7 +283,6 @@ public sealed class BootstrapRetrievalTests
         var retrievalOptions = new Mock<IOptionsMonitor<RetrievalOptions>>();
         retrievalOptions.SetupGet(x => x.CurrentValue).Returns(new RetrievalOptions());
         return new(
-            depot.Object,
             workspaceAccess.Object,
             workspaces.Object,
             repository.Object,

@@ -1,7 +1,7 @@
 using System.Data;
 using ContextDepot.Application.Workspaces;
 using ContextDepot.Application.Workspaces.Dtos;
-using ContextDepot.Domain.Depots;
+using ContextDepot.Domain.Access;
 using ContextDepot.Domain.Workspaces;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -10,7 +10,7 @@ namespace ContextDepot.Infrastructure.Repositories;
 
 public sealed partial class WorkspaceRepository
 {
-    public async Task<WorkspaceWriteSnapshot> LoadEnsureSnapshotAsync(Guid depotId, WorkspaceSubject? subject,
+    public async Task<WorkspaceWriteSnapshot> LoadEnsureSnapshotAsync(WorkspaceSubject? subject,
         CancellationToken cancellationToken)
     {
         WorkspaceAccessSnapshot access;
@@ -18,36 +18,35 @@ public sealed partial class WorkspaceRepository
             access = new(null, true, true, true, 0, []);
         else
         {
-            var key = await db.DepotAccessKeys.IgnoreQueryFilters().AsNoTracking().Include(item => item.WorkspaceGrants)
-                .SingleOrDefaultAsync(item => item.DepotId == depotId && item.Id == workspaceAccess.DepotAccessKeyId, cancellationToken);
-            access = new(workspaceAccess.DepotAccessKeyId, false, key?.IsActive == true,
+            var key = await db.AccessKeys.IgnoreQueryFilters().AsNoTracking().Include(item => item.WorkspaceGrants)
+                .SingleOrDefaultAsync(item => item.Id == workspaceAccess.AccessKeyId, cancellationToken);
+            access = new(workspaceAccess.AccessKeyId, false, key?.IsActive == true,
                 key?.CanCreateRootWorkspaces == true, key?.AccessVersion ?? 0,
                 key?.WorkspaceGrants.Select(item => item.WorkspaceId).Order().ToArray() ?? []);
         }
-        // Controlled same-depot lookup detects hidden conflicts without exposing their identity.
-        var workspaces = await db.Workspaces.IgnoreQueryFilters().AsNoTracking()
-            .Where(item => item.DepotId == depotId).OrderBy(item => item.Id).ToListAsync(cancellationToken);
+        // This lookup detects conflicts with hidden workspaces without exposing their identity.
+        var workspaces = await db.Workspaces.IgnoreQueryFilters().AsNoTracking().OrderBy(item => item.Id).ToListAsync(cancellationToken);
         var paths = WorkspacePath.BuildPaths(workspaces);
         var binding = subject is null ? null : await db.WorkspaceSubjectBindings.IgnoreQueryFilters().AsNoTracking()
-            .SingleOrDefaultAsync(item => item.DepotId == depotId && item.SubjectType == subject.Type && item.SubjectKey == subject.Key,
+            .SingleOrDefaultAsync(item => item.SubjectType == subject.Type && item.SubjectKey == subject.Key,
                 cancellationToken);
         return new(subject, binding, workspaces.Select(item => new WorkspacePathLookup(item, paths[item.Id])).ToArray(), access);
     }
 
-    public async Task<WorkspaceWritePersistenceResult> TryApplyEnsureAsync(Guid depotId, WorkspaceWritePlan plan,
+    public async Task<WorkspaceWritePersistenceResult> TryApplyEnsureAsync(WorkspaceWritePlan plan,
         DateTimeOffset now, CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
         try
         {
-            DepotAccessKey? key = null;
+            AccessKey? key = null;
             if (plan.Expected.Access.KeyId is Guid keyId)
             {
-                key = (await db.DepotAccessKeys.FromSqlInterpolated(
-                    $"SELECT * FROM public.depot_access_keys WHERE id = {keyId} AND depot_id = {depotId} FOR UPDATE")
+                key = (await db.AccessKeys.FromSqlInterpolated(
+                    $"SELECT * FROM public.access_keys WHERE id = {keyId} FOR UPDATE")
                     .AsNoTracking().ToListAsync(cancellationToken)).SingleOrDefault();
             }
-            var current = await LoadEnsureSnapshotAsync(depotId, plan.Expected.Subject, cancellationToken);
+            var current = await LoadEnsureSnapshotAsync(plan.Expected.Subject, cancellationToken);
             if (!SameSnapshot(plan, current))
             {
                 await transaction.RollbackAsync(CancellationToken.None);
@@ -59,22 +58,22 @@ public sealed partial class WorkspaceRepository
             if (plan.UpdateTarget)
             {
                 var target = await db.Workspaces.IgnoreQueryFilters().SingleAsync(
-                    item => item.DepotId == depotId && item.Id == plan.Target.Workspace.Id, cancellationToken);
+                    item => item.Id == plan.Target.Workspace.Id, cancellationToken);
                 target.Update(plan.Target.Workspace.Name, plan.Target.Workspace.Description, plan.Target.Workspace.MetadataJson, now);
             }
             if (plan.NewBinding is not null) db.WorkspaceSubjectBindings.Add(plan.NewBinding);
             if (key is not null && plan.Created.Count > 0)
-                db.WorkspaceAccessGrants.AddRange(plan.Created.Select(item => new WorkspaceAccessGrant(key.Id, depotId, item.Id, now)));
+                db.WorkspaceAccessGrants.AddRange(plan.Created.Select(item => new WorkspaceAccessGrant(key.Id, item.Id, now)));
             await db.SaveChangesAsync(cancellationToken);
             var version = current.Access.AccessVersion;
             if (key is not null && plan.Created.Count > 0)
             {
                 version = checked(version + 1);
-                await db.DepotAccessKeys.Where(item => item.DepotId == depotId && item.Id == key.Id)
+                await db.AccessKeys.Where(item => item.Id == key.Id)
                     .ExecuteUpdateAsync(update => update.SetProperty(item => item.AccessVersion, version), cancellationToken);
             }
             await transaction.CommitAsync(cancellationToken);
-            topologyProvider.Invalidate(depotId);
+            topologyProvider.Invalidate();
             return new(true, version);
         }
         catch (Exception error) when (IsWorkspaceCompetition(error))

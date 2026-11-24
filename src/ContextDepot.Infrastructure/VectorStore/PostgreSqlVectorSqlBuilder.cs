@@ -158,7 +158,7 @@ internal static class PostgreSqlVectorSqlBuilder
         $"{QuoteIdentifier(schema)}.{QuoteIdentifier(collectionName)}";
 
     /// <summary>
-    /// Builds a source-existence predicate scoped to the vector row's depot, workspace and resource identity.
+    /// Builds a source-existence predicate scoped to the vector row's workspace and resource identity.
     /// </summary>
     /// <param name="vectorQualifier">
     /// The trusted SQL alias used to qualify vector identity columns.
@@ -181,11 +181,10 @@ internal static class PostgreSqlVectorSqlBuilder
     {
         if (context)
         {
-            if (lockSource) return $"EXISTS (SELECT 1 FROM public.context_items AS source WHERE source.id = {vectorQualifier}.context_item_id AND source.depot_id = {vectorQualifier}.depot_id AND source.workspace_id = {vectorQualifier}.workspace_id AND source.status = 'Active' FOR KEY SHARE OF source)";
+            if (lockSource) return $"EXISTS (SELECT 1 FROM public.context_items AS source WHERE source.id = {vectorQualifier}.context_item_id AND source.workspace_id = {vectorQualifier}.workspace_id AND source.status = 'Active' FOR KEY SHARE OF source)";
             return $"""
                 EXISTS (SELECT 1 FROM public.context_items AS source
                 WHERE source.id = {vectorQualifier}.context_item_id
-                  AND source.depot_id = {vectorQualifier}.depot_id
                   AND source.workspace_id = {vectorQualifier}.workspace_id
                   AND source.status = 'Active'
                   AND (source.valid_from IS NULL OR source.valid_from <= @source_now)
@@ -199,7 +198,6 @@ internal static class PostgreSqlVectorSqlBuilder
             INNER JOIN public.documents AS document ON document.id = source.document_id
             WHERE source.id = {vectorQualifier}.document_chunk_id
               AND source.document_id = {vectorQualifier}.document_id
-              AND source.depot_id = {vectorQualifier}.depot_id
               AND source.workspace_id = {vectorQualifier}.workspace_id
               AND document.status = 'Active' AND document.index_status = 'Indexed'
               {(lockSource ? "FOR KEY SHARE OF source, document" : "")})

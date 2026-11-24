@@ -12,28 +12,26 @@ public sealed class ContextQueryRepository(
     ContextDepotDbContext db,
     VisibleWorkspaceTopologyProvider topologyProvider) : IContextQueryRepository
 {
-    public Task<ContextCaptureEvidence?> FindCaptureEvidenceAsync(Guid depotId, Guid contextId, CancellationToken cancellationToken) =>
-        db.ContextCaptureEvidence.AsNoTracking().SingleOrDefaultAsync(x => x.DepotId == depotId && x.ContextId == contextId, cancellationToken);
+    public Task<ContextCaptureEvidence?> FindCaptureEvidenceAsync(Guid contextId, CancellationToken cancellationToken) =>
+        db.ContextCaptureEvidence.AsNoTracking().SingleOrDefaultAsync(x => x.ContextId == contextId, cancellationToken);
 
     public Task<ContextItem?> FindContextByIdAsync(
-        Guid depotId,
         Guid contextId,
         CancellationToken cancellationToken) =>
         db.ContextItems.AsNoTracking()
             .SingleOrDefaultAsync(
-                context => context.DepotId == depotId && context.Id == contextId,
+                context => context.Id == contextId,
                 cancellationToken);
 
     public async Task<IReadOnlyList<ContextSearchCandidateRecord>> FindLexicalContextCandidatesAsync(
         ContextSearchQuery query,
         CancellationToken cancellationToken)
     {
-        var workspacePaths = await FindWorkspacePathsAsync(query.DepotId, cancellationToken);
+        var workspacePaths = await FindWorkspacePathsAsync(cancellationToken);
         var workspaceIds = query.WorkspaceIds?.ToArray();
         var kinds = query.Kinds?.ToArray();
         var contexts = db.ContextItems.AsNoTracking()
-            .WhereRetrievableAt(query.Now)
-            .Where(context => context.DepotId == query.DepotId);
+            .WhereRetrievableAt(query.Now);
         if (workspaceIds is not null)
         {
             contexts = contexts.Where(context => workspaceIds.Contains(context.WorkspaceId));
@@ -49,7 +47,6 @@ public sealed class ContextQueryRepository(
             .Take(query.CandidateLimit)
             .Select(context => new BootstrapContextCandidate(
                 context.Id,
-                context.DepotId,
                 context.WorkspaceId,
                 context.Kind,
                 context.Key,
@@ -81,11 +78,10 @@ public sealed class ContextQueryRepository(
         ContextSearchQuery query,
         CancellationToken cancellationToken)
     {
-        var workspacePaths = await FindWorkspacePathsAsync(query.DepotId, cancellationToken);
+        var workspacePaths = await FindWorkspacePathsAsync(cancellationToken);
         var workspaceIds = query.WorkspaceIds?.ToArray();
         var documents = db.DocumentChunks.AsNoTracking()
-            .Where(chunk => chunk.DepotId == query.DepotId &&
-                           chunk.Document != null &&
+            .Where(chunk => chunk.Document != null &&
                            chunk.Document.Status == DocumentStatus.Active &&
                            chunk.Document.IndexStatus == DocumentIndexStatus.Indexed);
         if (workspaceIds is not null)
@@ -98,7 +94,6 @@ public sealed class ContextQueryRepository(
             .Take(query.CandidateLimit)
             .Select(chunk => new BootstrapDocumentChunkCandidate(
                 chunk.Id,
-                chunk.DepotId,
                 chunk.DocumentId,
                 chunk.WorkspaceId,
                 chunk.Ordinal,
@@ -117,10 +112,9 @@ public sealed class ContextQueryRepository(
     }
 
     private async Task<IReadOnlyDictionary<Guid, string>> FindWorkspacePathsAsync(
-        Guid depotId,
         CancellationToken cancellationToken)
     {
-        return (await topologyProvider.GetAsync(depotId, cancellationToken)).Topology.Paths;
+        return (await topologyProvider.GetAsync(cancellationToken)).Topology.Paths;
     }
 
 }

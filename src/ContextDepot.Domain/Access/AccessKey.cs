@@ -1,16 +1,15 @@
 using ContextDepot.Domain.Workspaces;
 
-namespace ContextDepot.Domain.Depots;
+namespace ContextDepot.Domain.Access;
 
-public sealed class DepotAccessKey
+public sealed class AccessKey
 {
-    private DepotAccessKey()
+    private AccessKey()
     {
     }
 
-    public DepotAccessKey(
+    public AccessKey(
         Guid id,
-        Guid depotId,
         string name,
         string keyPrefix,
         string secretHash,
@@ -18,7 +17,6 @@ public sealed class DepotAccessKey
         bool canCreateRootWorkspaces = false)
     {
         Id = id;
-        DepotId = depotId;
         Name = name;
         KeyPrefix = keyPrefix;
         SecretHash = secretHash;
@@ -27,8 +25,6 @@ public sealed class DepotAccessKey
     }
 
     public Guid Id { get; private set; }
-
-    public Guid DepotId { get; private set; }
 
     public string Name { get; private set; } = string.Empty;
 
@@ -41,8 +37,6 @@ public sealed class DepotAccessKey
     public DateTimeOffset? LastUsedAt { get; private set; }
 
     public DateTimeOffset? RevokedAt { get; private set; }
-
-    public Depot? Depot { get; private set; }
 
     public ICollection<WorkspaceAccessGrant> WorkspaceGrants { get; } = new List<WorkspaceAccessGrant>();
 

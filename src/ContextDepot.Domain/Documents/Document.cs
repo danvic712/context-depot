@@ -9,10 +9,9 @@ public sealed class Document
     {
     }
 
-    public Document(Guid id, Guid depotId, Guid workspaceId, string path, string title, DateTimeOffset now)
+    public Document(Guid id, Guid workspaceId, string path, string title, DateTimeOffset now)
     {
         Id = id;
-        DepotId = depotId;
         WorkspaceId = workspaceId;
         Path = path;
         Title = title;
@@ -23,8 +22,6 @@ public sealed class Document
     }
 
     public Guid Id { get; private set; }
-
-    public Guid DepotId { get; private set; }
 
     public Guid WorkspaceId { get; private set; }
 

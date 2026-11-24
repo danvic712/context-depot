@@ -12,9 +12,6 @@ public interface IDocumentManagementRepository
     /// <summary>
     /// Reads an archive page and its total count from a consistent database snapshot.
     /// </summary>
-    /// <param name="depotId">
-    /// The server-selected depot.
-    /// </param>
     /// <param name="workspaceId">
     /// The workspace already authorized by the application service.
     /// </param>
@@ -30,14 +27,11 @@ public interface IDocumentManagementRepository
     /// <exception cref="OperationCanceledException">
     /// The operation was canceled before completion.
     /// </exception>
-    Task<ArchivedDocumentPage> ListArchivedAsync(Guid depotId, Guid workspaceId, PaginationQuery pagination, CancellationToken cancellationToken);
+    Task<ArchivedDocumentPage> ListArchivedAsync(Guid workspaceId, PaginationQuery pagination, CancellationToken cancellationToken);
 
     /// <summary>
     /// Removes an active or archived document only if its observed revision still matches.
     /// </summary>
-    /// <param name="depotId">
-    /// The server-selected depot.
-    /// </param>
     /// <param name="documentId">
     /// The active or archived document identifier.
     /// </param>
@@ -73,6 +67,6 @@ public interface IDocumentManagementRepository
     /// <exception cref="OperationCanceledException">
     /// The operation was canceled before canonical Markdown was removed.
     /// </exception>
-    Task DeleteAsync(Guid depotId, Guid documentId, Guid workspaceId, string relativePath,
+    Task DeleteAsync(Guid documentId, Guid workspaceId, string relativePath,
         DateTimeOffset expectedUpdatedAt, CancellationToken cancellationToken);
 }

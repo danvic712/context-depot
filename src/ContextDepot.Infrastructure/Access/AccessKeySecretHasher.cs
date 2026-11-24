@@ -3,9 +3,9 @@ using System.Buffers.Text;
 using ContextDepot.Application.Settings.Contracts;
 using System.Security.Cryptography;
 
-namespace ContextDepot.Infrastructure.CurrentDepot;
+namespace ContextDepot.Infrastructure.Access;
 
-public sealed class DepotAccessKeySecretHasher : IAccessKeySecretGenerator
+public sealed class AccessKeySecretHasher : IAccessKeySecretGenerator
 {
     private const string Marker = "cdk_";
     private const int PublicPartByteCount = 12;

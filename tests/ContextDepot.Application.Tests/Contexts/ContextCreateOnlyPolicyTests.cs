@@ -8,7 +8,7 @@ namespace ContextDepot.Application.Tests.Contexts;
 public sealed class ContextCreateOnlyPolicyTests
 {
     private static ContextItem Context(string key, string content, ContextKind kind = ContextKind.Decision) =>
-        new(Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), kind, key, null, content, DateTimeOffset.UtcNow);
+        new(Guid.CreateVersion7(), Guid.CreateVersion7(), kind, key, null, content, DateTimeOffset.UtcNow);
 
     [Fact]
     public void Existing_key_wins_even_when_new_content_and_kind_differ()

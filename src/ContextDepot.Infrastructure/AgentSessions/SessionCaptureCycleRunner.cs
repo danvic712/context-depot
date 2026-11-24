@@ -6,7 +6,7 @@ using ContextDepot.Application.AgentSessions.Enums;
 using ContextDepot.Application.AgentSessions;
 using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Application.Workspaces;
-using ContextDepot.Infrastructure.CurrentDepot;
+using ContextDepot.Infrastructure.Access;
 using ContextDepot.Infrastructure.Exceptions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -115,22 +115,21 @@ public sealed class SessionCaptureCycleRunner(IServiceScopeFactory scopes,
 
     private static async Task<AuthorizedWorkspaceSnapshot> SnapshotAsync(ContextDepotDbContext db, RouteLocator locator, CancellationToken ct)
     {
-        var access = await db.DepotAccessKeys.IgnoreQueryFilters().Where(k => k.Id == locator.KeyId &&
-                k.DepotId == locator.DepotId && k.RevokedAt == null)
+        var access = await db.AccessKeys.IgnoreQueryFilters().Where(k => k.Id == locator.KeyId && k.RevokedAt == null)
             .Select(k => new { k.CanCreateRootWorkspaces, Grants = k.WorkspaceGrants.Select(g => g.WorkspaceId).ToArray() })
             .SingleOrDefaultAsync(ct);
-        if (access is null) return new(locator.DepotId, locator.KeyId, []);
-        if (access.Grants.Length == 0) return new(locator.DepotId, locator.KeyId, [], access.CanCreateRootWorkspaces);
-        var all = await db.Workspaces.IgnoreQueryFilters().AsNoTracking().Where(w => w.DepotId == locator.DepotId).ToArrayAsync(ct);
+        if (access is null) return new(locator.KeyId, []);
+        if (access.Grants.Length == 0) return new(locator.KeyId, [], access.CanCreateRootWorkspaces);
+        var all = await db.Workspaces.IgnoreQueryFilters().AsNoTracking().ToArrayAsync(ct);
         var paths = new WorkspaceTopology(all.Select(w => new WorkspaceTreeNode(w.Id, w.ParentWorkspaceId, w.Slug))).Paths;
-        return new(locator.DepotId, locator.KeyId, all.Where(w => access.Grants.Contains(w.Id)).OrderBy(w => w.Id).Take(513)
+        return new(locator.KeyId, all.Where(w => access.Grants.Contains(w.Id)).OrderBy(w => w.Id).Take(513)
             .Select(w => new RoutingWorkspace(w.Id, w.Name, paths[w.Id], w.Description)).ToArray(), access.CanCreateRootWorkspaces);
     }
 
     private AsyncServiceScope InternalScope()
     {
         var scope = scopes.CreateAsyncScope();
-        scope.ServiceProvider.GetRequiredService<CurrentDepotAccessContext>().AllowInternalAccess();
+        scope.ServiceProvider.GetRequiredService<WorkspaceAccessContext>().AllowInternalAccess();
         return scope;
     }
 

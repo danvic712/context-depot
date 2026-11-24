@@ -17,7 +17,7 @@ public static class InfrastructureErrorCodes
     public const string ApplicationSettingsBuilderRequired = nameof(ApplicationSettingsBuilderRequired);
     public const string ApplicationSettingsMissing = nameof(ApplicationSettingsMissing);
     public const string ApplicationSettingsProviderNotInitialized = nameof(ApplicationSettingsProviderNotInitialized);
-    public const string DepotAccessContextAlreadyInitialized = nameof(DepotAccessContextAlreadyInitialized);
+    public const string WorkspaceAccessContextAlreadyInitialized = nameof(WorkspaceAccessContextAlreadyInitialized);
     public const string DynamicVectorRecordsUnsupported = nameof(DynamicVectorRecordsUnsupported);
     public const string EmbeddingProfileFingerprintInvalid = nameof(EmbeddingProfileFingerprintInvalid);
     public const string EmbeddingRouteCountInvalid = nameof(EmbeddingRouteCountInvalid);
@@ -40,6 +40,6 @@ public static class InfrastructureErrorCodes
     public const string VectorRecordDimensionsInvalid = nameof(VectorRecordDimensionsInvalid);
     public const string VectorRecordPropertyMissing = nameof(VectorRecordPropertyMissing);
     public const string VectorRecordPropertyUnsupported = nameof(VectorRecordPropertyUnsupported);
-    public const string WebDepotRequired = nameof(WebDepotRequired);
+    public const string SchemaRollbackRequiresBackup = nameof(SchemaRollbackRequiresBackup);
     public const string VectorStoreSchemaRequired = nameof(VectorStoreSchemaRequired);
 }

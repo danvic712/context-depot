@@ -1,4 +1,4 @@
-using ContextDepot.Domain.Depots;
+using ContextDepot.Domain.Access;
 
 namespace ContextDepot.Domain.Workspaces;
 
@@ -9,26 +9,22 @@ public sealed class WorkspaceAccessGrant
     }
 
     public WorkspaceAccessGrant(
-        Guid depotAccessKeyId,
-        Guid depotId,
+        Guid accessKeyId,
         Guid workspaceId,
         DateTimeOffset now)
     {
-        DepotAccessKeyId = depotAccessKeyId;
-        DepotId = depotId;
+        AccessKeyId = accessKeyId;
         WorkspaceId = workspaceId;
         CreatedAt = now;
     }
 
-    public Guid DepotAccessKeyId { get; private set; }
-
-    public Guid DepotId { get; private set; }
+    public Guid AccessKeyId { get; private set; }
 
     public Guid WorkspaceId { get; private set; }
 
     public DateTimeOffset CreatedAt { get; private set; }
 
-    public DepotAccessKey? AccessKey { get; private set; }
+    public AccessKey? AccessKey { get; private set; }
 
     public Workspace? Workspace { get; private set; }
 }

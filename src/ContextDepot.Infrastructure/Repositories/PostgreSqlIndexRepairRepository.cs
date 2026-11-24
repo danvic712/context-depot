@@ -11,17 +11,15 @@ public sealed class PostgreSqlIndexRepairRepository(
     ContextDepotDbContext db,
     TimeProvider timeProvider) : IIndexRepairRepository
 {
-    private readonly Dictionary<Guid, IReadOnlyDictionary<Guid, string>> workspacePathsByDepot = [];
+    private IReadOnlyDictionary<Guid, string>? workspacePaths;
 
     public async Task<IReadOnlyList<DocumentIndexRepairCandidate>> FindDocumentIndexRepairCandidatesAsync(
-        Guid depotId,
         int limit,
         CancellationToken cancellationToken)
     {
         var rows = await db.Documents
             .AsNoTracking()
-            .Where(x => x.DepotId == depotId &&
-                        x.Status == DocumentStatus.Active &&
+            .Where(x => x.Status == DocumentStatus.Active &&
                         (x.IndexStatus == DocumentIndexStatus.Pending || x.IndexStatus == DocumentIndexStatus.Failed))
             .OrderBy(x => x.UpdatedAt)
             .ThenBy(x => x.Id)
@@ -29,10 +27,10 @@ public sealed class PostgreSqlIndexRepairRepository(
             .Select(x => new
             {
                 x.Id,
-                x.DepotId,
                 x.WorkspaceId,
                 x.Path,
-                x.Title
+                x.Title,
+                StoragePath = x.Workspace!.StoragePath
             })
             .ToListAsync(cancellationToken);
         if (rows.Count == 0)
@@ -40,21 +38,20 @@ public sealed class PostgreSqlIndexRepairRepository(
             return [];
         }
 
-        var workspacePaths = await GetWorkspacePathsAsync(depotId, cancellationToken);
+        var workspacePaths = await GetWorkspacePathsAsync(cancellationToken);
         return rows
             .Where(row => workspacePaths.ContainsKey(row.WorkspaceId))
             .Select(row => new DocumentIndexRepairCandidate(
                 row.Id,
-                row.DepotId,
                 row.WorkspaceId,
                 workspacePaths[row.WorkspaceId],
                 row.Path,
-                row.Title))
+                row.Title,
+                row.StoragePath))
             .ToArray();
     }
 
     public async Task<IReadOnlyList<ContextEmbeddingRepairCandidate>> FindContextSourcePageAsync(
-        Guid depotId,
         Guid? afterContextId,
         int limit,
         DateTimeOffset now,
@@ -62,8 +59,7 @@ public sealed class PostgreSqlIndexRepairRepository(
     {
         var query = db.ContextItems
             .AsNoTracking()
-            .WhereRetrievableAt(now)
-            .Where(x => x.DepotId == depotId);
+            .WhereRetrievableAt(now);
         if (afterContextId is Guid cursor)
         {
             query = query.Where(x => x.Id.CompareTo(cursor) > 0);
@@ -75,7 +71,6 @@ public sealed class PostgreSqlIndexRepairRepository(
             .Select(x => new
             {
                 ContextItemId = x.Id,
-                x.DepotId,
                 x.WorkspaceId,
                 x.Kind,
                 x.Key,
@@ -89,12 +84,11 @@ public sealed class PostgreSqlIndexRepairRepository(
             return [];
         }
 
-        var workspacePaths = await GetWorkspacePathsAsync(depotId, cancellationToken);
+        var workspacePaths = await GetWorkspacePathsAsync(cancellationToken);
         return rows
             .Where(row => workspacePaths.ContainsKey(row.WorkspaceId))
             .Select(row => new ContextEmbeddingRepairCandidate(
                 row.ContextItemId,
-                row.DepotId,
                 row.WorkspaceId,
                 workspacePaths[row.WorkspaceId],
                 row.Kind,
@@ -106,15 +100,13 @@ public sealed class PostgreSqlIndexRepairRepository(
     }
 
     public async Task<IReadOnlyList<DocumentEmbeddingRepairCandidate>> FindDocumentChunkSourcePageAsync(
-        Guid depotId,
         Guid? afterDocumentChunkId,
         int limit,
         CancellationToken cancellationToken)
     {
         var query = db.DocumentChunks
             .AsNoTracking()
-            .Where(x => x.DepotId == depotId &&
-                        x.Document != null &&
+            .Where(x => x.Document != null &&
                         x.Document.Status == DocumentStatus.Active &&
                         x.Document.IndexStatus == DocumentIndexStatus.Indexed);
         if (afterDocumentChunkId is Guid cursor)
@@ -129,7 +121,6 @@ public sealed class PostgreSqlIndexRepairRepository(
             {
                 DocumentChunkId = x.Id,
                 x.DocumentId,
-                x.DepotId,
                 x.WorkspaceId,
                 DocumentPath = x.Document!.Path,
                 Title = x.Document.Title,
@@ -142,13 +133,12 @@ public sealed class PostgreSqlIndexRepairRepository(
             return [];
         }
 
-        var workspacePaths = await GetWorkspacePathsAsync(depotId, cancellationToken);
+        var workspacePaths = await GetWorkspacePathsAsync(cancellationToken);
         return rows
             .Where(row => workspacePaths.ContainsKey(row.WorkspaceId))
             .Select(row => new DocumentEmbeddingRepairCandidate(
                 row.DocumentChunkId,
                 row.DocumentId,
-                row.DepotId,
                 row.WorkspaceId,
                 workspacePaths[row.WorkspaceId],
                 row.DocumentPath,
@@ -159,7 +149,6 @@ public sealed class PostgreSqlIndexRepairRepository(
     }
 
     public async Task MarkDocumentIndexFailedAsync(
-        Guid depotId,
         Guid documentId,
         string errorCode,
         CancellationToken cancellationToken)
@@ -170,7 +159,7 @@ public sealed class PostgreSqlIndexRepairRepository(
         }
 
         var document = await db.Documents.SingleOrDefaultAsync(
-            x => x.DepotId == depotId && x.Id == documentId,
+            x => x.Id == documentId,
             cancellationToken);
         if (document?.Status != DocumentStatus.Active)
         {
@@ -182,20 +171,18 @@ public sealed class PostgreSqlIndexRepairRepository(
     }
 
     private async Task<IReadOnlyDictionary<Guid, string>> GetWorkspacePathsAsync(
-        Guid depotId,
         CancellationToken cancellationToken)
     {
-        if (workspacePathsByDepot.TryGetValue(depotId, out var cachedPaths))
+        if (workspacePaths is { } cachedPaths)
         {
             return cachedPaths;
         }
 
         var workspaces = await db.Workspaces
             .AsNoTracking()
-            .Where(x => x.DepotId == depotId)
             .ToListAsync(cancellationToken);
         var paths = WorkspacePath.BuildPaths(workspaces);
-        workspacePathsByDepot[depotId] = paths;
+        workspacePaths = paths;
         return paths;
     }
 }

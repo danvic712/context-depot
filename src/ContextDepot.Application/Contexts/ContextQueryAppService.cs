@@ -29,7 +29,6 @@ namespace ContextDepot.Application.Contexts;
 
 public sealed class ContextQueryAppService : IContextQueryAppService
 {
-    private readonly ICurrentDepotContext currentDepot;
     private readonly IContextQueryRepository repository;
     private readonly IWorkspaceAppService workspaceAppService;
     private readonly ContextSearchScopeResolver scopeResolver;
@@ -44,7 +43,6 @@ public sealed class ContextQueryAppService : IContextQueryAppService
     private readonly ICaptureEvidenceProtector? evidenceProtector;
 
     public ContextQueryAppService(
-        ICurrentDepotContext currentDepot,
         IWorkspaceAccessContext workspaceAccess,
         IContextQueryRepository repository,
         IWorkspaceAppService workspaceAppService,
@@ -58,7 +56,6 @@ public sealed class ContextQueryAppService : IContextQueryAppService
         ILogger<ContextQueryAppService> logger,
         ICaptureEvidenceProtector? evidenceProtector = null)
     {
-        this.currentDepot = currentDepot;
         this.repository = repository;
         this.workspaceAppService = workspaceAppService;
         scopeResolver = new ContextSearchScopeResolver(workspaceAccess, workspaceAppService);
@@ -81,7 +78,6 @@ public sealed class ContextQueryAppService : IContextQueryAppService
         var query = ValidateAndNormalize(request, options, out var limit);
         var workspaceScope = await scopeResolver.ResolveAsync(request, cancellationToken);
         var searchQuery = new ContextSearchQuery(
-            currentDepot.DepotId,
             workspaceScope.Ids,
             request.Kinds,
             query,
@@ -134,7 +130,6 @@ public sealed class ContextQueryAppService : IContextQueryAppService
         {
             var semantic = await semanticSearcher.SearchAsync(
                 new SemanticCandidateQuery(
-                    currentDepot.DepotId,
                     workspaceScope.Ids?.ToArray(),
                     request.Kinds,
                     options.Semantic.CandidateTopKPerSource,
@@ -201,7 +196,7 @@ public sealed class ContextQueryAppService : IContextQueryAppService
         Guid contextId,
         CancellationToken cancellationToken)
     {
-        var context = await repository.FindContextByIdAsync(currentDepot.DepotId, contextId, cancellationToken);
+        var context = await repository.FindContextByIdAsync(contextId, cancellationToken);
         if (context is null)
         {
             return null;
@@ -210,7 +205,7 @@ public sealed class ContextQueryAppService : IContextQueryAppService
         var workspace = await workspaceAppService.GetAsync(context.WorkspaceId, cancellationToken);
         if (workspace is null) return null;
         var detail = ToDetailModel(context, workspace.Path);
-        var evidence = await repository.FindCaptureEvidenceAsync(currentDepot.DepotId, contextId, cancellationToken);
+        var evidence = await repository.FindCaptureEvidenceAsync(contextId, cancellationToken);
         if (evidence is null) return detail;
         var model = new CaptureEvidenceModel("unavailable", evidence.UserEventId, evidence.AssistantEventId, evidence.ExtractorVersion, []);
         try
@@ -309,7 +304,6 @@ public sealed class ContextQueryAppService : IContextQueryAppService
         var tags = JsonSerializer.Deserialize<string[]>(context.TagsJson) ?? [];
         return new ContextDetailModel(
             context.Id,
-            context.DepotId,
             context.WorkspaceId,
             workspacePath,
             context.Kind,

@@ -394,8 +394,6 @@ export function Settings() {
           version={meta.data?.version}
           versionPending={meta.pending}
           versionFailed={!!meta.error}
-          depotName={overview?.depotName}
-          depotPending={resource.pending}
         />
       </div>
     </div>

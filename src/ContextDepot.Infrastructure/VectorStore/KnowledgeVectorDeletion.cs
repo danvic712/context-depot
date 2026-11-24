@@ -18,9 +18,7 @@ internal static class KnowledgeVectorDeletion
     /// <param name="schema">
     /// The schema containing the vector-profile tables.
     /// </param>
-    /// <param name="depotId">
-    /// The owning depot identifier.
-    /// </param>
+    /// <param name="workspaceId">The workspace that owns the source.</param>
     /// <param name="contextId">
     /// The context identifier whose vectors are removed.
     /// </param>
@@ -39,9 +37,9 @@ internal static class KnowledgeVectorDeletion
     /// <exception cref="OperationCanceledException">
     /// The operation was canceled before completion.
     /// </exception>
-    public static Task DeleteContextAsync(ContextDepotDbContext db, string schema, Guid depotId, Guid contextId,
+    public static Task DeleteContextAsync(ContextDepotDbContext db, string schema, Guid workspaceId, Guid contextId,
         IDbContextTransaction transaction, CancellationToken cancellationToken) =>
-        DeleteAsync(db, schema, depotId, contextId, "^context_vectors_[0-9a-fA-F]{16}$", "context_item_id", transaction, cancellationToken);
+        DeleteAsync(db, schema, workspaceId, contextId, "^context_vectors_[0-9a-fA-F]{16}$", "context_item_id", transaction, cancellationToken);
 
     /// <summary>
     /// Removes a document's vectors from every stored embedding-profile table in the configured schema.
@@ -52,9 +50,7 @@ internal static class KnowledgeVectorDeletion
     /// <param name="schema">
     /// The schema containing the vector-profile tables.
     /// </param>
-    /// <param name="depotId">
-    /// The owning depot identifier.
-    /// </param>
+    /// <param name="workspaceId">The workspace that owns the source.</param>
     /// <param name="documentId">
     /// The document identifier whose vectors are removed.
     /// </param>
@@ -73,11 +69,11 @@ internal static class KnowledgeVectorDeletion
     /// <exception cref="OperationCanceledException">
     /// The operation was canceled before completion.
     /// </exception>
-    public static Task DeleteDocumentAsync(ContextDepotDbContext db, string schema, Guid depotId, Guid documentId,
+    public static Task DeleteDocumentAsync(ContextDepotDbContext db, string schema, Guid workspaceId, Guid documentId,
         IDbContextTransaction transaction, CancellationToken cancellationToken) =>
-        DeleteAsync(db, schema, depotId, documentId, "^document_vectors_[0-9a-fA-F]{16}$", "document_id", transaction, cancellationToken);
+        DeleteAsync(db, schema, workspaceId, documentId, "^document_vectors_[0-9a-fA-F]{16}$", "document_id", transaction, cancellationToken);
 
-    private static async Task DeleteAsync(ContextDepotDbContext db, string schema, Guid depotId, Guid id,
+    private static async Task DeleteAsync(ContextDepotDbContext db, string schema, Guid workspaceId, Guid id,
         string pattern, string column,
         IDbContextTransaction transaction, CancellationToken cancellationToken)
     {
@@ -96,10 +92,11 @@ internal static class KnowledgeVectorDeletion
         }
         foreach (var name in names)
         {
-            await using var delete = new NpgsqlCommand($"DELETE FROM {PostgreSqlVectorSqlBuilder.QuoteQualifiedName(schema, name)} WHERE depot_id = @depot AND {column} = @id;",
+            await using var delete = new NpgsqlCommand($"DELETE FROM {PostgreSqlVectorSqlBuilder.QuoteQualifiedName(schema, name)} WHERE workspace_id = @workspace AND {column} = @id;",
                 connection, (NpgsqlTransaction)transaction.GetDbTransaction());
-            delete.Parameters.AddWithValue("depot", depotId);
+
             delete.Parameters.AddWithValue("id", id);
+            delete.Parameters.AddWithValue("workspace", workspaceId);
             await delete.ExecuteNonQueryAsync(cancellationToken);
         }
     }

@@ -1,6 +1,6 @@
 using ContextDepot.Domain.AgentSessions;
 using ContextDepot.Domain.Contexts;
-using ContextDepot.Domain.Depots;
+using ContextDepot.Domain.Access;
 using ContextDepot.Domain.Workspaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -20,7 +20,6 @@ public sealed class SessionCaptureInboxEventConfiguration : IEntityTypeConfigura
         entity.HasKey(x => x.Id);
         entity.Property(x => x.Id).HasColumnName("id");
         entity.Property(x => x.TurnRouteId).HasColumnName("turn_route_id");
-        entity.Property(x => x.DepotId).HasColumnName("depot_id");
         entity.Property(x => x.AccessKeyId).HasColumnName("access_key_id");
         entity.Property(x => x.Agent).HasColumnName("agent").HasMaxLength(30);
         entity.Property(x => x.ClientSessionId).HasColumnName("client_session_id").HasMaxLength(200);
@@ -32,8 +31,8 @@ public sealed class SessionCaptureInboxEventConfiguration : IEntityTypeConfigura
         entity.Property(x => x.CreatedAt).HasColumnName("created_at");
         entity.Property(x => x.ContentPurgedAt).HasColumnName("content_purged_at");
 
-        entity.HasOne<SessionCaptureTurnRoute>().WithMany().HasForeignKey(x => new { x.TurnRouteId, x.DepotId, x.AccessKeyId, x.Agent, x.ClientSessionId, x.TurnId }).HasPrincipalKey(x => new { x.Id, x.DepotId, x.AccessKeyId, x.Agent, x.ClientSessionId, x.TurnId }).OnDelete(DeleteBehavior.Restrict);
-        entity.HasIndex(x => new { x.DepotId, x.AccessKeyId, x.Agent, x.ClientSessionId, x.EventId }).IsUnique();
+        entity.HasOne<SessionCaptureTurnRoute>().WithMany().HasForeignKey(x => new { x.TurnRouteId, x.AccessKeyId, x.Agent, x.ClientSessionId, x.TurnId }).HasPrincipalKey(x => new { x.Id, x.AccessKeyId, x.Agent, x.ClientSessionId, x.TurnId }).OnDelete(DeleteBehavior.Restrict);
+        entity.HasIndex(x => new { x.AccessKeyId, x.Agent, x.ClientSessionId, x.EventId }).IsUnique();
         entity.HasIndex(x => new { x.TurnRouteId, x.Phase }).IsUnique();
         entity.HasIndex(x => x.TurnRouteId);
     }

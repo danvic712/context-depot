@@ -4,7 +4,6 @@ public sealed class SessionCaptureInboxEvent
 {
     public Guid Id { get; set; }
     public Guid TurnRouteId { get; set; }
-    public Guid DepotId { get; set; }
     public Guid AccessKeyId { get; set; }
     public string Agent { get; set; } = string.Empty;
     public string ClientSessionId { get; set; } = string.Empty;

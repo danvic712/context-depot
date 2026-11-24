@@ -16,7 +16,7 @@ public sealed class SessionCaptureBudgetTests(CapturePostgreSqlFixture fixture)
         RouteLease lease;
         await using (var db = fixture.CreateDb()) lease = Assert.IsType<RouteLease>(await fixture.Inbox(db).TryClaimRouteAsync(locator, default));
         var now = DateTimeOffset.UtcNow;
-        CaptureWorkLease Work(RouteLease l) => new(seed.DepotId, seed.KeyId, "route", locator.RouteId, l.LeaseToken);
+        CaptureWorkLease Work(RouteLease l) => new(seed.KeyId, "route", locator.RouteId, l.LeaseToken);
         async Task<BudgetReservation> Reserve(RouteLease l, ProviderCallKind kind)
         {
             await using var db = fixture.CreateDb();
@@ -68,7 +68,7 @@ public sealed class SessionCaptureBudgetTests(CapturePostgreSqlFixture fixture)
             await db.Database.OpenConnectionAsync();
             Assert.True(barrier.SignalAndWait(TimeSpan.FromSeconds(10)));
             return await new SessionCaptureCallBudget(db, CapturePostgreSqlFixture.Options(calls: 1))
-                .TryReserveAsync(new(seed.DepotId, seed.KeyId, "route", locator.RouteId, lease.LeaseToken), kind, default);
+                .TryReserveAsync(new(seed.KeyId, "route", locator.RouteId, lease.LeaseToken), kind, default);
         });
         var results = await Task.WhenAll(Reserve(ProviderCallKind.RoutingEmbedding), Reserve(ProviderCallKind.RoutingChat));
         Assert.Single(results, r => r.Status == "granted");

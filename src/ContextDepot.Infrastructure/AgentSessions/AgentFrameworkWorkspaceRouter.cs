@@ -15,7 +15,7 @@ public sealed class AgentFrameworkWorkspaceRouter(IServiceProvider services,
 {
     public async Task<RouteDecision> RouteAsync(RouteLease lease, AuthorizedWorkspaceSnapshot scope, CancellationToken cancellationToken)
     {
-        if (scope.DepotId != lease.Locator.DepotId || scope.KeyId != lease.Locator.KeyId)
+        if (scope.KeyId != lease.Locator.KeyId)
             return new("permanent_failure", ResultCode: "unauthorized");
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(15));
@@ -35,7 +35,7 @@ public sealed class AgentFrameworkWorkspaceRouter(IServiceProvider services,
                 return new("permanent_failure", ResultCode: "invalid_routing_response");
             var client = services.GetService(typeof(IChatClient)) as IChatClient;
             if (client is null) return new("transient_failure", ResultCode: "chat_unavailable");
-            var reservation = await budget.TryReserveAsync(new(scope.DepotId, scope.KeyId, "route", lease.Locator.RouteId,
+            var reservation = await budget.TryReserveAsync(new(scope.KeyId, "route", lease.Locator.RouteId,
                 lease.LeaseToken), ProviderCallKind.RoutingChat, timeout.Token);
             if (reservation.Status != "granted") return SessionRoutingCandidateRepository.ReservationDecision(reservation);
             var instructions = """

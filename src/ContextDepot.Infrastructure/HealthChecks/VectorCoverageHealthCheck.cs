@@ -1,5 +1,5 @@
 using ContextDepot.Application.Embeddings.Dtos;
-using ContextDepot.Infrastructure.CurrentDepot;
+using ContextDepot.Infrastructure.Access;
 using ContextDepot.Infrastructure.RuntimeConfiguration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,32 +34,15 @@ public sealed class VectorCoverageHealthCheck(
         try
         {
             await using var scope = scopeFactory.CreateAsyncScope();
-            scope.ServiceProvider.GetRequiredService<CurrentDepotAccessContext>().AllowInternalAccess();
-            var db = scope.ServiceProvider.GetRequiredService<ContextDepotDbContext>();
-            var snapshotProvider = scope.ServiceProvider.GetRequiredService<VectorCoverageSnapshotProvider>();
-            var depotIds = await db.Depots
-                .AsNoTracking()
-                .OrderBy(depot => depot.Id)
-                .Select(depot => depot.Id)
-                .ToListAsync(cancellationToken);
-            var snapshotsByDepot = await snapshotProvider.GetAsync(
-                depotIds,
-                timeProvider.GetUtcNow(),
-                cancellationToken);
-            var snapshots = depotIds
-                .Select(depotId => snapshotsByDepot[depotId])
-                .ToArray();
-
-            var contextTotal = snapshots.Sum(snapshot => snapshot.ContextTotal);
-            var contextIndexed = snapshots.Sum(snapshot => snapshot.ContextIndexed);
-            var documentChunkTotal = snapshots.Sum(snapshot => snapshot.DocumentChunkTotal);
-            var documentChunkIndexed = snapshots.Sum(snapshot => snapshot.DocumentChunkIndexed);
-            var isComplete = snapshots.All(snapshot => snapshot.IsComplete);
+            scope.ServiceProvider.GetRequiredService<WorkspaceAccessContext>().AllowInternalAccess();
+            var snapshot = await scope.ServiceProvider.GetRequiredService<VectorCoverageSnapshotProvider>()
+                .GetAsync(timeProvider.GetUtcNow(), cancellationToken);
+            var (contextTotal, contextIndexed, documentChunkTotal, documentChunkIndexed) = snapshot;
+            var isComplete = snapshot.IsComplete;
             var contextCoverage = CalculateCoverage(contextTotal, contextIndexed);
             var documentCoverage = CalculateCoverage(documentChunkTotal, documentChunkIndexed);
             var data = new Dictionary<string, object>
             {
-                ["depot_count"] = depotIds.Count,
                 ["context_total"] = contextTotal,
                 ["context_indexed"] = contextIndexed,
                 ["context_coverage"] = contextCoverage,
@@ -69,9 +52,9 @@ public sealed class VectorCoverageHealthCheck(
                 ["retrieval_degraded"] = !isComplete
             };
             return isComplete
-                ? HealthCheckResult.Healthy("Vector coverage is complete for all depots.", data)
+                ? HealthCheckResult.Healthy("Vector coverage is complete.", data)
                 : HealthCheckResult.Degraded(
-                    "Vector coverage is still being repaired for one or more depots.",
+                    "Vector coverage is still being repaired.",
                     data: data);
         }
         catch (OperationCanceledException)

@@ -18,7 +18,7 @@ public sealed class DocumentsController(DocumentManagementAppService service) : 
     /// Permanently deletes an active or archived document, its canonical Markdown, chunks and vector indexes.
     /// </summary>
     /// <param name="id">
-    /// The document identifier in the selected depot.
+    /// The document identifier.
     /// </param>
     /// <param name="expectedUpdatedAt">
     /// The exact reader revision supplied in the query string to reject concurrent changes.
@@ -30,7 +30,7 @@ public sealed class DocumentsController(DocumentManagementAppService service) : 
     /// A task whose result is an empty HTTP 204 response after deletion completes.
     /// </returns>
     /// <remarks>
-    /// Requires trusted Web management access; Depot Access Keys cannot perform this operation.
+    /// Requires trusted Web management access.
     /// The server resolves the canonical path and finishes commit or compensation after the source is removed.
     /// </remarks>
     /// <response code="204">
@@ -43,7 +43,7 @@ public sealed class DocumentsController(DocumentManagementAppService service) : 
     /// Trusted Web management access is required.
     /// </response>
     /// <response code="404">
-    /// The resource or its owning workspace does not exist in the selected depot.
+    /// The resource or its owning workspace was not found.
     /// </response>
     /// <response code="409">
     /// The resource revision changed after it was read.

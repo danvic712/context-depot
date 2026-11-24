@@ -11,9 +11,6 @@ namespace ContextDepot.Application.Documents;
 /// <summary>
 /// Provides trusted archive browsing and revision-checked permanent document deletion.
 /// </summary>
-/// <param name="depot">
-/// The server-selected depot context.
-/// </param>
 /// <param name="access">
 /// The current workspace access scope.
 /// </param>
@@ -21,7 +18,7 @@ namespace ContextDepot.Application.Documents;
 /// The service used to resolve and authorize the owning workspace.
 /// </param>
 /// <param name="documents">
-/// The repository used to resolve document metadata within the selected depot.
+/// The repository used to resolve document metadata.
 /// </param>
 /// <param name="repository">
 /// The repository that lists archived documents and performs permanent deletion.
@@ -29,7 +26,7 @@ namespace ContextDepot.Application.Documents;
 /// <param name="coordinator">
 /// The coordinator that serializes deletion with canonical document writes.
 /// </param>
-public sealed class DocumentManagementAppService(ICurrentDepotContext depot, IWorkspaceAccessContext access,
+public sealed class DocumentManagementAppService(IWorkspaceAccessContext access,
     IWorkspaceAppService workspaces, IDocumentRepository documents, IDocumentManagementRepository repository,
     DocumentWriteCoordinator coordinator)
 {
@@ -56,11 +53,11 @@ public sealed class DocumentManagementAppService(ICurrentDepotContext depot, IWo
     /// </exception>
     public async Task<ArchivedDocumentPage> ListArchivedAsync(Guid workspaceId, PaginationQuery query, CancellationToken cancellationToken)
     {
-        ManagementAccess.RequireManagement(depot, access);
+        ManagementAccess.RequireManagement(access);
         if (!query.IsValid()) throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidResourceQuery);
         _ = await workspaces.GetAsync(workspaceId, cancellationToken)
             ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspaceNotFound);
-        return await repository.ListArchivedAsync(depot.DepotId, workspaceId, query, cancellationToken);
+        return await repository.ListArchivedAsync(workspaceId, query, cancellationToken);
     }
 
     /// <summary>
@@ -91,18 +88,18 @@ public sealed class DocumentManagementAppService(ICurrentDepotContext depot, IWo
     /// </exception>
     public async Task DeleteAsync(Guid documentId, DateTimeOffset expectedUpdatedAt, CancellationToken cancellationToken)
     {
-        ManagementAccess.RequireManagement(depot, access);
+        ManagementAccess.RequireManagement(access);
         if (expectedUpdatedAt == default) throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidResourceQuery);
-        var document = await documents.GetByIdAsync(depot.DepotId, documentId, cancellationToken)
+        var document = await documents.GetByIdAsync(documentId, cancellationToken)
             ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.DocumentNotFound);
         var workspace = await workspaces.GetAsync(document.WorkspaceId, cancellationToken)
             ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspaceNotFound);
         if (document.UpdatedAt != expectedUpdatedAt)
             throw new ContextDepotApplicationException(ApplicationErrorCodes.DocumentConflict);
-        await using var writeLock = await coordinator.AcquireAsync(depot.DepotId + ":" + workspace.Id + ":" + document.Path, cancellationToken);
+        await using var writeLock = await coordinator.AcquireAsync(workspace.Id + ":" + document.Path, cancellationToken);
         try
         {
-            await repository.DeleteAsync(depot.DepotId, documentId, workspace.Id, workspace.Path + "/" + document.Path,
+            await repository.DeleteAsync(documentId, workspace.Id, workspace.StoragePath + "/" + document.Path,
                 expectedUpdatedAt, cancellationToken);
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
