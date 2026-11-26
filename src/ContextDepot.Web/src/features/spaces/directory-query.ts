@@ -171,7 +171,11 @@ export function workspaceDirectoryParams(
     );
   return directoryParams(readDirectoryFilters(source), directoryPage(source));
 }
-export function workspaceDetailTarget(id: string, directory: URLSearchParams) {
+export function workspaceDetailTarget(
+  id: string,
+  directory: URLSearchParams,
+  view?: "children",
+) {
   const params = new URLSearchParams();
   const page = directory.get(DirectoryParameter.Page);
   if (page) params.set(DirectoryParameter.ReturnPage, page);
@@ -179,5 +183,5 @@ export function workspaceDetailTarget(id: string, directory: URLSearchParams) {
     Array.from(directory.keys()).some((key) => key !== DirectoryParameter.Page)
   )
     params.set(DirectoryParameter.ReturnQuery, directory.toString());
-  return `/spaces/${encodeURIComponent(id)}${params.size ? `?${params}` : ""}`;
+  return `/spaces/${encodeURIComponent(id)}${view ? `/${view}` : ""}${params.size ? `?${params}` : ""}`;
 }

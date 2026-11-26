@@ -1,11 +1,15 @@
 import { useDisplayPreference } from "@/lib/display-preferences";
 import { stripDisplayParams } from "@/lib/display-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useLocation, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { FileTextIcon } from "lucide-react";
-import { getSpaceKnowledge } from "./spaces-api";
-import { useRequestResource } from "@/hooks/use-request-resource";
+import {
+  getSpaceKnowledge,
+  type SpaceKnowledge as SpaceKnowledgePage,
+} from "./spaces-api";
+import { useSpacePageResource } from "./use-space-page-resource";
+import { readSpacePanelPage, type SpacePageSeed } from "./space-route-loader";
 import {
   SpaceKnowledgeList,
   SpaceKnowledgeSkeleton,
@@ -26,28 +30,27 @@ import {
   EmptyDescription,
 } from "@/components/ui/empty";
 
-export function SpaceKnowledge({ spaceId }: { spaceId: string }) {
+export function SpaceKnowledge({
+  spaceId,
+  seed,
+}: {
+  spaceId: string;
+  seed?: SpacePageSeed<SpaceKnowledgePage>;
+}) {
   const { t } = useTranslation();
   const location = useLocation();
   const [params, setParams] = useSearchParams();
   const [layout] = useDisplayPreference("knowledgeLayout");
-  const requested = Number(params.get("knowledgePage") ?? 1);
-  const page =
-    Number.isSafeInteger(requested) &&
-    requested > 0 &&
-    requested <= paginationDefaults.maximumPage
-      ? requested
-      : 1;
+  const page = readSpacePanelPage(params, "knowledgePage");
   const [pageSize, setPageSize] = useDisplayPreference("knowledgePageSize");
-  const [attempt, setAttempt] = useState(0);
   const load = useCallback(
     (signal: AbortSignal) => getSpaceKnowledge(spaceId, page, signal, pageSize),
     [spaceId, page, pageSize],
   );
-  const resource = useRequestResource(
+  const resource = useSpacePageResource(
     `${spaceId}:${page}:${pageSize}`,
-    attempt,
     load,
+    seed?.page === page && seed.pageSize === pageSize ? seed : undefined,
   );
   const data =
     resource.error && !resource.error.retryable ? undefined : resource.data;
@@ -106,7 +109,7 @@ export function SpaceKnowledge({ spaceId }: { spaceId: string }) {
         <RequestFeedback
           title={t("spacesKnowledgeError")}
           failure={resource.error}
-          onRetry={() => setAttempt((value) => value + 1)}
+          onRetry={resource.retry}
           pending={resource.pending}
           stale={!!data}
           recoveryAction={

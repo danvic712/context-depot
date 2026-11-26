@@ -48,6 +48,11 @@ public sealed class WorkspaceBrowserRepositoryTests
         Assert.Equal(1, rootItem.DocumentCount);
         Assert.Equal(1, rootItem.SubspaceCount);
         Assert.Equal(document.UpdatedAt, rootItem.ActivityAt);
+        var roots = await repository.BrowseAsync(new WorkspaceDirectoryQuery { RootsOnly = true, PageSize = 2 }, now, default);
+        Assert.Equal(3, roots.TotalCount);
+        Assert.Equal(new[] { other.Id, root.Id }, roots.Items.Select(space => space.Id));
+        var deepMatch = await repository.BrowseAsync(new WorkspaceDirectoryQuery { Query = "root/child/deep" }, now, default);
+        Assert.Equal(grandchild.Id, Assert.Single(deepMatch.Items).Id);
         var second = await repository.BrowseAsync(new WorkspaceDirectoryQuery { Page = 2, PageSize = 1 }, now, default);
         Assert.Equal(other.Id, Assert.Single(second.Items).Id);
         Assert.Equal(empty.Id, Assert.Single((await repository.BrowseAsync(new WorkspaceDirectoryQuery { Page = 5, PageSize = 1 }, now, default)).Items).Id);

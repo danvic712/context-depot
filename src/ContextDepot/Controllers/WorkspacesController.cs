@@ -159,4 +159,14 @@ public sealed class WorkspacesController(OverviewAppService service, WorkspaceBr
         var result = await service.CreateWorkspaceAsync(request, cancellationToken);
         return Created($"/api/workspaces/{result.Id}", result);
     }
+
+    [HttpPost("{id:guid}/children")]
+    public async Task<ActionResult<WorkspaceSummary>> CreateChildAsync(Guid id, CreateWorkspaceRequest request,
+        CancellationToken cancellationToken)
+    {
+        Middlewares.WebManagementRequestGuard.RequireManagementRequest(HttpContext);
+        var parent = await browser.GetAsync(id, cancellationToken);
+        var result = await service.CreateWorkspaceAsync(request, cancellationToken, parent.Workspace);
+        return Created($"/api/workspaces/{result.Id}", result);
+    }
 }

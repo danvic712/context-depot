@@ -42,7 +42,7 @@ public sealed class OverviewAppServiceTests
     [Fact]
     public async Task CreateTrimsFieldsChecksSafetyAndUsesCurrentDepot()
     {
-        repository.Setup(x => x.CreateWorkspaceAsync(It.IsAny<Guid>(), "Research", "research-notes", "Notes", now, default)).ReturnsAsync(true);
+        repository.Setup(x => x.CreateWorkspaceAsync(It.IsAny<Guid>(), "Research", "research-notes", "Notes", now, default, null)).ReturnsAsync(true);
         var result = await CreateService().CreateWorkspaceAsync(new(" Research ", " research-notes ", " Notes "), default);
         Assert.NotNull(result);
         Assert.Equal("research-notes", result.Path);
@@ -57,7 +57,7 @@ public sealed class OverviewAppServiceTests
     [Fact]
     public async Task ExistingSlugThrowsConflictWithoutAnUpsert()
     {
-        repository.Setup(x => x.CreateWorkspaceAsync(It.IsAny<Guid>(), "Research", "research", null, now, default)).ReturnsAsync(false);
+        repository.Setup(x => x.CreateWorkspaceAsync(It.IsAny<Guid>(), "Research", "research", null, now, default, null)).ReturnsAsync(false);
         var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => CreateService().CreateWorkspaceAsync(new("Research", "research", null), default));
         Assert.Equal(ApplicationErrorCodes.WorkspacePathConflict, error.ErrorCode);
         Assert.Equal([ApplicationErrorCodes.WorkspacePathConflict], error.FieldErrorCodes!["path"]);

@@ -112,11 +112,22 @@ describe("Space browser contracts", () => {
       );
       expect(custom.pageSize).toBe(6);
       expect(requests[3]).toBe("/api/workspaces/browse?page=2&pageSize=6");
+      await getSpaceDirectory(
+        undefined,
+        2,
+        controller.signal,
+        defaultDirectoryFilters,
+        6,
+        true,
+      );
+      expect(requests[4]).toBe(
+        "/api/workspaces/browse?rootsOnly=true&page=2&pageSize=6",
+      );
       controller.abort();
       await expect(
         getSpaceDirectory(undefined, 1, controller.signal),
       ).rejects.toThrow();
-      expect(requests.length).toBe(4);
+      expect(requests.length).toBe(5);
     } finally {
       httpClient.interceptors.request.eject(interceptor);
       server.stop(true);

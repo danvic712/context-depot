@@ -87,7 +87,7 @@ public sealed class OverviewRepositoryTests
     }
 
     [PostgreSqlFact]
-    public async Task DuplicateRootCreationCannotOverwriteExistingWorkspace()
+    public async Task DuplicateWorkspaceCreationCannotOverwriteAnExistingRootOrChild()
     {
         await using var fixture = await SetupDatabaseFixture.CreateAsync();
         await using var db = fixture.CreateDb(unrestricted: true);
@@ -102,6 +102,12 @@ public sealed class OverviewRepositoryTests
         Assert.Equal(id, stored.Id);
         Assert.Equal("Original", stored.Name);
         Assert.Equal("Original description", stored.Description);
+        var childId = Guid.NewGuid();
+        Assert.True(await repository.CreateWorkspaceAsync(childId, "Child", "research", null, now, default, id));
+        Assert.False(await repository.CreateWorkspaceAsync(Guid.NewGuid(), "Changed child", "research", null, now, default, id));
+        var child = await db.Workspaces.AsNoTracking().SingleAsync(x => x.Id == childId);
+        Assert.Equal(id, child.ParentWorkspaceId);
+        Assert.Equal("Child", child.Name);
         var spaces = await repository.ListWorkspacesAsync(3, now, default);
         Assert.Equal(0, spaces.Items[0].ContextCount);
         Assert.Equal(0, spaces.Items[0].DocumentCount);

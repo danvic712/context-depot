@@ -261,10 +261,21 @@ export function SpaceSwitcher({
       }}
     >
       <DialogTrigger asChild>
-        <Button className="space-browser-trigger" variant="outline" size="sm">
+        <Button
+          className="space-browser-trigger"
+          variant="outline"
+          size="sm"
+          aria-label={t("spacesSwitchSpace")}
+          title={t("spacesSwitchSpace")}
+        >
           <FolderIcon aria-hidden="true" />
-          {t("spacesSwitchSpace")}
-          <ChevronDownIcon aria-hidden="true" />
+          <span className="space-browser-trigger-label">
+            {t("spacesSwitchSpace")}
+          </span>
+          <ChevronDownIcon
+            className="space-browser-trigger-chevron"
+            aria-hidden="true"
+          />
         </Button>
       </DialogTrigger>
       <DialogContent
@@ -322,7 +333,9 @@ export function SpaceSwitcher({
           roots={roots}
           selectedSpaceId={selectedSpaceId}
           onNavigate={() => motion.close()}
-          emptyMessage={roots.query.trim() ? t("spacesNoMatches") : undefined}
+          emptyMessage={
+            roots.query.trim() ? t("spacesPickerNoMatches") : undefined
+          }
           showCount={!roots.query.trim()}
         />
       </DialogContent>

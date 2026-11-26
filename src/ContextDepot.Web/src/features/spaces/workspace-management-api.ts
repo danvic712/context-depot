@@ -8,10 +8,17 @@ export interface CreateWorkspace {
 }
 
 /** Creates a new workspace without updating an existing path. */
-export function createWorkspace(data: CreateWorkspace, signal?: AbortSignal) {
+export function createWorkspace(
+  data: CreateWorkspace,
+  signal?: AbortSignal,
+  parentId?: string,
+) {
   return httpRequest({
     method: "POST",
-    url: "/workspaces",
+    url: parentId
+      ? `/workspaces/${encodeURIComponent(parentId)}/children`
+      : "/workspaces",
+    ...(parentId ? { headers: { "X-ContextDepot-Management": "web" } } : {}),
     data,
     signal,
     parse: parseWorkspace,

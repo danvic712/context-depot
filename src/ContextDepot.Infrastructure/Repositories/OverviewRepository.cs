@@ -86,9 +86,10 @@ public sealed partial class OverviewRepository(ContextDepotDbContext db) : IOver
         return new(asOf, merged.Take(limit).ToArray(), merged.Length > limit);
     }
 
-    public async Task<bool> CreateWorkspaceAsync(Guid id, string name, string path, string? description, DateTimeOffset now, CancellationToken cancellationToken)
+    public async Task<bool> CreateWorkspaceAsync(Guid id, string name, string path, string? description, DateTimeOffset now,
+        CancellationToken cancellationToken, Guid? parentId = null)
     {
-        var workspace = new Workspace(id, null, name, path, description, now);
+        var workspace = new Workspace(id, parentId, name, path, description, now);
         db.Workspaces.Add(workspace);
         try
         {
@@ -96,7 +97,7 @@ public sealed partial class OverviewRepository(ContextDepotDbContext db) : IOver
             return true;
         }
         catch (DbUpdateException exception) when (exception.InnerException is PostgresException
-        { SqlState: PostgresErrorCodes.UniqueViolation, ConstraintName: "ux_workspaces_root_slug" })
+        { SqlState: PostgresErrorCodes.UniqueViolation, ConstraintName: "ux_workspaces_root_slug" or "ux_workspaces_child_slug" })
         {
             db.Entry(workspace).State = EntityState.Detached;
             return false;

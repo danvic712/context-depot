@@ -19,7 +19,8 @@ public sealed class WorkspaceBrowserRepository(ContextDepotDbContext db) : IWork
         var nodes = await LoadNodesAsync(cancellationToken);
         var paths = Topology(nodes).Paths;
         var query = Summaries(asOf);
-        if (filter.ParentId is not null) query = query.Where(x => x.ParentId == filter.ParentId);
+        if (filter.RootsOnly || filter.ParentId is not null)
+            query = query.Where(x => x.ParentId == filter.ParentId);
         if (!string.IsNullOrEmpty(filter.Query))
         {
             var matchingPaths = paths.Where(x => x.Value.Contains(filter.Query, StringComparison.OrdinalIgnoreCase))

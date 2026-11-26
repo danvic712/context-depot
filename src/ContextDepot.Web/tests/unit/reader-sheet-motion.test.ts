@@ -4,7 +4,7 @@ import {
   createReaderSheetMotion,
 } from "../../src/features/knowledge/reader-sheet-motion";
 import { createSpring } from "../../src/lib/spring-motion";
-import { createFilterDisclosureMotion } from "../../src/features/knowledge/filter-disclosure-motion";
+import { createDisclosureMotion } from "../../src/lib/disclosure-motion";
 import { createSearchDialogMotion } from "../../src/features/knowledge/search-dialog-motion";
 import { createPreviewSwitchMotion } from "../../src/features/knowledge/preview-switch-motion";
 
@@ -408,8 +408,9 @@ test("search dialog viewport changes respect reduced motion and disposal cancels
   }
 });
 
-test("filter disclosure can reverse mid-flight without measuring layout on every frame", () => {
+test("disclosure can reverse mid-flight without treating the interrupted close as complete", () => {
   let measurements = 0;
+  let completedCloses = 0;
   const node = {
     hidden: false,
     style: { height: "", opacity: "" },
@@ -424,11 +425,15 @@ test("filter disclosure can reverse mid-flight without measuring layout on every
         node.style.height === "auto" ? 240 : parseFloat(node.style.height),
     }),
   };
-  const disclosure = createFilterDisclosureMotion(
+  const disclosure = createDisclosureMotion(
     node as unknown as HTMLDivElement,
     false,
+    () => {
+      completedCloses++;
+    },
   );
   try {
+    expect(completedCloses).toBe(0);
     expect(node.hidden).toBe(true);
     disclosure.setOpen(true);
     const measured = measurements;
@@ -443,10 +448,12 @@ test("filter disclosure can reverse mid-flight without measuring layout on every
     tick(2000);
     expect(node.hidden).toBe(false);
     expect(node.style.height).toBe("auto");
+    expect(completedCloses).toBe(0);
     disclosure.setOpen(false);
     tick(2000);
     expect(node.hidden).toBe(true);
     expect(node.style.opacity).toBe("0");
+    expect(completedCloses).toBe(1);
   } finally {
     disclosure.dispose();
   }
@@ -467,7 +474,7 @@ test("filter disclosure starts from changed auto height and reduced motion settl
           : parseFloat(node.style.height),
     }),
   };
-  const disclosure = createFilterDisclosureMotion(
+  const disclosure = createDisclosureMotion(
     node as unknown as HTMLDivElement,
     true,
   );

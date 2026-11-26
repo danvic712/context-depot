@@ -61,7 +61,7 @@ public interface IOverviewRepository
         RecentKnowledgeFilter filter, DateTimeOffset asOf, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Creates a root workspace without updating an existing workspace.
+    /// Creates a workspace without updating an existing workspace.
     /// </summary>
     /// <param name="id">
     /// The identifier assigned to the new workspace.
@@ -70,7 +70,7 @@ public interface IOverviewRepository
     /// The validated workspace display name.
     /// </param>
     /// <param name="path">
-    /// The validated root path slug.
+    /// The validated workspace path segment.
     /// </param>
     /// <param name="description">
     /// The optional validated description.
@@ -81,8 +81,9 @@ public interface IOverviewRepository
     /// <param name="cancellationToken">
     /// Cancels the asynchronous operation.
     /// </param>
+    /// <param name="parentId">The resolved parent workspace, or null for a root.</param>
     /// <returns>
-    /// A task whose result is true after creation, or false when the root path already exists.
+    /// A task whose result is true after creation, or false when the requested path already exists.
     /// </returns>
     /// <remarks>
     /// A path conflict never overwrites an existing workspace.
@@ -90,5 +91,6 @@ public interface IOverviewRepository
     /// <exception cref="OperationCanceledException">
     /// The operation was canceled before completion.
     /// </exception>
-    Task<bool> CreateWorkspaceAsync(Guid id, string name, string path, string? description, DateTimeOffset now, CancellationToken cancellationToken);
+    Task<bool> CreateWorkspaceAsync(Guid id, string name, string path, string? description, DateTimeOffset now,
+        CancellationToken cancellationToken, Guid? parentId = null);
 }

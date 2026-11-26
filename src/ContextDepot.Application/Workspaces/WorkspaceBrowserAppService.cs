@@ -30,6 +30,7 @@ public sealed class WorkspaceBrowserAppService(
     {
         query = query with { Query = query.Query?.Trim() };
         if (!query.IsValid() || query.Query?.Length > WorkspaceDirectoryQuery.MaximumQueryLength ||
+            (query.RootsOnly && query.ParentId is not null) ||
             !Enum.IsDefined(query.Status) || !Enum.IsDefined(query.Content) || !Enum.IsDefined(query.Sort) ||
             (query.UpdatedWithinDays is { } window && !Enum.IsDefined(window)) ||
             (query.UpdatedWithinDays is not null && (query.UpdatedFrom is not null || query.UpdatedBefore is not null)) ||

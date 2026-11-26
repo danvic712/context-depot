@@ -1,3 +1,7 @@
+.space-path-preview {
+  overflow-wrap: anywhere;
+}
+
 .home-create-action {
   min-height: 2.75rem;
   padding-inline: 1.125rem;

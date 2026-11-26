@@ -109,11 +109,11 @@ export default function App() {
   const changingPage =
     navigation.state === "loading" &&
     navigation.location?.pathname !== location.pathname;
-  const stayingInSpace =
-    !!spaceRouteKey &&
-    (navigation.location?.pathname === spaceRouteKey ||
-      navigation.location?.pathname.startsWith(spaceRouteKey + "/"));
-  const showRouteLoading = changingPage && !stayingInSpace;
+  const inSpaces = (path?: string) =>
+    path === "/spaces" || path?.startsWith("/spaces/");
+  const staysInSpaces =
+    inSpaces(location.pathname) && inSpaces(navigation.location?.pathname);
+  const showRouteLoading = changingPage && !staysInSpaces;
   const homeLayout =
     navigation.state === "loading"
       ? navigation.location?.pathname === "/"

@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { RequestFeedback } from "@/components/feedback/RequestFeedback";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { useFilterDisclosureMotion } from "./use-filter-disclosure-motion";
+import { useDisclosureMotion } from "@/hooks/use-disclosure-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   InputGroup,
@@ -88,7 +88,7 @@ export function SearchFilters({
   const type = params.get("type") ?? "all";
   const workspace = params.get("workspace");
   const activeCount = activeSearchFilters(params);
-  const disclosureRef = useFilterDisclosureMotion(!compact || expanded);
+  const disclosureRef = useDisclosureMotion(!compact || expanded);
   // A forbidden refresh must not expose the previously loaded workspace names.
   const options =
     error && !error.retryable

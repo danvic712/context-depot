@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using ContextDepot.Application.Shared.Runtime.Contracts;
 using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Application.Shared.Safety.Contracts;
+using ContextDepot.Application.Workspaces.Dtos;
 using ContextDepot.Domain.Contexts.Enums;
 
 namespace ContextDepot.Application.Overview;
@@ -50,26 +51,27 @@ public sealed partial class OverviewAppService(
         return repository.ListRecentKnowledgeAsync(limit, filter, timeProvider.GetUtcNow(), cancellationToken);
     }
 
-    public async Task<WorkspaceSummary> CreateWorkspaceAsync(CreateWorkspaceRequest request, CancellationToken cancellationToken)
+    public async Task<WorkspaceSummary> CreateWorkspaceAsync(CreateWorkspaceRequest request, CancellationToken cancellationToken,
+        WorkspaceDirectoryItem? parent = null)
     {
         var name = request.Name?.Trim() ?? string.Empty;
         var path = request.Path?.Trim() ?? string.Empty;
         var description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
         var errors = new Dictionary<string, string[]>();
         if (name.Length is < 1 or > 200) errors["name"] = [ApplicationErrorCodes.InvalidWorkspaceName];
-        if (path.Length is < 1 or > 100 || !RootSlug().IsMatch(path)) errors["path"] = [ApplicationErrorCodes.InvalidWorkspacePath];
+        if (path.Length is < 1 or > 100 || !WorkspaceSlug().IsMatch(path)) errors["path"] = [ApplicationErrorCodes.InvalidWorkspacePath];
         if (errors.Count > 0) throw new ContextDepotApplicationException(errors.First().Value[0], errors);
         sourceSafety.EnsureSafe(name);
         sourceSafety.EnsureSafe(description);
         var id = idGenerator.NewId();
         var now = timeProvider.GetUtcNow();
-        if (!await repository.CreateWorkspaceAsync(id, name, path, description, now, cancellationToken))
+        if (!await repository.CreateWorkspaceAsync(id, name, path, description, now, cancellationToken, parent?.Id))
         {
             throw new ContextDepotApplicationException(ApplicationErrorCodes.WorkspacePathConflict,
                 new Dictionary<string, string[]> { ["path"] = [ApplicationErrorCodes.WorkspacePathConflict] });
         }
 
-        return new WorkspaceSummary(id, name, description, path, 0, 0, now);
+        return new WorkspaceSummary(id, name, description, parent is null ? path : $"{parent.Path}/{path}", 0, 0, now);
     }
 
     private static void ValidateQuery(int limit, int maximum, string sort, string expected)
@@ -81,5 +83,5 @@ public sealed partial class OverviewAppService(
     }
 
     [GeneratedRegex("^[a-z0-9]+(?:-[a-z0-9]+)*$", RegexOptions.CultureInvariant)]
-    private static partial Regex RootSlug();
+    private static partial Regex WorkspaceSlug();
 }
