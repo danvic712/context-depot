@@ -50,7 +50,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISessionCaptureAppService,
             SessionCaptureAppService>();
         services.AddScoped<MemoryCaptureProcessor>();
-        services.AddOptions<SetupOptions>().Bind(configuration.GetSection("ContextDepot:Web"));
         services.AddScoped<ISetupAppService, SetupAppService>();
         services.AddSingleton<DocumentWriteCoordinator>();
         services.AddSingleton<HeadingAwareMarkdownChunker>();

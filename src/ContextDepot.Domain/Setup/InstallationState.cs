@@ -18,16 +18,14 @@ public sealed class InstallationState
     public Guid Id { get; private set; }
     public string Scope { get; private set; } = InstallationScope;
     public string State { get; private set; } = Pending;
-    public Guid? InitialDepotId { get; private set; }
     public Guid? InitialWorkspaceId { get; private set; }
     public bool InferenceReviewed { get; private set; }
     public bool AccessKeyReviewed { get; private set; }
     public DateTimeOffset? CompletedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
-    public void Begin(Guid depotId, Guid workspaceId, DateTimeOffset now)
+    public void Begin(Guid workspaceId, DateTimeOffset now)
     {
-        InitialDepotId = depotId;
         InitialWorkspaceId = workspaceId;
         State = InProgress;
         UpdatedAt = now;

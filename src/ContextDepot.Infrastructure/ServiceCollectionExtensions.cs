@@ -1,7 +1,6 @@
 using ContextDepot.Application.AgentSessions.Contracts;
 using ContextDepot.Application.Bootstrap.Contracts;
 using ContextDepot.Application.Contexts.Contracts;
-using ContextDepot.Application.Depots.Contracts;
 using ContextDepot.Application.Documents.Contracts;
 using ContextDepot.Application.Embeddings;
 using ContextDepot.Application.IndexRepair.Contracts;
@@ -14,7 +13,7 @@ using ContextDepot.Application.VectorIndex.Contracts;
 using ContextDepot.Application.Workspaces.Contracts;
 using ContextDepot.Infrastructure.AgentSessions;
 using ContextDepot.Infrastructure.Contracts;
-using ContextDepot.Infrastructure.CurrentDepot;
+using ContextDepot.Infrastructure.Access;
 using ContextDepot.Infrastructure.Exceptions;
 using ContextDepot.Infrastructure.HealthChecks;
 using ContextDepot.Infrastructure.Jobs;
@@ -99,6 +98,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISessionCaptureCallBudget, SessionCaptureCallBudget>();
         services.AddScoped<ISessionRoutingCandidateRepository, SessionRoutingCandidateRepository>();
         services.AddScoped<ISessionWorkspaceRouter, AgentFrameworkWorkspaceRouter>();
+        services.AddScoped<SessionWorkspacePreparation>();
         services.AddScoped<ISessionCaptureAuthorization,
             SessionCaptureAuthorization>();
         services.AddScoped<IMemoryExtractionService,
@@ -144,7 +144,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISettingsOverviewRepository, SettingsOverviewRepository>();
         services.AddScoped<IInferenceSettingsRepository, InferenceSettingsRepository>();
         services.AddScoped<ContextDepot.Application.Overview.IOverviewRepository, OverviewRepository>();
-        services.AddScoped<IDepotRepository, DepotRepository>();
         services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
         services.AddScoped<IWorkspaceBrowserRepository, WorkspaceBrowserRepository>();
         services.AddScoped<IContextRepository, ContextRepository>();
@@ -160,13 +159,12 @@ public static class ServiceCollectionExtensions
             .AddCheck<PostgreSqlHealthCheck>("postgresql")
             .AddCheck<VectorCoverageHealthCheck>("vector_coverage");
 
-        services.AddScoped<CurrentDepotAccessContext>();
+        services.AddScoped<WorkspaceAccessContext>();
         services.AddScoped<VisibleWorkspaceTopologyProvider>();
-        services.AddScoped<ICurrentDepotContext>(sp => sp.GetRequiredService<CurrentDepotAccessContext>());
-        services.AddScoped<IWorkspaceAccessContext>(sp => sp.GetRequiredService<CurrentDepotAccessContext>());
-        services.AddSingleton<DepotAccessKeySecretHasher>();
-        services.AddSingleton<IAccessKeySecretGenerator>(sp => sp.GetRequiredService<DepotAccessKeySecretHasher>());
-        services.AddScoped<IDepotAccessKeyAuthenticator, DepotAccessKeyAuthenticator>();
+        services.AddScoped<IWorkspaceAccessContext>(sp => sp.GetRequiredService<WorkspaceAccessContext>());
+        services.AddSingleton<AccessKeySecretHasher>();
+        services.AddSingleton<IAccessKeySecretGenerator>(sp => sp.GetRequiredService<AccessKeySecretHasher>());
+        services.AddScoped<IAccessKeyAuthenticator, AccessKeyAuthenticator>();
         services.AddSingleton<IIdGenerator, GuidV7IdGenerator>();
 
         services.AddOptions<MarkdownStoreOptions>()

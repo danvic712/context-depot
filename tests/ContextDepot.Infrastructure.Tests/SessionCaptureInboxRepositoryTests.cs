@@ -18,9 +18,9 @@ public sealed class SessionCaptureInboxRepositoryTests(CapturePostgreSqlFixture 
         var ct = timeout.Token;
         await using var revoke = fixture.CreateDb();
         await using var transaction = await revoke.Database.BeginTransactionAsync(ct);
-        await revoke.Database.ExecuteSqlInterpolatedAsync($"UPDATE public.depot_access_keys SET revoked_at = clock_timestamp() WHERE id = {seed.KeyId}", ct);
+        await revoke.Database.ExecuteSqlInterpolatedAsync($"UPDATE public.access_keys SET revoked_at = clock_timestamp() WHERE id = {seed.KeyId}", ct);
         var blockerPid = ((NpgsqlConnection)revoke.Database.GetDbConnection()).ProcessID;
-        var signal = new CaptureCommandAttempt("public.depot_access_keys", "FOR SHARE");
+        var signal = new CaptureCommandAttempt("public.access_keys", "FOR SHARE");
         await using var worker = fixture.CreateDb(signal);
         var accept = fixture.Inbox(worker).AcceptAsync(CapturePostgreSqlFixture.Envelope(
             fixture.Message(seed, "user"), fixture.Message(seed, "assistant")), ct);
@@ -40,7 +40,7 @@ public sealed class SessionCaptureInboxRepositoryTests(CapturePostgreSqlFixture 
         var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => accept.WaitAsync(ct));
         Assert.Equal(ApplicationErrorCodes.SessionCaptureUnavailable, error.ErrorCode);
         await using var verify = fixture.CreateDb();
-        Assert.NotNull((await verify.DepotAccessKeys.SingleAsync(ct)).RevokedAt);
+        Assert.NotNull((await verify.AccessKeys.SingleAsync(ct)).RevokedAt);
         Assert.Empty(await verify.SessionCaptureInboxEvents.ToArrayAsync(ct));
         Assert.Empty(await verify.SessionCaptureTurnRoutes.ToArrayAsync(ct));
         Assert.Empty(await verify.SessionCaptureEvents.ToArrayAsync(ct));
@@ -53,7 +53,7 @@ public sealed class SessionCaptureInboxRepositoryTests(CapturePostgreSqlFixture 
         await using var db = fixture.CreateDb();
         var inbox = fixture.Inbox(db);
         var first = await inbox.AcceptAsync(CapturePostgreSqlFixture.Envelope(fixture.Message(seed, "assistant")), default);
-        var locator = new RouteLocator(seed.DepotId, seed.KeyId, first.TurnReceiptId!.Value);
+        var locator = new RouteLocator(seed.KeyId, first.TurnReceiptId!.Value);
         Assert.Null(await inbox.TryClaimRouteAsync(locator, default));
         var retry = await inbox.AcceptAsync(CapturePostgreSqlFixture.Envelope(fixture.Message(seed, "assistant")), default);
         Assert.Equal(first.ReceiptId, retry.ReceiptId);
@@ -115,10 +115,18 @@ public sealed class SessionCaptureInboxRepositoryTests(CapturePostgreSqlFixture 
         var queue = new SessionCaptureRepository(db, fixture.Protector, CapturePostgreSqlFixture.Options(), TimeProvider.System);
         SessionCaptureEvent Explicit(string turn) => new()
         {
-            Id = Guid.NewGuid(), DepotId = seed.DepotId, AccessKeyId = seed.KeyId, WorkspaceId = seed.WorkspaceId,
-            Agent = "codex", ClientSessionId = "capture-session", TurnId = turn, EventId = turn + ":user", Phase = "user",
-            ContentHash = fixture.Message(seed, "user").ContentHash, EncryptedContent = fixture.Protector.Protect("I use PostgreSQL for persistent storage."),
-            CreatedAt = DateTimeOffset.UtcNow, NextAttemptAt = DateTimeOffset.UtcNow
+            Id = Guid.NewGuid(),
+            AccessKeyId = seed.KeyId,
+            WorkspaceId = seed.WorkspaceId,
+            Agent = "codex",
+            ClientSessionId = "capture-session",
+            TurnId = turn,
+            EventId = turn + ":user",
+            Phase = "user",
+            ContentHash = fixture.Message(seed, "user").ContentHash,
+            EncryptedContent = fixture.Protector.Protect("I use PostgreSQL for persistent storage."),
+            CreatedAt = DateTimeOffset.UtcNow,
+            NextAttemptAt = DateTimeOffset.UtcNow
         };
         await Assert.ThrowsAsync<ContextDepotApplicationException>(() => queue.EnqueueAsync(Explicit("turn-1"), default));
         db.ChangeTracker.Clear();

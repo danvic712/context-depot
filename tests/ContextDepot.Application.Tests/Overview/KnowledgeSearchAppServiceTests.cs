@@ -99,8 +99,8 @@ public sealed class KnowledgeSearchAppServiceTests
         using var cancellation = new CancellationTokenSource();
         var now = DateTimeOffset.UtcNow;
         workspaces.Setup(x => x.ListVisibleAsync(cancellation.Token)).ReturnsAsync(new WorkspaceModel[] {
-            new(child, Guid.Empty, "projects/notes", "研究笔记", null, "{}", now, now),
-            new(root, Guid.Empty, "projects", "研发项目", null, "{}", now, now) });
+            new(child, "projects/notes", "研究笔记", null, "{}", now, now),
+            new(root, "projects", "研发项目", null, "{}", now, now) });
         var result = await Create().ListWorkspacesAsync(cancellation.Token);
         Assert.Equal(new[] { "projects", "projects/notes" }, result.Select(x => x.Path));
         Assert.Equal(new[] { "研发项目", "研究笔记" }, result.Select(x => x.Name));
@@ -125,10 +125,10 @@ public sealed class KnowledgeSearchAppServiceTests
     {
         var id = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow;
-        var metadata = new DocumentModel(id, Guid.NewGuid(), Guid.NewGuid(), "projects/notes", "notes.md", "Notes", "hash", "hash", DocumentStatus.Active, DocumentIndexStatus.Indexed, now, now, []);
+        var metadata = new DocumentModel(id, Guid.NewGuid(), "projects/notes", "notes.md", "Notes", "hash", "hash", DocumentStatus.Active, DocumentIndexStatus.Indexed, now, now, []);
         documents.Setup(x => x.GetAsync(id, default)).ReturnsAsync(new DocumentContentModel(metadata, "# Complete Markdown\n\nNot a search excerpt.", "hash"));
         workspaces.Setup(x => x.GetAsync(metadata.WorkspaceId, default)).ReturnsAsync(new WorkspaceModel(
-            metadata.WorkspaceId, metadata.DepotId, metadata.Workspace, "研究笔记", null, "{}", now, now));
+            metadata.WorkspaceId, metadata.Workspace, "研究笔记", null, "{}", now, now));
         var result = await Create().GetAsync("document", id, default);
         Assert.Equal("# Complete Markdown\n\nNot a search excerpt.", result.Content);
         Assert.Equal(now, result.UpdatedAt);

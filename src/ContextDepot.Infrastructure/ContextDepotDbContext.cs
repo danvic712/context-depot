@@ -1,7 +1,7 @@
 using ContextDepot.Application.Shared.Runtime.Contracts;
 using ContextDepot.Domain.AgentSessions;
 using ContextDepot.Domain.Contexts;
-using ContextDepot.Domain.Depots;
+using ContextDepot.Domain.Access;
 using ContextDepot.Domain.Documents;
 using ContextDepot.Domain.Inferences;
 using ContextDepot.Domain.Settings;
@@ -23,7 +23,7 @@ public sealed class ContextDepotDbContext(
 
     public IReadOnlyList<Guid> NavigableWorkspaceIds => workspaceAccessContext.NavigableWorkspaceIds;
 
-    public Guid? CurrentAccessKeyId => workspaceAccessContext.DepotAccessKeyId;
+    public Guid? CurrentAccessKeyId => workspaceAccessContext.AccessKeyId;
 
     public DbSet<AgentSession> AgentSessions => Set<AgentSession>();
 
@@ -33,9 +33,7 @@ public sealed class ContextDepotDbContext(
     public DbSet<SessionCaptureInboxEvent> SessionCaptureInboxEvents => Set<SessionCaptureInboxEvent>();
     public DbSet<ContextCaptureEvidence> ContextCaptureEvidence => Set<ContextCaptureEvidence>();
 
-    public DbSet<Depot> Depots => Set<Depot>();
-
-    public DbSet<DepotAccessKey> DepotAccessKeys => Set<DepotAccessKey>();
+    public DbSet<AccessKey> AccessKeys => Set<AccessKey>();
 
     public DbSet<WorkspaceAccessGrant> WorkspaceAccessGrants => Set<WorkspaceAccessGrant>();
 

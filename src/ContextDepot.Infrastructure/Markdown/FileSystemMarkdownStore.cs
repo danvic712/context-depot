@@ -10,7 +10,7 @@ using Microsoft.Extensions.Options;
 namespace ContextDepot.Infrastructure.Markdown;
 
 /// <summary>
-/// Stores canonical Markdown as UTF-8 files under a separate directory for each depot.
+/// Stores canonical Markdown as UTF-8 files under the configured Markdown root.
 /// </summary>
 /// <param name="environment">
 /// The host environment used to resolve a relative Markdown root.
@@ -26,13 +26,10 @@ public sealed class FileSystemMarkdownStore(IHostEnvironment environment, IOptio
     private readonly string root = ResolveRoot(environment.ContentRootPath, options.Value.Root);
 
     /// <summary>
-    /// Reads a depot-relative canonical document.
+    /// Reads a canonical Markdown document.
     /// </summary>
-    /// <param name="depotId">
-    /// The owning depot identifier.
-    /// </param>
     /// <param name="relativePath">
-    /// The canonical path relative to the depot root, including the workspace path.
+    /// The canonical path relative to the configured Markdown root, including the workspace storage path.
     /// </param>
     /// <param name="cancellationToken">
     /// Cancels the asynchronous operation.
@@ -41,7 +38,7 @@ public sealed class FileSystemMarkdownStore(IHostEnvironment environment, IOptio
     /// A task whose result contains the Markdown path, content and hash, or null when the file is missing.
     /// </returns>
     /// <exception cref="ContextDepotApplicationException">
-    /// The depot identifier or canonical path is invalid.
+    /// The canonical path is invalid.
     /// </exception>
     /// <exception cref="IOException">
     /// The file cannot be read.
@@ -52,9 +49,9 @@ public sealed class FileSystemMarkdownStore(IHostEnvironment environment, IOptio
     /// <exception cref="OperationCanceledException">
     /// The operation was canceled before completion.
     /// </exception>
-    public async Task<MarkdownDocument?> GetAsync(Guid depotId, string relativePath, CancellationToken cancellationToken)
+    public async Task<MarkdownDocument?> GetAsync(string relativePath, CancellationToken cancellationToken)
     {
-        var path = ResolvePath(depotId, relativePath);
+        var path = ResolvePath(relativePath);
         if (!File.Exists(path))
         {
             return null;
@@ -67,11 +64,8 @@ public sealed class FileSystemMarkdownStore(IHostEnvironment environment, IOptio
     /// <summary>
     /// Atomically replaces canonical content without exposing a partially written destination file.
     /// </summary>
-    /// <param name="depotId">
-    /// The owning depot identifier.
-    /// </param>
     /// <param name="relativePath">
-    /// The canonical path relative to the depot root, including the workspace path.
+    /// The canonical path relative to the configured Markdown root, including the workspace storage path.
     /// </param>
     /// <param name="content">
     /// The complete Markdown content to persist.
@@ -83,7 +77,7 @@ public sealed class FileSystemMarkdownStore(IHostEnvironment environment, IOptio
     /// A task that completes after the canonical file is replaced.
     /// </returns>
     /// <exception cref="ContextDepotApplicationException">
-    /// The depot identifier or canonical path is invalid.
+    /// The canonical path is invalid.
     /// </exception>
     /// <exception cref="IOException">
     /// The temporary file cannot be written or moved to the canonical path.
@@ -94,9 +88,9 @@ public sealed class FileSystemMarkdownStore(IHostEnvironment environment, IOptio
     /// <exception cref="OperationCanceledException">
     /// The operation was canceled before completion.
     /// </exception>
-    public async Task WriteAtomicAsync(Guid depotId, string relativePath, string content, CancellationToken cancellationToken)
+    public async Task WriteAtomicAsync(string relativePath, string content, CancellationToken cancellationToken)
     {
-        var path = ResolvePath(depotId, relativePath);
+        var path = ResolvePath(relativePath);
         var directory = Path.GetDirectoryName(path)
             ?? throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidDocumentPath);
         Directory.CreateDirectory(directory);
@@ -125,11 +119,8 @@ public sealed class FileSystemMarkdownStore(IHostEnvironment environment, IOptio
     /// <summary>
     /// Removes canonical content, treating an already missing file as deleted.
     /// </summary>
-    /// <param name="depotId">
-    /// The owning depot identifier.
-    /// </param>
     /// <param name="relativePath">
-    /// The canonical path relative to the depot root, including the workspace path.
+    /// The canonical path relative to the configured Markdown root, including the workspace storage path.
     /// </param>
     /// <param name="cancellationToken">
     /// Cancels processing before the file is removed.
@@ -138,7 +129,7 @@ public sealed class FileSystemMarkdownStore(IHostEnvironment environment, IOptio
     /// A task that completes after the file is removed or confirmed absent.
     /// </returns>
     /// <exception cref="ContextDepotApplicationException">
-    /// The depot identifier or canonical path is invalid.
+    /// The canonical path is invalid.
     /// </exception>
     /// <exception cref="IOException">
     /// The file cannot be deleted.
@@ -149,9 +140,9 @@ public sealed class FileSystemMarkdownStore(IHostEnvironment environment, IOptio
     /// <exception cref="OperationCanceledException">
     /// Cancellation was requested before the file was removed.
     /// </exception>
-    public Task DeleteAsync(Guid depotId, string relativePath, CancellationToken cancellationToken)
+    public Task DeleteAsync(string relativePath, CancellationToken cancellationToken)
     {
-        var path = ResolvePath(depotId, relativePath);
+        var path = ResolvePath(relativePath);
         cancellationToken.ThrowIfCancellationRequested();
         File.Delete(path);
         return Task.CompletedTask;
@@ -189,25 +180,16 @@ public sealed class FileSystemMarkdownStore(IHostEnvironment environment, IOptio
         }
     }
 
-    private string ResolvePath(Guid depotId, string relativePath)
+    private string ResolvePath(string relativePath)
     {
-        if (depotId == Guid.Empty)
-        {
-            throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidDocumentPath);
-        }
-
         var normalized = relativePath.Replace('\\', '/').Trim();
         if (normalized.Length == 0 || Path.IsPathRooted(relativePath) || normalized.StartsWith('/') || normalized.Split('/').Any(segment => segment is "." or ".." or ""))
         {
             throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidDocumentPath);
         }
 
-        // The database is scoped by DepotId, so the physical source of truth must be
-        // scoped by the same boundary. Never put two depots directly under the same
-        // Markdown root: identical workspace/document paths would otherwise alias.
-        var depotRoot = Path.Combine(root, depotId.ToString("N"));
-        var full = Path.GetFullPath(Path.Combine(depotRoot, normalized.Replace('/', Path.DirectorySeparatorChar)));
-        var rootWithSeparator = depotRoot.EndsWith(Path.DirectorySeparatorChar) ? depotRoot : depotRoot + Path.DirectorySeparatorChar;
+        var full = Path.GetFullPath(Path.Combine(root, normalized.Replace('/', Path.DirectorySeparatorChar)));
+        var rootWithSeparator = root.EndsWith(Path.DirectorySeparatorChar) ? root : root + Path.DirectorySeparatorChar;
         if (!full.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase))
         {
             throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidDocumentPath);

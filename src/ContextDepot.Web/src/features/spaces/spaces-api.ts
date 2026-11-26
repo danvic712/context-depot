@@ -4,7 +4,12 @@ import {
   responseCount as count,
 } from "@/lib/response-values";
 import { httpRequest } from "@/lib/http-client";
-import { directoryRequest, type DirectoryFilters } from "./directory-query";
+import {
+  defaultDirectoryFilters,
+  directoryRequest,
+  type DirectoryFilters,
+} from "./directory-query";
+import { WorkspaceSortOrder } from "./directory-enums";
 import { paginationDefaults, type PaginatedResult } from "@/lib/pagination";
 import {
   parseWorkspace,
@@ -80,12 +85,14 @@ export function getSpaceDirectory(
   signal: AbortSignal,
   filters?: DirectoryFilters,
   pageSize: number = paginationDefaults.pageSize,
+  rootsOnly = false,
 ) {
   return httpRequest({
     method: "GET",
     url: "/workspaces/browse",
     params: {
       parentId,
+      ...(rootsOnly ? { rootsOnly } : {}),
       page,
       pageSize,
       ...(filters ? directoryRequest(filters) : {}),
@@ -101,6 +108,21 @@ export function getSpace(id: string, signal: AbortSignal) {
     signal,
     parse: parseSpaceDetail,
   });
+}
+
+export async function getWorkspaceChildren(
+  id: string,
+  page: number,
+  signal: AbortSignal,
+  sort = WorkspaceSortOrder.Activity,
+) {
+  const data = await getSpaceDirectory(id, page, signal, {
+    ...defaultDirectoryFilters,
+    sort,
+  });
+  if (data.page !== page || data.pageSize !== paginationDefaults.pageSize)
+    throw new Error("Invalid workspace children page");
+  return data;
 }
 
 export function getSpaceKnowledge(

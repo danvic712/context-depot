@@ -1,22 +1,16 @@
 using ContextDepot.Infrastructure.Exceptions;
 using ContextDepot.Application.Shared.Runtime.Contracts;
 
-namespace ContextDepot.Infrastructure.CurrentDepot;
+namespace ContextDepot.Infrastructure.Access;
 
-public sealed class CurrentDepotAccessContext : ICurrentDepotContext, IWorkspaceAccessContext
+public sealed class WorkspaceAccessContext : IWorkspaceAccessContext
 {
-    private Guid? depotAccessKeyId;
-    private Guid depotId;
-    private string displayName = string.Empty;
+    private Guid? accessKeyId;
     private Guid[] workspaceIds = [];
     private Guid[] navigableWorkspaceIds = [];
     private bool initialized;
 
-    public Guid DepotId => depotId;
-
-    public string DisplayName => displayName;
-
-    public Guid? DepotAccessKeyId => depotAccessKeyId;
+    public Guid? AccessKeyId => accessKeyId;
 
     public bool HasUnrestrictedAccess { get; private set; }
 
@@ -31,33 +25,20 @@ public sealed class CurrentDepotAccessContext : ICurrentDepotContext, IWorkspace
     public bool CanAccess(Guid workspaceId) =>
         HasUnrestrictedAccess || Array.BinarySearch(workspaceIds, workspaceId) >= 0;
 
-    public void Initialize(DepotAccessKeyIdentity identity)
+    public void Initialize(AccessKeyIdentity identity)
     {
         ArgumentNullException.ThrowIfNull(identity);
         if (initialized)
         {
-            throw new InvalidOperationException(InfrastructureErrorCodes.DepotAccessContextAlreadyInitialized);
+            throw new InvalidOperationException(InfrastructureErrorCodes.WorkspaceAccessContextAlreadyInitialized);
         }
 
-        depotAccessKeyId = identity.DepotAccessKeyId;
-        depotId = identity.DepotId;
-        displayName = identity.DepotDisplayName;
+        accessKeyId = identity.AccessKeyId;
         workspaceIds = identity.WorkspaceIds.Distinct().Order().ToArray();
         navigableWorkspaceIds = identity.NavigableWorkspaceIds.Distinct().Order().ToArray();
         HasUnrestrictedAccess = false;
         CanCreateRootWorkspaces = identity.CanCreateRootWorkspaces;
         AccessVersion = identity.AccessVersion;
-        initialized = true;
-    }
-
-    public void InitializeForWeb(Guid id, string name)
-    {
-        if (initialized) throw new InvalidOperationException(InfrastructureErrorCodes.DepotAccessContextAlreadyInitialized);
-        if (id == Guid.Empty) throw new ArgumentException(InfrastructureErrorCodes.WebDepotRequired, nameof(id));
-        depotId = id;
-        displayName = name;
-        HasUnrestrictedAccess = true;
-        CanCreateRootWorkspaces = true;
         initialized = true;
     }
 
@@ -75,7 +56,7 @@ public sealed class CurrentDepotAccessContext : ICurrentDepotContext, IWorkspace
     {
         if (initialized)
         {
-            throw new InvalidOperationException(InfrastructureErrorCodes.DepotAccessContextAlreadyInitialized);
+            throw new InvalidOperationException(InfrastructureErrorCodes.WorkspaceAccessContextAlreadyInitialized);
         }
 
         HasUnrestrictedAccess = true;

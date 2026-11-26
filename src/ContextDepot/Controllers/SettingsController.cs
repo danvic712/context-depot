@@ -61,7 +61,7 @@ public sealed class SettingsController(IAccessKeyAppService accessKeys, Inferenc
     /// Cancels request processing.
     /// </param>
     /// <returns>
-    /// The settings overview for the selected depot.
+    /// The settings overview.
     /// </returns>
     [HttpGet("overview")]
     public async Task<ActionResult<SettingsOverviewDto>> GetOverviewAsync(CancellationToken cancellationToken) =>

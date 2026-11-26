@@ -2,14 +2,14 @@ using ContextDepot.Infrastructure.Contracts;
 using ContextDepot.Application.Workspaces;
 using Microsoft.EntityFrameworkCore;
 
-namespace ContextDepot.Infrastructure.CurrentDepot;
+namespace ContextDepot.Infrastructure.Access;
 
-public sealed class DepotAccessKeyAuthenticator(
+public sealed class AccessKeyAuthenticator(
     ContextDepotDbContext db,
-    DepotAccessKeySecretHasher secretHasher,
-    TimeProvider timeProvider) : IDepotAccessKeyAuthenticator
+    AccessKeySecretHasher secretHasher,
+    TimeProvider timeProvider) : IAccessKeyAuthenticator
 {
-    public async Task<DepotAccessKeyIdentity?> AuthenticateAsync(
+    public async Task<AccessKeyIdentity?> AuthenticateAsync(
         string presentedKey,
         CancellationToken cancellationToken = default)
     {
@@ -18,16 +18,15 @@ public sealed class DepotAccessKeyAuthenticator(
             return null;
         }
 
-        var accessKey = await db.DepotAccessKeys
+        var accessKey = await db.AccessKeys
             // Authentication resolves the access scope before scoped filters can be applied.
             .IgnoreQueryFilters()
             .AsNoTracking()
-            .Include(key => key.Depot)
             .Include(key => key.WorkspaceGrants)
             .SingleOrDefaultAsync(
                 key => key.KeyPrefix == prefix && key.RevokedAt == null,
                 cancellationToken);
-        if (accessKey?.Depot is null || !secretHasher.Verify(presentedKey, accessKey.SecretHash))
+        if (accessKey is null || !secretHasher.Verify(presentedKey, accessKey.SecretHash))
         {
             return null;
         }
@@ -39,7 +38,6 @@ public sealed class DepotAccessKeyAuthenticator(
         var workspaceTree = await db.Workspaces
             .IgnoreQueryFilters()
             .AsNoTracking()
-            .Where(workspace => workspace.DepotId == accessKey.DepotId)
             .Select(workspace => new WorkspaceTreeNode(workspace.Id, workspace.ParentWorkspaceId, workspace.Slug))
             .ToListAsync(cancellationToken);
         var navigableWorkspaceIds = new WorkspaceTopology(workspaceTree)
@@ -51,14 +49,12 @@ public sealed class DepotAccessKeyAuthenticator(
         var updateBefore = now.AddMinutes(-1);
         if (accessKey.LastUsedAt is null || accessKey.LastUsedAt < updateBefore)
         {
-            await db.DepotAccessKeys.Where(key => key.Id == accessKey.Id && key.RevokedAt == null &&
+            await db.AccessKeys.Where(key => key.Id == accessKey.Id && key.RevokedAt == null &&
                     (key.LastUsedAt == null || key.LastUsedAt < updateBefore))
                 .ExecuteUpdateAsync(update => update.SetProperty(key => key.LastUsedAt, now), cancellationToken);
         }
-        return new DepotAccessKeyIdentity(
+        return new AccessKeyIdentity(
             accessKey.Id,
-            accessKey.DepotId,
-            accessKey.Depot.DisplayName,
             workspaceIds,
             navigableWorkspaceIds,
             accessKey.CanCreateRootWorkspaces,

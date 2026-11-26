@@ -4,7 +4,6 @@ namespace ContextDepot.Domain.AgentSessions;
 public sealed class AgentSession
 {
     public Guid Id { get; set; }
-    public Guid DepotId { get; set; }
     public Guid AccessKeyId { get; set; }
     public Guid WorkspaceId { get; set; }
     public string Agent { get; set; } = string.Empty;

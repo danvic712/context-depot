@@ -9,20 +9,20 @@ namespace ContextDepot.Application.Tests.Overview;
 
 public sealed class OverviewAppServiceTests
 {
-    private readonly Guid depotId = Guid.NewGuid();
+
     private readonly Mock<IOverviewRepository> repository = new();
     private readonly Mock<ISourceSafetyService> safety = new();
     private readonly DateTimeOffset now = DateTimeOffset.Parse("2026-10-01T00:00:00Z");
 
     private OverviewAppService CreateService()
     {
-        var depot = new Mock<ICurrentDepotContext>();
-        depot.SetupGet(x => x.DepotId).Returns(depotId);
+
+
         var ids = new Mock<IIdGenerator>();
         ids.Setup(x => x.NewId()).Returns(Guid.NewGuid);
         var clock = new Mock<TimeProvider>();
         clock.Setup(x => x.GetUtcNow()).Returns(now);
-        return new(depot.Object, repository.Object, ids.Object, clock.Object, safety.Object);
+        return new(repository.Object, ids.Object, clock.Object, safety.Object);
     }
 
     [Theory]
@@ -42,7 +42,7 @@ public sealed class OverviewAppServiceTests
     [Fact]
     public async Task CreateTrimsFieldsChecksSafetyAndUsesCurrentDepot()
     {
-        repository.Setup(x => x.CreateWorkspaceAsync(depotId, It.IsAny<Guid>(), "Research", "research-notes", "Notes", now, default)).ReturnsAsync(true);
+        repository.Setup(x => x.CreateWorkspaceAsync(It.IsAny<Guid>(), "Research", "research-notes", "Notes", now, default, null)).ReturnsAsync(true);
         var result = await CreateService().CreateWorkspaceAsync(new(" Research ", " research-notes ", " Notes "), default);
         Assert.NotNull(result);
         Assert.Equal("research-notes", result.Path);
@@ -57,7 +57,7 @@ public sealed class OverviewAppServiceTests
     [Fact]
     public async Task ExistingSlugThrowsConflictWithoutAnUpsert()
     {
-        repository.Setup(x => x.CreateWorkspaceAsync(depotId, It.IsAny<Guid>(), "Research", "research", null, now, default)).ReturnsAsync(false);
+        repository.Setup(x => x.CreateWorkspaceAsync(It.IsAny<Guid>(), "Research", "research", null, now, default, null)).ReturnsAsync(false);
         var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => CreateService().CreateWorkspaceAsync(new("Research", "research", null), default));
         Assert.Equal(ApplicationErrorCodes.WorkspacePathConflict, error.ErrorCode);
         Assert.Equal([ApplicationErrorCodes.WorkspacePathConflict], error.FieldErrorCodes!["path"]);
@@ -100,8 +100,8 @@ public sealed class OverviewAppServiceTests
     [Fact]
     public async Task CollectionsShareTheClockAndAreScopedToTheCurrentDepot()
     {
-        repository.Setup(x => x.ListWorkspacesAsync(depotId, 3, now, default)).ReturnsAsync(new ResourceCollection<WorkspaceSummary>(now, [], false));
-        repository.Setup(x => x.ListKnowledgeAsync(depotId, 3, now, default)).ReturnsAsync(new ResourceCollection<KnowledgeSummary>(now, [], false));
+        repository.Setup(x => x.ListWorkspacesAsync(3, now, default)).ReturnsAsync(new ResourceCollection<WorkspaceSummary>(now, [], false));
+        repository.Setup(x => x.ListKnowledgeAsync(3, now, default)).ReturnsAsync(new ResourceCollection<KnowledgeSummary>(now, [], false));
         var service = CreateService();
         await service.ListWorkspacesAsync(3, "-activityAt", default);
         await service.ListKnowledgeAsync(3, "-updatedAt", default);
@@ -128,7 +128,7 @@ public sealed class OverviewAppServiceTests
     {
         using var cancellation = new CancellationTokenSource();
         var expected = new RecentKnowledgeFilter("root/child", "contexts", ContextKind.Decision);
-        repository.Setup(x => x.ListRecentKnowledgeAsync(depotId, 20, expected, now, cancellation.Token))
+        repository.Setup(x => x.ListRecentKnowledgeAsync(20, expected, now, cancellation.Token))
             .ReturnsAsync(new ResourceCollection<KnowledgeSummary>(now, [], false));
         await CreateService().ListRecentKnowledgeAsync(20, " root/child ", "contexts", "Decision", cancellation.Token);
         repository.VerifyAll();

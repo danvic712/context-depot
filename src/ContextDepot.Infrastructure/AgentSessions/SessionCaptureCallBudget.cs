@@ -13,10 +13,10 @@ public sealed class SessionCaptureCallBudget(ContextDepotDbContext db, IOptionsM
 {
     public async Task<BudgetReservation> TryReserveAsync(CaptureWorkLease lease, ProviderCallKind kind, CancellationToken cancellationToken)
     {
-        if (!((lease.OwnerKind == "route" && kind is ProviderCallKind.RoutingEmbedding or ProviderCallKind.RoutingChat) ||
+        if (!((lease.OwnerKind == "route" && kind is ProviderCallKind.RoutingEmbedding or ProviderCallKind.RoutingChat or ProviderCallKind.ExtractionChat) ||
             (lease.OwnerKind == "extraction" && kind == ProviderCallKind.ExtractionChat))) return new("lease_lost");
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-        await SessionCaptureLocks.LockKeyAsync(db, lease.DepotId, lease.KeyId, cancellationToken);
+        await SessionCaptureLocks.LockKeyAsync(db, lease.KeyId, cancellationToken);
         var route = lease.OwnerKind == "route" ? (await db.SessionCaptureTurnRoutes.FromSqlInterpolated(
             $"SELECT * FROM public.session_capture_turn_routes WHERE id = {lease.OwnerId} FOR UPDATE")
             .IgnoreQueryFilters().ToArrayAsync(cancellationToken)).SingleOrDefault() : null;
@@ -27,10 +27,10 @@ public sealed class SessionCaptureCallBudget(ContextDepotDbContext db, IOptionsM
         if (message is not null) await db.Entry(message).ReloadAsync(cancellationToken);
         try
         {
-            if (message is not null) await SessionAccessGuard.EnsureAsync(db, lease.DepotId, lease.KeyId, message.WorkspaceId, cancellationToken);
+            if (message is not null) await SessionAccessGuard.EnsureAsync(db, lease.KeyId, message.WorkspaceId, cancellationToken);
             else
             {
-                await SessionAccessGuard.EnsureAnyAsync(db, lease.DepotId, lease.KeyId, cancellationToken);
+                await SessionAccessGuard.EnsureAutomaticCaptureAsync(db, lease.KeyId, cancellationToken);
             }
         }
         catch (ContextDepotApplicationException) { return new("lease_lost"); }
@@ -43,14 +43,14 @@ public sealed class SessionCaptureCallBudget(ContextDepotDbContext db, IOptionsM
         if (expires is not null && expires <= now) return new("expired");
         if (route is not null)
         {
-            if (route.DepotId != lease.DepotId || route.AccessKeyId != lease.KeyId || route.State != "resolving" ||
+            if (route.AccessKeyId != lease.KeyId || route.State != "resolving" ||
                 route.LeaseToken != lease.LeaseToken || route.LeaseUntil == null || route.LeaseUntil <= now) return new("lease_lost");
         }
-        else if (message is null || message.DepotId != lease.DepotId || message.AccessKeyId != lease.KeyId ||
+        else if (message is null || message.AccessKeyId != lease.KeyId ||
             message.Phase != "user" || message.Status != "processing" || message.LeaseToken != lease.LeaseToken ||
             message.LeaseUntil is null || message.LeaseUntil <= now || message.EncryptedExtractionPlan != null ||
             message.AttemptCount >= settings.MaxAttempts) return new("lease_lost");
-        var until = await FindWaitUntilAsync(db, lease.DepotId, lease.KeyId, settings.MaxCallsPerHour, now, cancellationToken);
+        var until = await FindWaitUntilAsync(db, lease.KeyId, settings.MaxCallsPerHour, now, cancellationToken);
         if (until is not null)
         {
             if (expires <= until) return new("expired");
@@ -69,15 +69,13 @@ public sealed class SessionCaptureCallBudget(ContextDepotDbContext db, IOptionsM
         await transaction.CommitAsync(cancellationToken);
         return new("granted");
     }
-    internal static async Task<DateTimeOffset?> FindWaitUntilAsync(ContextDepotDbContext db, Guid depotId, Guid keyId,
+    internal static async Task<DateTimeOffset?> FindWaitUntilAsync(ContextDepotDbContext db, Guid keyId,
         int maxCalls, DateTimeOffset now, CancellationToken cancellationToken)
     {
         var since = now.AddHours(-1);
-        var routes = await db.SessionCaptureTurnRoutes.IgnoreQueryFilters().Where(x => x.DepotId == depotId &&
-            x.AccessKeyId == keyId && x.LastProviderCallAt >= since && x.ProviderCallCount > 0)
+        var routes = await db.SessionCaptureTurnRoutes.IgnoreQueryFilters().Where(x => x.AccessKeyId == keyId && x.LastProviderCallAt >= since && x.ProviderCallCount > 0)
             .Select(x => new { Count = x.ProviderCallCount, At = x.LastProviderCallAt!.Value }).ToArrayAsync(cancellationToken);
-        var events = await db.SessionCaptureEvents.IgnoreQueryFilters().Where(x => x.DepotId == depotId &&
-            x.AccessKeyId == keyId && x.Phase == "user" && x.LastProviderCallAt >= since && x.ProviderCallCount > 0)
+        var events = await db.SessionCaptureEvents.IgnoreQueryFilters().Where(x => x.AccessKeyId == keyId && x.Phase == "user" && x.LastProviderCallAt >= since && x.ProviderCallCount > 0)
             .Select(x => new { Count = x.ProviderCallCount, At = x.LastProviderCallAt!.Value }).ToArrayAsync(cancellationToken);
         var contributors = routes.Concat(events).ToArray();
         return contributors.Sum(x => x.Count) < maxCalls ? null :

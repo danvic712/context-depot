@@ -13,7 +13,7 @@ namespace ContextDepot.Application.Tests.AgentSessions;
 
 public sealed class SessionCaptureAppServiceTests
 {
-    private readonly Guid depotId = Guid.CreateVersion7();
+
     private readonly Guid workspaceId = Guid.CreateVersion7();
     private readonly Guid keyId = Guid.CreateVersion7();
     private readonly Mock<IWorkspaceAppService> workspaces = new();
@@ -28,17 +28,17 @@ public sealed class SessionCaptureAppServiceTests
 
     private SessionCaptureAppService Create(bool enabled = true)
     {
-        var depot = new Mock<ICurrentDepotContext>();
-        depot.SetupGet(x => x.DepotId).Returns(depotId);
-        access.SetupGet(x => x.DepotAccessKeyId).Returns(keyId);
+
+
+        access.SetupGet(x => x.AccessKeyId).Returns(keyId);
         access.Setup(x => x.CanAccess(workspaceId)).Returns(true);
         workspaces.Setup(x => x.ResolveAsync("project", It.IsAny<CancellationToken>())).ReturnsAsync(
-            new WorkspaceModel(workspaceId, depotId, "project", "Project", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
+            new WorkspaceModel(workspaceId, "project", "Project", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
         var ids = new Mock<IIdGenerator>();
         ids.Setup(x => x.NewId()).Returns(() => Guid.CreateVersion7());
         protector.Setup(x => x.Protect(It.IsAny<string>())).Returns("encrypted");
         options.SetupGet(o => o.CurrentValue).Returns(new SessionCaptureOptions { Enabled = enabled });
-        return new(options.Object, depot.Object, access.Object,
+        return new(options.Object, access.Object,
             workspaces.Object, repository.Object, protector.Object, ids.Object, TimeProvider.System, sessions.Object,
             inbox.Object, new ContextDepot.Application.Shared.Safety.HighConfidenceSecretDetector());
     }
@@ -54,8 +54,7 @@ public sealed class SessionCaptureAppServiceTests
             Content: null, Mode: "message", Messages: [new("user", "用户明确表达的长期知识。")], WorkspaceMode: "auto");
         var receipt = await service.CaptureAsync(request, default);
         Assert.Equal(turnReceipt, receipt.TurnReceiptId);
-        inbox.Verify(r => r.AcceptAsync(It.Is<AuthorizedCaptureEnvelope>(e => !e.Sensitive && e.Messages.Count == 1 &&
-            e.Messages[0].DepotId == depotId && e.Messages[0].AccessKeyId == keyId && e.Messages[0].EncryptedContent == "encrypted"), default), Times.Once);
+        inbox.Verify(r => r.AcceptAsync(It.Is<AuthorizedCaptureEnvelope>(e => !e.Sensitive && e.Messages.Count == 1 && e.Messages[0].AccessKeyId == keyId && e.Messages[0].EncryptedContent == "encrypted"), default), Times.Once);
         workspaces.Verify(w => w.ResolveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
         repository.Verify(r => r.EnqueueAsync(It.IsAny<SessionCaptureEvent>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -111,7 +110,7 @@ public sealed class SessionCaptureAppServiceTests
         Assert.Equal("accepted", result.Status);
         Assert.NotNull(persisted);
         Assert.Equal("declared-client", persisted.Agent);
-        Assert.Equal(depotId, persisted.DepotId);
+
         Assert.Equal(keyId, persisted.AccessKeyId);
     }
 
@@ -146,7 +145,7 @@ public sealed class SessionCaptureAppServiceTests
         var result = await Create().CaptureAsync(Request, default);
         Assert.Equal("accepted", result.Status);
         Assert.NotNull(persisted);
-        Assert.Equal(depotId, persisted.DepotId);
+
         Assert.Equal(keyId, persisted.AccessKeyId);
         Assert.Equal(workspaceId, persisted.WorkspaceId);
         Assert.Equal("encrypted", persisted.EncryptedContent);
@@ -220,7 +219,7 @@ public sealed class SessionCaptureAppServiceTests
     {
         var service = Create();
         workspaces.Setup(x => x.ResolveAsync("project/", It.IsAny<CancellationToken>())).ReturnsAsync(
-            new WorkspaceModel(workspaceId, depotId, "project", "Project", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
+            new WorkspaceModel(workspaceId, "project", "Project", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
         await Assert.ThrowsAsync<ContextDepotApplicationException>(() => service.CaptureAsync(Request with { Workspace = "project/" }, default));
         repository.VerifyNoOtherCalls();
     }
@@ -230,16 +229,22 @@ public sealed class SessionCaptureAppServiceTests
     {
         var service = Create();
         var sessionId = Guid.CreateVersion7();
-        sessions.Setup(s => s.GetAsync(depotId, keyId, sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(
-            new AgentSession { Id = sessionId, DepotId = depotId, AccessKeyId = keyId, WorkspaceId = workspaceId,
-                Agent = "codex", ClientSessionId = "session-1" });
+        sessions.Setup(s => s.GetAsync(keyId, sessionId, It.IsAny<CancellationToken>())).ReturnsAsync(
+            new AgentSession
+            {
+                Id = sessionId,
+                AccessKeyId = keyId,
+                WorkspaceId = workspaceId,
+                Agent = "codex",
+                ClientSessionId = "session-1"
+            });
         SessionCaptureEvent? stored = null;
         repository.Setup(r => r.EnqueueAsync(It.IsAny<SessionCaptureEvent>(), It.IsAny<CancellationToken>()))
             .Callback<SessionCaptureEvent, CancellationToken>((e, _) => stored = e).ReturnsAsync(new SessionCaptureReceipt("accepted", Guid.CreateVersion7()));
         Assert.Equal("accepted", (await service.CaptureAsync(Request with { SessionId = sessionId }, default)).Status);
         Assert.Equal(sessionId, stored!.SessionId);
         sessions.Verify(s => s.StartAsync(It.IsAny<AgentSession>(), It.IsAny<CancellationToken>()), Times.Never);
-        sessions.Verify(s => s.EndAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<DateTimeOffset>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        sessions.Verify(s => s.EndAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<DateTimeOffset>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Theory]
@@ -251,8 +256,11 @@ public sealed class SessionCaptureAppServiceTests
     {
         var service = Create();
         var id = Guid.CreateVersion7();
-        if (mismatch != "missing") sessions.Setup(s => s.GetAsync(depotId, keyId, id, It.IsAny<CancellationToken>())).ReturnsAsync(
-            new AgentSession { Id = id, DepotId = depotId, AccessKeyId = keyId,
+        if (mismatch != "missing") sessions.Setup(s => s.GetAsync(keyId, id, It.IsAny<CancellationToken>())).ReturnsAsync(
+            new AgentSession
+            {
+                Id = id,
+                AccessKeyId = keyId,
                 WorkspaceId = mismatch == "workspace" ? Guid.CreateVersion7() : workspaceId,
                 Agent = mismatch == "agent" ? "other" : "codex", ClientSessionId = mismatch == "client" ? "other" : "session-1" });
         var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => service.CaptureAsync(Request with { SessionId = id }, default));

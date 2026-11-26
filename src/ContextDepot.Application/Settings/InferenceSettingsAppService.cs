@@ -7,29 +7,29 @@ using ContextDepot.Domain.Inferences;
 
 namespace ContextDepot.Application.Settings;
 
-public sealed class InferenceSettingsAppService(IInferenceSettingsRepository repository, ICurrentDepotContext depot, IWorkspaceAccessContext access)
+public sealed class InferenceSettingsAppService(IInferenceSettingsRepository repository, IWorkspaceAccessContext access)
 {
     public Task<IReadOnlyList<InferenceRouteDto>> GetAsync(CancellationToken cancellationToken)
     {
-        ManagementAccess.RequireManagement(depot, access);
+        ManagementAccess.RequireManagement(access);
         return repository.GetAsync(cancellationToken);
     }
 
     public Task<InferenceProviderSettingsDto> GetProvidersAsync(CancellationToken cancellationToken)
     {
-        ManagementAccess.RequireManagement(depot, access);
+        ManagementAccess.RequireManagement(access);
         return repository.GetProvidersAsync(cancellationToken);
     }
 
     public Task<InferenceProviderSettingsDto> SaveProviderAsync(SaveInferenceProviderRequest request, CancellationToken cancellationToken)
     {
-        ManagementAccess.RequireManagement(depot, access);
+        ManagementAccess.RequireManagement(access);
         return repository.SaveProviderAsync(InferenceConfigurationValidator.NormalizeProvider(request), cancellationToken);
     }
 
     public Task<InferenceRouteDto> SaveAsync(string capability, SaveInferenceRouteRequest request, CancellationToken cancellationToken)
     {
-        ManagementAccess.RequireManagement(depot, access);
+        ManagementAccess.RequireManagement(access);
         if (capability is not ("embedding" or "chat") || request.TimeoutSeconds is < 1 or > 300 ||
             (request.ProviderId is null
                 ? request.Model is not null || request.Dimensions is not null

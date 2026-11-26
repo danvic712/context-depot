@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { FolderIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router";
@@ -17,6 +17,8 @@ import type { useDirectoryPage } from "./use-space-directory";
 import { directoryParams, hasDirectoryFilters } from "./directory-query";
 import { directoryScrollStorageKey } from "./directory-enums";
 import { paginationDefaults } from "@/lib/pagination";
+import { WorkspaceTreeEntry } from "./WorkspaceTreeEntry";
+import { useWorkspaceTree } from "./use-workspace-tree";
 import {
   SpaceDirectoryHeading,
   SpaceDirectoryFooter,
@@ -52,47 +54,37 @@ export function SpaceDirectory({
   const { items, totalCount, page, pageSize, loading, error } = resource;
   const initial = loading && items.length === 0;
   const filtered = hasDirectoryFilters(directory.filters);
+  const noResultsDescription = directory.filters.query
+    ? "spacesNoMatchesWhy"
+    : "spacesNoMatchesFiltersWhy";
+  const tree = useWorkspaceTree(directory.filters.sort, page);
   const initialFailure = !!error;
+  const hasRows = items.length > 0;
   useLayoutEffect(() => {
-    viewport?.scrollTo({ top: 0 });
-    if (viewport) window.scrollTo({ top: 0 });
-  }, [viewport, scopeKey, page, initial]);
-  useEffect(() => {
-    if (loading || error || !viewport || items.length === 0) return;
+    if (!viewport || !hasRows) return;
+    let top = 0;
+    let listTop = 0;
     try {
       const saved = sessionStorage.getItem(directoryScrollStorageKey);
-      if (!saved) return;
-      const position = JSON.parse(saved);
-      if (position.url !== location.pathname + location.search) return;
-      sessionStorage.removeItem(directoryScrollStorageKey);
-      if (
-        typeof position.top === "number" &&
-        Number.isFinite(position.top) &&
-        position.top >= 0
-      ) {
-        const frame = requestAnimationFrame(() => {
-          window.scrollTo({ top: position.top });
+      if (saved) {
+        const position = JSON.parse(saved);
+        if (position.url === location.pathname + location.search) {
+          sessionStorage.removeItem(directoryScrollStorageKey);
+          if (typeof position.top === "number" && Number.isFinite(position.top))
+            top = Math.max(0, position.top);
           if (
             typeof position.listTop === "number" &&
-            Number.isFinite(position.listTop) &&
-            position.listTop >= 0
+            Number.isFinite(position.listTop)
           )
-            viewport?.scrollTo({ top: position.listTop });
-        });
-        return () => cancelAnimationFrame(frame);
+            listTop = Math.max(0, position.listTop);
+        }
       }
     } catch {
       /* Directory restoration remains available when storage is blocked. */
     }
-  }, [
-    loading,
-    error,
-    page,
-    items.length,
-    location.pathname,
-    location.search,
-    viewport,
-  ]);
+    viewport.scrollTo({ top: listTop });
+    window.scrollTo({ top });
+  }, [viewport, hasRows, scopeKey, page, location.pathname, location.search]);
   return (
     <section
       className="space-directory"
@@ -130,7 +122,7 @@ export function SpaceDirectory({
               {t(filtered ? "spacesNoMatches" : "spacesEmptyTitle")}
             </EmptyTitle>
             <EmptyDescription>
-              {t(filtered ? "spacesNoMatchesWhy" : "spacesEmptyDescription")}
+              {t(filtered ? noResultsDescription : "spacesEmptyDescription")}
             </EmptyDescription>
           </EmptyHeader>
           {filtered && (
@@ -188,11 +180,15 @@ export function SpaceDirectory({
                 }
               />
             )}
-            {items.map((space) => (
-              <li className="workspace-list-entry" key={space.id}>
-                <WorkspaceRow space={space} directoryPage={page} />
-              </li>
-            ))}
+            {items.map((space) =>
+              filtered ? (
+                <li className="workspace-list-entry" key={space.id}>
+                  <WorkspaceRow space={space} directoryPage={page} showPath />
+                </li>
+              ) : (
+                <WorkspaceTreeEntry space={space} tree={tree} key={space.id} />
+              ),
+            )}
           </ul>
         </WorkspaceListPanel>
       )}

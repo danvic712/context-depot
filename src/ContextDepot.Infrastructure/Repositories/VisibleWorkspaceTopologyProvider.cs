@@ -6,26 +6,24 @@ namespace ContextDepot.Infrastructure.Repositories;
 
 public sealed class VisibleWorkspaceTopologyProvider(ContextDepotDbContext db)
 {
-    private readonly Dictionary<Guid, VisibleWorkspaceTree> snapshots = [];
+    private VisibleWorkspaceTree? snapshot;
 
-    internal async Task<VisibleWorkspaceTree> GetAsync(Guid depotId, CancellationToken cancellationToken)
+    internal async Task<VisibleWorkspaceTree> GetAsync(CancellationToken cancellationToken)
     {
-        if (snapshots.TryGetValue(depotId, out var snapshot))
+        if (snapshot is not null)
         {
             return snapshot;
         }
 
         var workspaces = await db.Workspaces.AsNoTracking()
-            .Where(workspace => workspace.DepotId == depotId)
             .ToArrayAsync(cancellationToken);
         var topology = new WorkspaceTopology(workspaces.Select(workspace =>
             new WorkspaceTreeNode(workspace.Id, workspace.ParentWorkspaceId, workspace.Slug)));
         snapshot = new VisibleWorkspaceTree(workspaces, topology);
-        snapshots[depotId] = snapshot;
         return snapshot;
     }
 
-    internal void Invalidate(Guid depotId) => snapshots.Remove(depotId);
+    internal void Invalidate() => snapshot = null;
 }
 
 internal sealed record VisibleWorkspaceTree(IReadOnlyList<Workspace> Workspaces, WorkspaceTopology Topology);

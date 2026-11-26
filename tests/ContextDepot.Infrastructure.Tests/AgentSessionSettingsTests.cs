@@ -3,7 +3,7 @@ using ContextDepot.Application.AgentSessions;
 using ContextDepot.Application.IndexRepair;
 using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Domain.Settings;
-using ContextDepot.Infrastructure.CurrentDepot;
+using ContextDepot.Infrastructure.Access;
 using ContextDepot.Infrastructure.Migrations;
 using ContextDepot.Infrastructure.RuntimeConfiguration;
 using Microsoft.EntityFrameworkCore;
@@ -421,5 +421,5 @@ public sealed class AgentSessionSettingsTests
 
     private static ContextDepotDbContext CreateDb() => new(
         new DbContextOptionsBuilder<ContextDepotDbContext>().UseNpgsql("Host=localhost;Database=unused").Options,
-        new CurrentDepotAccessContext());
+        new WorkspaceAccessContext());
 }

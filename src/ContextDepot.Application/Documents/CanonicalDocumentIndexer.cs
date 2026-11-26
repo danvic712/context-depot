@@ -14,11 +14,10 @@ public sealed class CanonicalDocumentIndexer(
     TimeProvider timeProvider)
 {
     public Task<MarkdownDocument?> ReadAsync(
-        Guid depotId,
         string workspacePath,
         string documentPath,
         CancellationToken cancellationToken) =>
-        markdownStore.GetAsync(depotId, workspacePath + "/" + documentPath, cancellationToken);
+        markdownStore.GetAsync(workspacePath + "/" + documentPath, cancellationToken);
 
     public Task<DocumentReconcilePersistenceResult> ReconcileAsync(
         CanonicalDocumentSource source,
@@ -35,7 +34,6 @@ public sealed class CanonicalDocumentIndexer(
             .ToArray();
         var write = new DocumentIndexWrite(
             source.DocumentId,
-            source.DepotId,
             source.WorkspaceId,
             source.DocumentPath,
             source.Title,
@@ -48,7 +46,6 @@ public sealed class CanonicalDocumentIndexer(
 
 public sealed record CanonicalDocumentSource(
     Guid DocumentId,
-    Guid DepotId,
     Guid WorkspaceId,
     string WorkspacePath,
     string DocumentPath,

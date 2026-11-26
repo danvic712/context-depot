@@ -30,7 +30,7 @@ namespace ContextDepot.Application.Tests.Contexts;
 
 public sealed class ContextQueryAppServiceTests
 {
-    private static readonly Guid DepotId = Guid.Parse("0199c000-0000-7000-8000-000000000001");
+
 
     [Fact]
     public async Task Search_is_depot_wide_by_default_without_auto_scope_resolution()
@@ -116,7 +116,6 @@ public sealed class ContextQueryAppServiceTests
         var workspaceId = Guid.CreateVersion7();
         var context = new ContextItem(
             Guid.CreateVersion7(),
-            DepotId,
             workspaceId,
             ContextKind.Fact,
             "project.database",
@@ -125,11 +124,11 @@ public sealed class ContextQueryAppServiceTests
             DateTimeOffset.UtcNow);
         context.MarkArchived(DateTimeOffset.UtcNow);
         var repository = new Mock<IContextQueryRepository>();
-        repository.Setup(x => x.FindContextByIdAsync(DepotId, context.Id, It.IsAny<CancellationToken>()))
+        repository.Setup(x => x.FindContextByIdAsync(context.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(context);
         var workspaces = new Mock<IWorkspaceAppService>();
         workspaces.Setup(x => x.GetAsync(workspaceId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new WorkspaceModel(workspaceId, DepotId, "projects/context-depot", "Context Depot", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
+            .ReturnsAsync(new WorkspaceModel(workspaceId, "projects/context-depot", "Context Depot", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
         var service = CreateService(repository, workspaces);
 
         var result = await service.GetAsync(context.Id, CancellationToken.None);
@@ -143,7 +142,7 @@ public sealed class ContextQueryAppServiceTests
     public async Task Get_does_not_return_another_depot_context()
     {
         var repository = new Mock<IContextQueryRepository>();
-        repository.Setup(x => x.FindContextByIdAsync(DepotId, It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+        repository.Setup(x => x.FindContextByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((ContextItem?)null);
         var service = CreateService(repository, new Mock<IWorkspaceAppService>());
 
@@ -227,7 +226,7 @@ public sealed class ContextQueryAppServiceTests
     {
         var workspace = Guid.NewGuid();
         var candidate = ContextCandidate(workspace, "Database information.");
-        var document = new BootstrapDocumentChunkCandidate(Guid.NewGuid(), DepotId, Guid.NewGuid(), workspace, 0,
+        var document = new BootstrapDocumentChunkCandidate(Guid.NewGuid(), Guid.NewGuid(), workspace, 0,
             "database.md", "database", "", "database database database", "hash", DateTimeOffset.UtcNow);
         var repository = new Mock<IContextQueryRepository>();
         repository.Setup(x => x.FindLexicalContextCandidatesAsync(It.IsAny<ContextSearchQuery>(), It.IsAny<CancellationToken>()))
@@ -251,28 +250,32 @@ public sealed class ContextQueryAppServiceTests
     public async Task Get_returns_capture_evidence_only_after_context_and_workspace_authorization(bool corrupt, string state)
     {
         var workspaceId = Guid.NewGuid();
-        var context = new ContextItem(Guid.NewGuid(), DepotId, workspaceId, ContextKind.Fact, "project.database", null,
+        var context = new ContextItem(Guid.NewGuid(), workspaceId, ContextKind.Fact, "project.database", null,
             "用户使用 PostgreSQL 数据库。", DateTimeOffset.UtcNow);
         var repository = new Mock<IContextQueryRepository>();
-        repository.Setup(x => x.FindContextByIdAsync(DepotId, context.Id, It.IsAny<CancellationToken>())).ReturnsAsync(context);
+        repository.Setup(x => x.FindContextByIdAsync(context.Id, It.IsAny<CancellationToken>())).ReturnsAsync(context);
         var original = new[] { new EvidenceFragment(3, 5, "原始证据。") };
         var plaintext = JsonSerializer.Serialize(original, new JsonSerializerOptions(JsonSerializerDefaults.Web));
         var evidence = new ContextCaptureEvidence
         {
-            ContextId = context.Id, DepotId = DepotId, WorkspaceId = workspaceId,
-            UserEventId = Guid.NewGuid(), AssistantEventId = Guid.NewGuid(), ExtractorVersion = "capture-summary-v1",
-            EncryptedFragments = "ciphertext", FragmentsHash = corrupt ? "BAD" : Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(plaintext)))
+            ContextId = context.Id,
+            WorkspaceId = workspaceId,
+            UserEventId = Guid.NewGuid(),
+            AssistantEventId = Guid.NewGuid(),
+            ExtractorVersion = "capture-summary-v1",
+            EncryptedFragments = "ciphertext",
+            FragmentsHash = corrupt ? "BAD" : Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(plaintext)))
         };
-        repository.Setup(x => x.FindCaptureEvidenceAsync(DepotId, context.Id, It.IsAny<CancellationToken>())).ReturnsAsync(evidence);
+        repository.Setup(x => x.FindCaptureEvidenceAsync(context.Id, It.IsAny<CancellationToken>())).ReturnsAsync(evidence);
         var workspaces = new Mock<IWorkspaceAppService>();
         var protector = new Mock<ICaptureEvidenceProtector>();
         protector.Setup(x => x.Unprotect("ciphertext")).Returns(plaintext);
         var service = CreateService(repository, workspaces, evidenceProtector: protector.Object);
         Assert.Null(await service.GetAsync(context.Id, default));
-        repository.Verify(x => x.FindCaptureEvidenceAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        repository.Verify(x => x.FindCaptureEvidenceAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
         protector.VerifyNoOtherCalls();
         workspaces.Setup(x => x.GetAsync(workspaceId, It.IsAny<CancellationToken>())).ReturnsAsync(
-            new WorkspaceModel(workspaceId, DepotId, "project", "project", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
+            new WorkspaceModel(workspaceId, "project", "project", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
         var detail = await service.GetAsync(context.Id, default);
         Assert.NotNull(detail);
         Assert.Equal(context.Content, detail.Content);
@@ -292,8 +295,8 @@ public sealed class ContextQueryAppServiceTests
         Mock<IWorkspaceAccessContext>? workspaceAccess = null,
         ICaptureEvidenceProtector? evidenceProtector = null)
     {
-        var depot = new Mock<ICurrentDepotContext>();
-        depot.SetupGet(x => x.DepotId).Returns(DepotId);
+
+
         if (workspaceAccess is null)
         {
             workspaceAccess = new Mock<IWorkspaceAccessContext>();
@@ -316,7 +319,6 @@ public sealed class ContextQueryAppServiceTests
         var options = new Mock<IOptionsMonitor<RetrievalOptions>>();
         options.SetupGet(x => x.CurrentValue).Returns(new RetrievalOptions());
         return new ContextQueryAppService(
-            depot.Object,
             workspaceAccess.Object,
             repository.Object,
             workspaces.Object,
@@ -332,7 +334,6 @@ public sealed class ContextQueryAppServiceTests
 
     private static BootstrapContextCandidate ContextCandidate(Guid workspaceId, string content) => new(
         Guid.CreateVersion7(),
-        DepotId,
         workspaceId,
         ContextKind.Fact,
         null,

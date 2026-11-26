@@ -9,13 +9,10 @@ namespace ContextDepot.Application.Documents.Contracts;
 public interface IMarkdownStore
 {
     /// <summary>
-    /// Reads a depot-relative canonical document.
+    /// Reads a canonical Markdown document.
     /// </summary>
-    /// <param name="depotId">
-    /// The owning depot identifier.
-    /// </param>
     /// <param name="relativePath">
-    /// The canonical path relative to the depot root, including the workspace path.
+    /// The canonical path relative to the Markdown root, including the workspace storage path.
     /// </param>
     /// <param name="cancellationToken">
     /// Cancels the asynchronous operation.
@@ -24,7 +21,7 @@ public interface IMarkdownStore
     /// A task whose result contains the Markdown path, content and hash, or null when the file is missing.
     /// </returns>
     /// <exception cref="ContextDepotApplicationException">
-    /// The depot identifier or canonical path is invalid.
+    /// The canonical path is invalid.
     /// </exception>
     /// <exception cref="IOException">
     /// The file cannot be read.
@@ -35,16 +32,13 @@ public interface IMarkdownStore
     /// <exception cref="OperationCanceledException">
     /// The operation was canceled before completion.
     /// </exception>
-    Task<MarkdownDocument?> GetAsync(Guid depotId, string relativePath, CancellationToken cancellationToken);
+    Task<MarkdownDocument?> GetAsync(string relativePath, CancellationToken cancellationToken);
 
     /// <summary>
     /// Atomically replaces canonical content without exposing a partially written destination file.
     /// </summary>
-    /// <param name="depotId">
-    /// The owning depot identifier.
-    /// </param>
     /// <param name="relativePath">
-    /// The canonical path relative to the depot root, including the workspace path.
+    /// The canonical path relative to the Markdown root, including the workspace storage path.
     /// </param>
     /// <param name="content">
     /// The complete Markdown content to persist.
@@ -56,7 +50,7 @@ public interface IMarkdownStore
     /// A task that completes after the canonical file is replaced.
     /// </returns>
     /// <exception cref="ContextDepotApplicationException">
-    /// The depot identifier or canonical path is invalid.
+    /// The canonical path is invalid.
     /// </exception>
     /// <exception cref="IOException">
     /// The temporary file cannot be written or moved to the canonical path.
@@ -67,16 +61,13 @@ public interface IMarkdownStore
     /// <exception cref="OperationCanceledException">
     /// The operation was canceled before completion.
     /// </exception>
-    Task WriteAtomicAsync(Guid depotId, string relativePath, string content, CancellationToken cancellationToken);
+    Task WriteAtomicAsync(string relativePath, string content, CancellationToken cancellationToken);
 
     /// <summary>
     /// Removes canonical content, treating an already missing file as deleted.
     /// </summary>
-    /// <param name="depotId">
-    /// The owning depot identifier.
-    /// </param>
     /// <param name="relativePath">
-    /// The canonical path relative to the depot root, including the workspace path.
+    /// The canonical path relative to the Markdown root, including the workspace storage path.
     /// </param>
     /// <param name="cancellationToken">
     /// Cancels processing before the file is removed.
@@ -85,7 +76,7 @@ public interface IMarkdownStore
     /// A task that completes after the file is removed or confirmed absent.
     /// </returns>
     /// <exception cref="ContextDepotApplicationException">
-    /// The depot identifier or canonical path is invalid.
+    /// The canonical path is invalid.
     /// </exception>
     /// <exception cref="IOException">
     /// The file cannot be deleted.
@@ -96,7 +87,7 @@ public interface IMarkdownStore
     /// <exception cref="OperationCanceledException">
     /// Cancellation was requested before the file was removed.
     /// </exception>
-    Task DeleteAsync(Guid depotId, string relativePath, CancellationToken cancellationToken);
+    Task DeleteAsync(string relativePath, CancellationToken cancellationToken);
 
     /// <summary>
     /// Checks whether the canonical Markdown root supports file creation, read/write access and cleanup.

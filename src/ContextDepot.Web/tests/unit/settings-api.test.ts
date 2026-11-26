@@ -220,7 +220,6 @@ describe("Settings contracts", () => {
   });
   test("MCP paths and status values must come from the supported Host contract", () => {
     const overview = {
-      depotName: "My Depot",
       databaseState: "available",
       markdownState: "available",
       semanticState: "unconfigured",

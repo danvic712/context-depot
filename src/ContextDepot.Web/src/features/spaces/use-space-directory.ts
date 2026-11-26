@@ -1,8 +1,18 @@
 import { useDisplayPreference } from "@/lib/display-preferences";
 import { useCallback, useEffect, useState } from "react";
-import { useNavigation, useSearchParams } from "react-router";
+import { useLoaderData, useNavigation, useSearchParams } from "react-router";
 import { useRequestResource } from "@/hooks/use-request-resource";
-import { getSpaceDirectory } from "./spaces-api";
+import {
+  getSpaceDirectory,
+  getWorkspaceChildren,
+  type SpaceDirectory,
+} from "./spaces-api";
+import {
+  getDirectoryPage,
+  type SpaceDirectoryRouteData,
+  type SpacePageSeed,
+} from "./space-route-loader";
+import { useSpacePageResource } from "./use-space-page-resource";
 import {
   defaultDirectoryFilters,
   directoryParams,
@@ -82,39 +92,54 @@ export function useSpaceDirectory(
   };
 }
 
+export function useWorkspaceChildren(
+  parentId: string,
+  page: number,
+  sort = WorkspaceSortOrder.Activity,
+  seed?: SpacePageSeed<SpaceDirectory>,
+) {
+  const load = useCallback(
+    (signal: AbortSignal) => getWorkspaceChildren(parentId, page, signal, sort),
+    [parentId, page, sort],
+  );
+  return useSpacePageResource(
+    `${parentId}:${page}:${sort}`,
+    load,
+    seed?.page === page ? seed : undefined,
+  );
+}
+
 export function useDirectoryPage() {
   const [params, setParams] = useSearchParams();
   const navigation = useNavigation();
+  const initial = useLoaderData<SpaceDirectoryRouteData | undefined>();
   const filters = readDirectoryFilters(params);
   const signature = directoryParams(filters).toString();
   const page = directoryPage(params);
   const [requestedPageSize, setPageSize] =
     useDisplayPreference("directoryPageSize");
-  const [attempt, setAttempt] = useState(0);
   const [metadata, setMetadata] = useState<{
     signature: string;
     totalCount: number;
     pageSize: number;
   }>();
   const load = useCallback(
-    async (signal: AbortSignal) => {
-      const data = await getSpaceDirectory(
-        undefined,
-        page,
-        signal,
-        readDirectoryFilters(new URLSearchParams(signature)),
-        requestedPageSize,
+    (signal: AbortSignal) => {
+      const requestFilters = readDirectoryFilters(
+        new URLSearchParams(signature),
       );
-      if (data.page !== page || data.pageSize !== requestedPageSize)
-        throw new Error("Invalid workspace directory page");
-      return data;
+      return getDirectoryPage(requestFilters, page, requestedPageSize, signal);
     },
     [signature, page, requestedPageSize],
   );
-  const resource = useRequestResource(
+  const resource = useSpacePageResource(
     `${signature}:${page}:${requestedPageSize}`,
-    attempt,
     load,
+    initial?.page === page &&
+      initial.pageSize === requestedPageSize &&
+      initial.signature === signature
+      ? initial
+      : undefined,
   );
   const data = resource.data;
   // Retain only pagination metadata between pages; rows belong to the current request.
@@ -159,8 +184,7 @@ export function useDirectoryPage() {
   const pageSize = requestedPageSize;
   function apply(next: DirectoryFilters) {
     const target = directoryParams(next, 1);
-    if (target.toString() === params.toString())
-      setAttempt((value) => value + 1);
+    if (target.toString() === params.toString()) resource.retry();
     else setParams(target, { preventScrollReset: true });
   }
   function changePage(value: number) {
@@ -196,13 +220,13 @@ export function useDirectoryPage() {
       loading: resource.pending,
       error: resource.error,
       pending: resource.pending || navigation.state !== "idle",
-      retry: () => setAttempt((value) => value + 1),
+      retry: resource.retry,
       onCreated: () => {
         if (
           params.toString() ===
           directoryParams(defaultDirectoryFilters, 1).toString()
         )
-          setAttempt((value) => value + 1);
+          resource.retry();
         else
           setParams(directoryParams(defaultDirectoryFilters, 1), {
             preventScrollReset: true,

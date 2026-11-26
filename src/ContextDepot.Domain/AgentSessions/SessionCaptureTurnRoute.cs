@@ -3,7 +3,6 @@ namespace ContextDepot.Domain.AgentSessions;
 public sealed class SessionCaptureTurnRoute
 {
     public Guid Id { get; set; }
-    public Guid DepotId { get; set; }
     public Guid AccessKeyId { get; set; }
     public string Agent { get; set; } = string.Empty;
     public string ClientSessionId { get; set; } = string.Empty;
@@ -27,4 +26,6 @@ public sealed class SessionCaptureTurnRoute
     public string? EncryptedRoutingVector { get; set; }
     public string? RoutingVectorHash { get; set; }
     public string? RoutingEmbeddingFingerprint { get; set; }
+    public string? EncryptedExtractionPlan { get; set; }
+    public string? ExtractionPlanHash { get; set; }
 }

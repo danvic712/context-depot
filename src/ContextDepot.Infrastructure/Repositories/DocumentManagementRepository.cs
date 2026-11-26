@@ -27,9 +27,6 @@ public sealed class DocumentManagementRepository(ContextDepotDbContext db, IMark
     /// <summary>
     /// Reads an archive page and its total count from a repeatable-read snapshot.
     /// </summary>
-    /// <param name="depotId">
-    /// The server-selected depot.
-    /// </param>
     /// <param name="workspaceId">
     /// The workspace already authorized by the application service.
     /// </param>
@@ -45,10 +42,10 @@ public sealed class DocumentManagementRepository(ContextDepotDbContext db, IMark
     /// <exception cref="OperationCanceledException">
     /// The operation was canceled before completion.
     /// </exception>
-    public async Task<ArchivedDocumentPage> ListArchivedAsync(Guid depotId, Guid workspaceId, PaginationQuery pagination, CancellationToken cancellationToken)
+    public async Task<ArchivedDocumentPage> ListArchivedAsync(Guid workspaceId, PaginationQuery pagination, CancellationToken cancellationToken)
     {
         await using var snapshot = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.RepeatableRead, cancellationToken);
-        var query = db.Documents.AsNoTracking().Where(x => x.DepotId == depotId && x.WorkspaceId == workspaceId && x.Status == DocumentStatus.Archived);
+        var query = db.Documents.AsNoTracking().Where(x => x.WorkspaceId == workspaceId && x.Status == DocumentStatus.Archived);
         var total = await query.CountAsync(cancellationToken);
         var items = await query.OrderByDescending(x => x.UpdatedAt).ThenBy(x => x.Id)
             .Skip((pagination.Page - 1) * pagination.PageSize).Take(pagination.PageSize)
@@ -60,9 +57,6 @@ public sealed class DocumentManagementRepository(ContextDepotDbContext db, IMark
     /// <summary>
     /// Removes an active or archived document only if its observed revision still matches.
     /// </summary>
-    /// <param name="depotId">
-    /// The server-selected depot.
-    /// </param>
     /// <param name="documentId">
     /// The active or archived document identifier.
     /// </param>
@@ -98,7 +92,7 @@ public sealed class DocumentManagementRepository(ContextDepotDbContext db, IMark
     /// <exception cref="OperationCanceledException">
     /// The operation was canceled before canonical Markdown was removed.
     /// </exception>
-    public async Task DeleteAsync(Guid depotId, Guid documentId, Guid workspaceId, string relativePath,
+    public async Task DeleteAsync(Guid documentId, Guid workspaceId, string relativePath,
         DateTimeOffset expectedUpdatedAt, CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
@@ -106,15 +100,15 @@ public sealed class DocumentManagementRepository(ContextDepotDbContext db, IMark
         var sourceDeleted = false;
         try
         {
-            var removed = await db.Documents.Where(x => x.DepotId == depotId && x.Id == documentId &&
+            var removed = await db.Documents.Where(x => x.Id == documentId &&
                 x.WorkspaceId == workspaceId && x.UpdatedAt == expectedUpdatedAt)
                 .ExecuteDeleteAsync(cancellationToken);
             if (removed == 0) throw new ContextDepotApplicationException(ApplicationErrorCodes.DocumentConflict);
             // The document deletion cascades to its chunks. Clear every embedding profile,
             // including profiles that are no longer configured, in this same transaction.
-            await KnowledgeVectorDeletion.DeleteDocumentAsync(db, vectorOptions.Value.Schema, depotId, documentId, transaction, cancellationToken);
-            original = await markdown.GetAsync(depotId, relativePath, cancellationToken);
-            await markdown.DeleteAsync(depotId, relativePath, cancellationToken);
+            await KnowledgeVectorDeletion.DeleteDocumentAsync(db, vectorOptions.Value.Schema, workspaceId, documentId, transaction, cancellationToken);
+            original = await markdown.GetAsync(relativePath, cancellationToken);
+            await markdown.DeleteAsync(relativePath, cancellationToken);
             sourceDeleted = true;
             // Once the source is removed, finish the commit even if the client disconnects.
             await transaction.CommitAsync(CancellationToken.None);
@@ -125,7 +119,7 @@ public sealed class DocumentManagementRepository(ContextDepotDbContext db, IMark
             // A rejected COMMIT may already have rolled back on the PostgreSQL side.
             await transaction.DisposeAsync();
             if (sourceDeleted && original is not null)
-                await markdown.WriteAtomicAsync(depotId, relativePath, original.Content, CancellationToken.None);
+                await markdown.WriteAtomicAsync(relativePath, original.Content, CancellationToken.None);
             throw;
         }
     }

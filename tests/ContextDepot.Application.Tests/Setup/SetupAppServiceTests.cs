@@ -7,10 +7,9 @@ using ContextDepot.Application.Setup.Contracts;
 using ContextDepot.Application.Setup.Dtos;
 using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Application.Shared.Safety;
-using ContextDepot.Domain.Depots;
+using ContextDepot.Domain.Access;
 using ContextDepot.Domain.Setup;
 using ContextDepot.Domain.Workspaces;
-using Microsoft.Extensions.Options;
 using Moq;
 
 namespace ContextDepot.Application.Tests.Setup;
@@ -37,8 +36,8 @@ public sealed class SetupAppServiceTests
         Assert.Equal("completed", result.Status.State); Assert.Equal("review", result.Status.NextStep); Assert.Null(result.AccessKey);
         Assert.Equal("Personal knowledge", result.Status.Workspace!.Name); Assert.Equal("personal", result.Status.Workspace.Path);
         Assert.Equal("Notes", result.Status.Workspace.Description);
-        Assert.Equal(7, repository.Created!.Depot.Id.Version); Assert.Equal(7, repository.Created.Workspace.Id.Version);
-        Assert.Equal(repository.Created.Depot.Id, repository.Created.Workspace.DepotId); Assert.Null(repository.Created.Workspace.ParentWorkspaceId);
+        Assert.Equal(7, repository.Created!.Workspace.Id.Version);
+        Assert.Null(repository.Created.Workspace.ParentWorkspaceId);
         Assert.Equal(Now, repository.Created.Workspace.CreatedAt); Assert.Equal(Now, repository.Snapshot.Installation.CompletedAt);
         Assert.Equal(1, repository.MutationCount); Assert.Empty(repository.Created.Providers); Assert.Null(repository.Created.AccessKey);
     }
@@ -94,24 +93,20 @@ public sealed class SetupAppServiceTests
     }
 
     [Fact]
-    public async Task DeploymentDepotIdAndRecordedLegacyWorkspaceArePreserved()
+    public async Task RecordedInitialWorkspaceIsPreserved()
     {
-        var id = Guid.CreateVersion7(); var repository = new SetupMemoryRepository();
-        var result = await Create(repository,id.ToString()).CompleteAsync(Draft(), default);
-        Assert.Equal(id, repository.Created!.Depot.Id);
-        var legacy = new SetupMemoryRepository(); var workspace = new Workspace(Guid.CreateVersion7(),id,null,"Old","old",null,Now);
-        legacy.Snapshot.Installation.Begin(id,workspace.Id,Now);
-        legacy.Snapshot = legacy.Snapshot with { Workspace=workspace, InitialDepotExists=true, HasAnyDepot=true };
-        var completed = await Create(legacy,id.ToString()).CompleteAsync(Draft("Updated","updated"), default);
+        var legacy = new SetupMemoryRepository(); var workspace = new Workspace(Guid.CreateVersion7(), null, "Old", "old", null, Now);
+        legacy.Snapshot.Installation.Begin(workspace.Id, Now);
+        legacy.Snapshot = legacy.Snapshot with { Workspace = workspace, HasWorkspaces = true };
+        var completed = await Create(legacy).CompleteAsync(Draft("Updated", "updated"), default);
         Assert.Equal(workspace.Id, completed.Status.Workspace!.Id); Assert.Equal("updated", completed.Status.Workspace.Path);
         Assert.True(legacy.Created!.ExistingWorkspace);
-        await AssertCode(ApplicationErrorCodes.SetupUnavailable, () => Create(new SetupMemoryRepository(),"invalid").CompleteAsync(Draft(), default));
     }
 
     [Fact]
     public async Task UnrecordedResourcesAndStaleProviderRevisionsAreRejected()
     {
-        var repository = new SetupMemoryRepository(); repository.Snapshot=repository.Snapshot with {HasAnyDepot=true};
+        var repository = new SetupMemoryRepository(); repository.Snapshot = repository.Snapshot with { HasWorkspaces = true };
         await AssertCode(ApplicationErrorCodes.SetupConflict, () => Create(repository).CompleteAsync(Draft(), default));
         repository=new SetupMemoryRepository();
         var stale=new SaveInferenceProviderRequest(Guid.CreateVersion7(),"Provider","https://example.test/","fixture",Now,null,null,Now,Now);
@@ -127,16 +122,16 @@ public sealed class SetupAppServiceTests
     }
 
     private static async Task AssertCode(string code, Func<Task<SetupCompletionDto>> action) =>
-        Assert.Equal(code,(await Assert.ThrowsAsync<ContextDepotApplicationException>(action)).ErrorCode);
-    private static ISetupAppService Create(SetupMemoryRepository repository,string? depotId=null)
+        Assert.Equal(code, (await Assert.ThrowsAsync<ContextDepotApplicationException>(action)).ErrorCode);
+    private static ISetupAppService Create(SetupMemoryRepository repository)
     {
-        var protector=new Mock<ISecretProtector>();
-        protector.Setup(service=>service.Protect(It.IsAny<string>(),SecretProtectionPurpose.InferenceProviderApiKey)).Returns("encrypted-fixture");
-        string? plaintext="fixture";
-        protector.Setup(service=>service.TryUnprotect(It.IsAny<string>(),SecretProtectionPurpose.InferenceProviderApiKey,out plaintext)).Returns(true);
-        var generator=new Mock<IAccessKeySecretGenerator>(MockBehavior.Strict);
-        generator.Setup(service=>service.Generate()).Returns(new GeneratedAccessKey("issued-test-only","test-prefix","stored-hash"));
-        return new SetupAppService(repository,new SetupTestIdGenerator(),new SetupFixedClock(Now),Options.Create(new SetupOptions{DepotId=depotId}),
-            new SourceSafetyService(new HighConfidenceSecretDetector(),new ProvenancePolicy()),protector.Object,generator.Object);
+        var protector = new Mock<ISecretProtector>();
+        protector.Setup(service => service.Protect(It.IsAny<string>(), SecretProtectionPurpose.InferenceProviderApiKey)).Returns("encrypted-fixture");
+        string? plaintext = "fixture";
+        protector.Setup(service => service.TryUnprotect(It.IsAny<string>(), SecretProtectionPurpose.InferenceProviderApiKey, out plaintext)).Returns(true);
+        var generator = new Mock<IAccessKeySecretGenerator>(MockBehavior.Strict);
+        generator.Setup(service => service.Generate()).Returns(new GeneratedAccessKey("issued-test-only", "test-prefix", "stored-hash"));
+        return new SetupAppService(repository, new SetupTestIdGenerator(), new SetupFixedClock(Now),
+            new SourceSafetyService(new HighConfidenceSecretDetector(), new ProvenancePolicy()), protector.Object, generator.Object);
     }
 }

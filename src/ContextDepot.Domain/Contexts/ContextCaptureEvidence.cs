@@ -3,7 +3,6 @@ namespace ContextDepot.Domain.Contexts;
 public sealed class ContextCaptureEvidence
 {
     public Guid ContextId { get; set; }
-    public Guid DepotId { get; set; }
     public Guid WorkspaceId { get; set; }
     public Guid AccessKeyId { get; set; }
     public Guid UserEventId { get; set; }

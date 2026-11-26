@@ -18,7 +18,7 @@ public sealed class ContextsController(ContextManagementAppService service) : Co
     /// Permanently deletes a context and every associated vector index.
     /// </summary>
     /// <param name="id">
-    /// The context identifier in the selected depot.
+    /// The context identifier.
     /// </param>
     /// <param name="expectedUpdatedAt">
     /// The exact reader revision supplied in the query string to reject concurrent changes.
@@ -30,7 +30,7 @@ public sealed class ContextsController(ContextManagementAppService service) : Co
     /// A task whose result is an empty HTTP 204 response after deletion completes.
     /// </returns>
     /// <remarks>
-    /// Requires trusted Web management access; Depot Access Keys cannot perform this operation.
+    /// Requires trusted Web management access.
     /// Successor contexts are preserved and their reference to the deleted context is cleared.
     /// </remarks>
     /// <response code="204">
@@ -43,7 +43,7 @@ public sealed class ContextsController(ContextManagementAppService service) : Co
     /// Trusted Web management access is required.
     /// </response>
     /// <response code="404">
-    /// The context does not exist in the selected depot.
+    /// The context was not found.
     /// </response>
     /// <response code="409">
     /// The resource revision changed after it was read.

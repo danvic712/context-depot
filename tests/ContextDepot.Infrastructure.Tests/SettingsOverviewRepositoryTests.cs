@@ -1,4 +1,4 @@
-using ContextDepot.Infrastructure.CurrentDepot;
+using ContextDepot.Infrastructure.Access;
 using ContextDepot.Infrastructure.Markdown;
 using ContextDepot.Infrastructure.Options;
 using ContextDepot.Infrastructure.Repositories;
@@ -14,7 +14,7 @@ public sealed class SettingsOverviewRepositoryTests
     [PostgreSqlFact]
     public async Task UnconfiguredEmbeddingDoesNotResolveVectorServicesOrHideStorageStatus()
     {
-        var access = new CurrentDepotAccessContext();
+        var access = new WorkspaceAccessContext();
         access.AllowInternalAccess();
         var options = new DbContextOptionsBuilder<ContextDepotDbContext>()
             .UseNpgsql(Environment.GetEnvironmentVariable("CONTEXTDEPOT_TEST_CONNECTION")).Options;
@@ -28,7 +28,7 @@ public sealed class SettingsOverviewRepositoryTests
             using var services = new ServiceCollection().BuildServiceProvider();
             var inference = new ScopedInferenceRuntimeSnapshot(new InferenceRuntimeSnapshot(null, InferenceRuntimeState.Unconfigured, null));
             var result = await new SettingsOverviewRepository(db, store, inference, services, TimeProvider.System)
-                .GetAsync(Guid.CreateVersion7(), "Test Depot", default);
+                .GetAsync(default);
             Assert.Equal("available", result.DatabaseState);
             Assert.Equal("available", result.MarkdownState);
             Assert.Equal("unconfigured", result.SemanticState);

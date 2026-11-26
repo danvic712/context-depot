@@ -10,7 +10,7 @@ namespace ContextDepot.Infrastructure.Repositories;
 public sealed class SettingsOverviewRepository(ContextDepotDbContext db, FileSystemMarkdownStore markdown,
     ScopedInferenceRuntimeSnapshot inference, IServiceProvider services, TimeProvider clock) : ISettingsOverviewRepository
 {
-    public async Task<SettingsOverviewDto> GetAsync(Guid depotId, string depotName, CancellationToken cancellationToken)
+    public async Task<SettingsOverviewDto> GetAsync(CancellationToken cancellationToken)
     {
         var databaseState = await db.Database.CanConnectAsync(cancellationToken) ? "available" : "unavailable";
         var semanticState = inference.Value.State == InferenceRuntimeState.Ready ? "configured"
@@ -21,7 +21,7 @@ public sealed class SettingsOverviewRepository(ContextDepotDbContext db, FileSys
         {
             try
             {
-                var snapshot = await services.GetRequiredService<VectorCoverageSnapshotProvider>().GetAsync(depotId, clock.GetUtcNow(), cancellationToken);
+                var snapshot = await services.GetRequiredService<VectorCoverageSnapshotProvider>().GetAsync(clock.GetUtcNow(), cancellationToken);
                 indexed = snapshot.ContextIndexed + snapshot.DocumentChunkIndexed;
                 total = snapshot.ContextTotal + snapshot.DocumentChunkTotal;
                 indexState = snapshot.IsComplete ? "complete" : "repairing";
@@ -31,7 +31,7 @@ public sealed class SettingsOverviewRepository(ContextDepotDbContext db, FileSys
                 indexState = "unknown";
             }
         }
-        return new SettingsOverviewDto(depotName, databaseState, markdown.CanReadAndWrite() ? "available" : "unavailable",
+        return new SettingsOverviewDto(databaseState, markdown.CanReadAndWrite() ? "available" : "unavailable",
             semanticState, indexState, indexed, total, "/mcp");
     }
 }

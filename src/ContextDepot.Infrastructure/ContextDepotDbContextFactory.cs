@@ -27,7 +27,7 @@ public sealed class ContextDepotDbContextFactory : IDesignTimeDbContextFactory<C
     {
         public static readonly UnrestrictedWorkspaceAccessContext Instance = new();
 
-        public Guid? DepotAccessKeyId => null;
+        public Guid? AccessKeyId => null;
 
         public bool HasUnrestrictedAccess => true;
 

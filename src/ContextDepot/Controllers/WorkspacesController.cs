@@ -84,7 +84,7 @@ public sealed class WorkspacesController(OverviewAppService service, WorkspaceBr
     /// Lists archived canonical documents in the selected workspace.
     /// </summary>
     /// <param name="id">
-    /// The workspace identifier in the selected depot.
+    /// The workspace identifier.
     /// </param>
     /// <param name="request">
     /// The one-based pagination request supplied in the query string.
@@ -142,7 +142,7 @@ public sealed class WorkspacesController(OverviewAppService service, WorkspaceBr
         Ok(await service.ListWorkspacesAsync(limit, sort, cancellationToken));
 
     /// <summary>
-    /// Creates a workspace under the current depot.
+    /// Creates a root workspace.
     /// </summary>
     /// <param name="request">
     /// The workspace name, path and optional description.
@@ -157,6 +157,16 @@ public sealed class WorkspacesController(OverviewAppService service, WorkspaceBr
     public async Task<ActionResult<WorkspaceSummary>> CreateAsync(CreateWorkspaceRequest request, CancellationToken cancellationToken)
     {
         var result = await service.CreateWorkspaceAsync(request, cancellationToken);
+        return Created($"/api/workspaces/{result.Id}", result);
+    }
+
+    [HttpPost("{id:guid}/children")]
+    public async Task<ActionResult<WorkspaceSummary>> CreateChildAsync(Guid id, CreateWorkspaceRequest request,
+        CancellationToken cancellationToken)
+    {
+        Middlewares.WebManagementRequestGuard.RequireManagementRequest(HttpContext);
+        var parent = await browser.GetAsync(id, cancellationToken);
+        var result = await service.CreateWorkspaceAsync(request, cancellationToken, parent.Workspace);
         return Created($"/api/workspaces/{result.Id}", result);
     }
 }

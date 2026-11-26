@@ -11,10 +11,9 @@ public sealed class ContextItem
     {
     }
 
-    public ContextItem(Guid id, Guid depotId, Guid workspaceId, ContextKind kind, string? key, string? title, string content, DateTimeOffset now)
+    public ContextItem(Guid id, Guid workspaceId, ContextKind kind, string? key, string? title, string content, DateTimeOffset now)
     {
         Id = id;
-        DepotId = depotId;
         WorkspaceId = workspaceId;
         Kind = kind;
         Key = key;
@@ -33,8 +32,6 @@ public sealed class ContextItem
     }
 
     public Guid Id { get; private set; }
-
-    public Guid DepotId { get; private set; }
 
     public Guid WorkspaceId { get; private set; }
 

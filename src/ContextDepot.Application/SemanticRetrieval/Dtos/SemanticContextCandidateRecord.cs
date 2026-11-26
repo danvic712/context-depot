@@ -8,7 +8,5 @@ public sealed record SemanticContextCandidateRecord(
 {
     public Guid ContextItemId => Context.Id;
 
-    public Guid DepotId => Context.DepotId;
-
     public Guid WorkspaceId => Context.WorkspaceId;
 }

@@ -10,7 +10,5 @@ public sealed record SemanticDocumentCandidateRecord(
 
     public Guid DocumentId => Document.DocumentId;
 
-    public Guid DepotId => Document.DepotId;
-
     public Guid WorkspaceId => Document.WorkspaceId;
 }

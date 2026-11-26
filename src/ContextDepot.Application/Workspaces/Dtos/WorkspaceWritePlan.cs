@@ -3,7 +3,7 @@ using ContextDepot.Domain.Workspaces;
 
 namespace ContextDepot.Application.Workspaces.Dtos;
 
-// Same-depot internal snapshots are never returned as public resolution candidates.
+// Internal snapshots are for workspace writes.
 public sealed record WorkspaceWritePlan(WorkspaceWriteSnapshot Expected, WorkspacePathLookup Target,
     IReadOnlyList<Workspace> Created, bool UpdateTarget, WorkspaceSubjectBinding? NewBinding)
 {

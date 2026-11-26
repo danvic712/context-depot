@@ -18,6 +18,9 @@ public sealed record WorkspaceDirectoryQuery : PaginationQuery
     /// </summary>
     public Guid? ParentId { get; init; }
 
+    /// <summary>Limits the directory to workspaces without a parent.</summary>
+    public bool RootsOnly { get; init; }
+
     /// <summary>
     /// Gets a literal, case-insensitive keyword for names, complete paths and descriptions.
     /// </summary>

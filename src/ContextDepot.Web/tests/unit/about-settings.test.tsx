@@ -22,7 +22,7 @@ async function language(lang: "en" | "zh") {
 }
 
 describe("About settings", () => {
-  test("shows the installed version once, with a localized copy action and the real library name", async () => {
+  test("shows the installed version once, with a localized copy action", async () => {
     for (const lang of ["en", "zh"] as const) {
       await language(lang);
       const html = renderToStaticMarkup(
@@ -30,12 +30,9 @@ describe("About settings", () => {
           version="1.2.3-rc.1"
           versionPending={false}
           versionFailed={false}
-          depotName="Research notes"
-          depotPending={false}
         />,
       );
       expect(html.match(/1\.2\.3-rc\.1/g)?.length).toBe(1);
-      expect(html).toContain("Research notes");
       expect(html).toContain(lang === "zh" ? "复制版本号" : "Copy version");
       expect(html).toContain(
         lang === "zh" ? "在 GitHub 上查看" : "View on GitHub",
@@ -50,12 +47,9 @@ describe("About settings", () => {
         version="1.2.3-rc.1"
         versionPending={false}
         versionFailed
-        depotName={undefined}
-        depotPending={false}
       />,
     );
     expect(html).toContain("Could not load");
-    expect(html).toContain("Temporarily unavailable");
     expect(html).not.toContain("1.2.3-rc.1");
     expect(html).not.toContain("<button");
   });
@@ -68,8 +62,6 @@ describe("About settings", () => {
           version={null}
           versionPending={pending}
           versionFailed={false}
-          depotName={undefined}
-          depotPending={pending}
         />,
       );
       expect(html).toContain(pending ? "Loading" : "Not available");

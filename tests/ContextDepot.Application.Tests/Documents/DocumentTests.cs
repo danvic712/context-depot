@@ -9,7 +9,7 @@ public sealed class DocumentTests
     public void MarkPending_clears_the_previous_index_error()
     {
         var document = new Document(
-            Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(),
+            Guid.CreateVersion7(), Guid.CreateVersion7(),
             "readme.md", "README", DateTimeOffset.UtcNow);
         document.MarkFailed("MarkdownFileMissing", DateTimeOffset.UtcNow);
 

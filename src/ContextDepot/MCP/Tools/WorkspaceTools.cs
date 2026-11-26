@@ -12,7 +12,7 @@ public sealed class WorkspaceTools(MCPToolExecutor executor, ILogger<WorkspaceTo
     [McpServerTool(Name = "workspace_list", Title = "List workspaces", ReadOnly = true, Idempotent = true,
         UseStructuredContent = true)]
     [Description(
-        "List current-depot workspaces for explicit management. Ordinary task retrieval does not require this call.")]
+        "List the workspaces visible to this access key. Ordinary task retrieval does not require this call.")]
     public async Task<IReadOnlyList<WorkspaceModel>> ListAsync(IWorkspaceAppService service, string? parentPath = null,
         CancellationToken cancellationToken = default)
     {

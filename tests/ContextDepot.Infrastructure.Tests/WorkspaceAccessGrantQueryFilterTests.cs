@@ -1,6 +1,6 @@
-using ContextDepot.Domain.Depots;
+using ContextDepot.Domain.Access;
 using ContextDepot.Domain.Workspaces;
-using ContextDepot.Infrastructure.CurrentDepot;
+using ContextDepot.Infrastructure.Access;
 using ContextDepot.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -16,7 +16,7 @@ public sealed class WorkspaceAccessGrantQueryFilterTests
             .UseNpgsql("Host=127.0.0.1;Database=model_validation")
             .ConfigureWarnings(warnings => warnings.Throw(CoreEventId.PossibleIncorrectRequiredNavigationWithQueryFilterInteractionWarning))
             .Options;
-        using var db = new ContextDepotDbContext(options, new CurrentDepotAccessContext());
+        using var db = new ContextDepotDbContext(options, new WorkspaceAccessContext());
         Assert.NotNull(db.Model.FindEntityType(typeof(WorkspaceAccessGrant)));
     }
 
@@ -25,30 +25,30 @@ public sealed class WorkspaceAccessGrantQueryFilterTests
     {
         await using var fixture = await SetupDatabaseFixture.CreateAsync();
         var now = DateTimeOffset.UtcNow;
-        var depot = new Depot(Guid.CreateVersion7(), "Scoped depot", now);
-        var root = new Workspace(Guid.CreateVersion7(), depot.Id, null, "Root", "root", null, now);
-        var child = new Workspace(Guid.CreateVersion7(), depot.Id, root.Id, "Child", "child", null, now);
-        var hidden = new Workspace(Guid.CreateVersion7(), depot.Id, null, "Hidden", "hidden", null, now);
-        var hasher = new DepotAccessKeySecretHasher();
+
+        var root = new Workspace(Guid.CreateVersion7(), null, "Root", "root", null, now);
+        var child = new Workspace(Guid.CreateVersion7(), root.Id, "Child", "child", null, now);
+        var hidden = new Workspace(Guid.CreateVersion7(), null, "Hidden", "hidden", null, now);
+        var hasher = new AccessKeySecretHasher();
         var secret = hasher.Generate();
-        var key = new DepotAccessKey(Guid.CreateVersion7(), depot.Id, "Scoped client", secret.Prefix, secret.SecretHash, now);
-        key.WorkspaceGrants.Add(new WorkspaceAccessGrant(key.Id, depot.Id, root.Id, now));
-        key.WorkspaceGrants.Add(new WorkspaceAccessGrant(key.Id, depot.Id, child.Id, now));
-        key.WorkspaceGrants.Add(new WorkspaceAccessGrant(key.Id, depot.Id, hidden.Id, now));
+        var key = new AccessKey(Guid.CreateVersion7(), "Scoped client", secret.Prefix, secret.SecretHash, now);
+        key.WorkspaceGrants.Add(new WorkspaceAccessGrant(key.Id, root.Id, now));
+        key.WorkspaceGrants.Add(new WorkspaceAccessGrant(key.Id, child.Id, now));
+        key.WorkspaceGrants.Add(new WorkspaceAccessGrant(key.Id, hidden.Id, now));
         await using (var seed = fixture.CreateDb(true))
         {
-            seed.AddRange(depot, root, child, hidden, key);
+            seed.AddRange(root, child, hidden, key);
             await seed.SaveChangesAsync();
         }
         await using (var uninitialized = fixture.CreateDb())
         {
             Assert.Empty(await uninitialized.WorkspaceAccessGrants.ToArrayAsync());
-            var identity = await new DepotAccessKeyAuthenticator(uninitialized, hasher, TimeProvider.System).AuthenticateAsync(secret.Plaintext);
+            var identity = await new AccessKeyAuthenticator(uninitialized, hasher, TimeProvider.System).AuthenticateAsync(secret.Plaintext);
             Assert.NotNull(identity);
             Assert.Equal(3, identity.WorkspaceIds.Count);
         }
-        var access = new CurrentDepotAccessContext();
-        access.Initialize(new DepotAccessKeyIdentity(key.Id, depot.Id, depot.DisplayName, [child.Id], [root.Id, child.Id]));
+        var access = new WorkspaceAccessContext();
+        access.Initialize(new AccessKeyIdentity(key.Id, [child.Id], [root.Id, child.Id]));
         await using var scoped = fixture.CreateDb(access);
         var grants = await scoped.WorkspaceAccessGrants.AsNoTracking().OrderBy(item => item.WorkspaceId).ToArrayAsync();
         var joined = await scoped.WorkspaceAccessGrants.AsNoTracking().Include(item => item.Workspace).OrderBy(item => item.WorkspaceId).ToArrayAsync();
@@ -58,7 +58,7 @@ public sealed class WorkspaceAccessGrantQueryFilterTests
         Assert.All(joined, item => Assert.NotNull(item.Workspace));
         var repository = new WorkspaceRepository(scoped, new GuidV7IdGenerator(), access,
             new VisibleWorkspaceTopologyProvider(scoped));
-        var choices = await repository.ListVisibleWithPathsAsync(depot.Id, default);
+        var choices = await repository.ListVisibleWithPathsAsync(default);
         var choice = Assert.Single(choices);
         Assert.Equal(child.Id, choice.Workspace.Id);
         Assert.Equal("Child", choice.Workspace.Name);

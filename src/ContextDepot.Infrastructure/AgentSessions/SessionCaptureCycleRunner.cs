@@ -6,7 +6,7 @@ using ContextDepot.Application.AgentSessions.Enums;
 using ContextDepot.Application.AgentSessions;
 using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Application.Workspaces;
-using ContextDepot.Infrastructure.CurrentDepot;
+using ContextDepot.Infrastructure.Access;
 using ContextDepot.Infrastructure.Exceptions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -92,8 +92,12 @@ public sealed class SessionCaptureCycleRunner(IServiceScopeFactory scopes,
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 timeout.CancelAfter(TimeSpan.FromSeconds(options.CurrentValue.RoutingTimeoutSeconds));
                 var snapshot = await SnapshotAsync(workScope.ServiceProvider.GetRequiredService<ContextDepotDbContext>(), locator, timeout.Token);
-                decision = snapshot.Workspaces.Count == 0 ? new("permanent_failure", ResultCode: "skipped_unauthorized") :
+                decision = snapshot.Workspaces.Count == 0 && !snapshot.CanCreateRootWorkspaces
+                    ? new("permanent_failure", ResultCode: "skipped_unauthorized") :
                     await workScope.ServiceProvider.GetRequiredService<ISessionWorkspaceRouter>().RouteAsync(lease, snapshot, timeout.Token);
+                if (decision.Preparation is not null)
+                    decision = await workScope.ServiceProvider.GetRequiredService<SessionWorkspacePreparation>()
+                        .PrepareAsync(lease, decision, cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
             catch (Exception exception)
@@ -111,19 +115,21 @@ public sealed class SessionCaptureCycleRunner(IServiceScopeFactory scopes,
 
     private static async Task<AuthorizedWorkspaceSnapshot> SnapshotAsync(ContextDepotDbContext db, RouteLocator locator, CancellationToken ct)
     {
-        var grants = await db.WorkspaceAccessGrants.IgnoreQueryFilters().Where(g => g.DepotId == locator.DepotId && g.DepotAccessKeyId == locator.KeyId &&
-            db.DepotAccessKeys.IgnoreQueryFilters().Any(k => k.Id == locator.KeyId && k.DepotId == locator.DepotId && k.RevokedAt == null))
-            .Select(g => g.WorkspaceId).ToArrayAsync(ct);
-        var all = await db.Workspaces.IgnoreQueryFilters().AsNoTracking().Where(w => w.DepotId == locator.DepotId).ToArrayAsync(ct);
+        var access = await db.AccessKeys.IgnoreQueryFilters().Where(k => k.Id == locator.KeyId && k.RevokedAt == null)
+            .Select(k => new { k.CanCreateRootWorkspaces, Grants = k.WorkspaceGrants.Select(g => g.WorkspaceId).ToArray() })
+            .SingleOrDefaultAsync(ct);
+        if (access is null) return new(locator.KeyId, []);
+        if (access.Grants.Length == 0) return new(locator.KeyId, [], access.CanCreateRootWorkspaces);
+        var all = await db.Workspaces.IgnoreQueryFilters().AsNoTracking().ToArrayAsync(ct);
         var paths = new WorkspaceTopology(all.Select(w => new WorkspaceTreeNode(w.Id, w.ParentWorkspaceId, w.Slug))).Paths;
-        return new(locator.DepotId, locator.KeyId, all.Where(w => grants.Contains(w.Id)).OrderBy(w => w.Id).Take(513)
-            .Select(w => new RoutingWorkspace(w.Id, w.Name, paths[w.Id], w.Description)).ToArray());
+        return new(locator.KeyId, all.Where(w => access.Grants.Contains(w.Id)).OrderBy(w => w.Id).Take(513)
+            .Select(w => new RoutingWorkspace(w.Id, w.Name, paths[w.Id], w.Description)).ToArray(), access.CanCreateRootWorkspaces);
     }
 
     private AsyncServiceScope InternalScope()
     {
         var scope = scopes.CreateAsyncScope();
-        scope.ServiceProvider.GetRequiredService<CurrentDepotAccessContext>().AllowInternalAccess();
+        scope.ServiceProvider.GetRequiredService<WorkspaceAccessContext>().AllowInternalAccess();
         return scope;
     }
 

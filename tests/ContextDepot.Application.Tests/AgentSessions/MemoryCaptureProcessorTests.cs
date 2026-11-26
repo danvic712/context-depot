@@ -18,8 +18,7 @@ public sealed class MemoryCaptureProcessorTests
     private readonly Mock<IContextAppService> contexts = new();
     private readonly Mock<ISessionCapturePlanRepository> plans = new();
     private readonly Mock<ISessionCaptureCallBudget> budget = new();
-    private static CapturedTurn Turn(string user = Decision) => new(Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(),
-        Guid.CreateVersion7(), Guid.CreateVersion7(), DateTimeOffset.UtcNow.AddMinutes(2), user, "建议使用 SQLite，测试已通过。", Agent: "declared-agent", LeaseToken: Guid.NewGuid());
+    private static CapturedTurn Turn(string user = Decision) => new(Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), DateTimeOffset.UtcNow.AddMinutes(2), user, "建议使用 SQLite，测试已通过。", Agent: "declared-agent", LeaseToken: Guid.NewGuid());
 
     private MemoryCaptureProcessor Create(params MemoryCandidate[] candidates)
     {
@@ -37,7 +36,7 @@ public sealed class MemoryCaptureProcessorTests
 
     private static PreparedCaptureContext Prepared(CapturedTurn turn, ValidatedMemoryCandidate candidate)
     {
-        var item = new ContextDepot.Domain.Contexts.ContextItem(Guid.NewGuid(), turn.DepotId, turn.WorkspaceId,
+        var item = new ContextDepot.Domain.Contexts.ContextItem(Guid.NewGuid(), turn.WorkspaceId,
             Enum.Parse<ContextKind>(candidate.Kind, true), candidate.Key, null, candidate.Summary, DateTimeOffset.UtcNow);
         item.ConfigureProvenance(VerificationStatus.Unknown, ProvenanceTrust.Unknown, SourceType.Agent, turn.Agent,
             $"session-capture:{turn.UserEventId}:{turn.AssistantEventId}");

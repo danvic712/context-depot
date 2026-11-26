@@ -7,11 +7,11 @@ internal static class WorkspaceModelMapper
 {
     public static WorkspaceModel ToModel(Workspace entity, string path) => new(
         entity.Id,
-        entity.DepotId,
         path,
         entity.Name,
         entity.Description,
         entity.MetadataJson,
         entity.CreatedAt,
-        entity.UpdatedAt);
+        entity.UpdatedAt)
+    { StoragePath = entity.StoragePath };
 }

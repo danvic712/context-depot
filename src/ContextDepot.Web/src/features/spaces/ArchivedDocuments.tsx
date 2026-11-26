@@ -1,5 +1,5 @@
 import { KnowledgeOpenLink } from "@/features/knowledge/KnowledgeOpenLink";
-import { paginationDefaults } from "@/lib/pagination";
+import type { PaginatedResult } from "@/lib/pagination";
 import { useDisplayPreference } from "@/lib/display-preferences";
 import { stripDisplayParams } from "@/lib/display-query";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -17,24 +17,27 @@ import {
 } from "@/components/ui/empty";
 import { RequestFeedback } from "@/components/feedback/RequestFeedback";
 import { PaginationBar } from "@/components/content/PaginationBar";
-import { useRequestResource } from "@/hooks/use-request-resource";
-import { getArchivedDocuments } from "@/features/knowledge/document-archive-api";
+import { useSpacePageResource } from "./use-space-page-resource";
+import { readSpacePanelPage, type SpacePageSeed } from "./space-route-loader";
+import {
+  getArchivedDocuments,
+  type ArchivedDocument,
+} from "@/features/knowledge/document-archive-api";
 import { usePaginationSnapshot } from "./use-pagination-snapshot";
 import { knowledgePath } from "@/features/knowledge/knowledge-routes";
 import { DeleteKnowledgeDialog } from "@/features/knowledge/DeleteKnowledgeDialog";
 
-export function ArchivedDocuments({ spaceId }: { spaceId: string }) {
+export function ArchivedDocuments({
+  spaceId,
+  seed,
+}: {
+  spaceId: string;
+  seed?: SpacePageSeed<PaginatedResult<ArchivedDocument>>;
+}) {
   const { t, i18n } = useTranslation();
   const [params, setParams] = useSearchParams();
-  const requested = Number(params.get("archivePage") ?? 1);
-  const page =
-    Number.isSafeInteger(requested) &&
-    requested >= 1 &&
-    requested <= paginationDefaults.maximumPage
-      ? requested
-      : 1;
+  const page = readSpacePanelPage(params, "archivePage");
   const [pageSize, setPageSize] = useDisplayPreference("archivePageSize");
-  const [attempt, setAttempt] = useState(0);
   const [deletedIds, setDeletedIds] = useState<ReadonlySet<string>>(new Set());
   const focusAfterDelete = useRef(false);
   const load = useCallback(
@@ -42,10 +45,10 @@ export function ArchivedDocuments({ spaceId }: { spaceId: string }) {
       getArchivedDocuments(spaceId, page, pageSize, signal),
     [spaceId, page, pageSize],
   );
-  const resource = useRequestResource(
+  const resource = useSpacePageResource(
     `${spaceId}:${page}:${pageSize}`,
-    attempt,
     load,
+    seed?.page === page && seed.pageSize === pageSize ? seed : undefined,
   );
   const data =
     resource.error && !resource.error.retryable ? undefined : resource.data;
@@ -100,7 +103,7 @@ export function ArchivedDocuments({ spaceId }: { spaceId: string }) {
     if (items.length === 1 && page > 1)
       next.set("archivePage", String(page - 1));
     setParams(next, { replace: true, preventScrollReset: true });
-    setAttempt((value) => value + 1);
+    resource.retry();
   }
   return (
     <section
@@ -114,7 +117,7 @@ export function ArchivedDocuments({ spaceId }: { spaceId: string }) {
           failure={resource.error}
           pending={resource.pending}
           stale={!!data}
-          onRetry={() => setAttempt((value) => value + 1)}
+          onRetry={resource.retry}
         />
       )}
       <div className="space-knowledge-workbench">
@@ -189,7 +192,7 @@ export function ArchivedDocuments({ spaceId }: { spaceId: string }) {
                   <DeleteKnowledgeDialog
                     item={{ ...document, type: "document" }}
                     onDeleted={() => deleted(document.id)}
-                    onRefresh={() => setAttempt((value) => value + 1)}
+                    onRefresh={resource.retry}
                   />
                 </li>
               ))}

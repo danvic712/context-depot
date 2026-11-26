@@ -9,20 +9,17 @@ namespace ContextDepot.Application.Shared.Runtime;
 public static class ManagementAccess
 {
     /// <summary>
-    /// Requires a selected depot and unrestricted internal access without a Depot Access Key.
+    /// Requires trusted Web management access.
     /// </summary>
-    /// <param name="depot">
-    /// The server-selected depot context to validate.
-    /// </param>
     /// <param name="access">
     /// The access scope that must represent trusted internal management.
     /// </param>
     /// <exception cref="ContextDepotApplicationException">
-    /// No depot is selected, access is restricted, or a Depot Access Key is present.
+    /// The request does not have management access.
     /// </exception>
-    public static void RequireManagement(ICurrentDepotContext depot, IWorkspaceAccessContext access)
+    public static void RequireManagement(IWorkspaceAccessContext access)
     {
-        if (depot.DepotId == Guid.Empty || !access.HasUnrestrictedAccess || access.DepotAccessKeyId is not null)
+        if (!access.HasUnrestrictedAccess || access.AccessKeyId is not null)
             throw new ContextDepotApplicationException(ApplicationErrorCodes.SettingsForbidden);
     }
 }

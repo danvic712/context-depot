@@ -9,7 +9,6 @@ using ContextDepot.Application.Workspaces.Enums;
 namespace ContextDepot.Application.Workspaces;
 
 public sealed class WorkspaceAppService(
-    ICurrentDepotContext currentDepot,
     IWorkspaceRepository repository,
     TimeProvider timeProvider,
     ISourceSafetyService sourceSafety,
@@ -17,40 +16,40 @@ public sealed class WorkspaceAppService(
 {
     public async Task<WorkspaceModel?> GetAsync(Guid workspaceId, CancellationToken cancellationToken)
     {
-        var lookup = await repository.GetByIdWithPathAsync(currentDepot.DepotId, workspaceId, cancellationToken);
+        var lookup = await repository.GetByIdWithPathAsync(workspaceId, cancellationToken);
         return lookup is null ? null : WorkspaceModelMapper.ToModel(lookup.Workspace, lookup.Path);
     }
 
     public async Task<WorkspaceModel?> ResolveAsync(string path, CancellationToken cancellationToken)
     {
         var normalizedPath = WorkspacePath.Normalize(path);
-        var workspace = await repository.GetByPathAsync(currentDepot.DepotId, normalizedPath, cancellationToken);
+        var workspace = await repository.GetByPathAsync(normalizedPath, cancellationToken);
         return workspace is null ? null : WorkspaceModelMapper.ToModel(workspace, normalizedPath);
     }
 
     public async Task<IReadOnlyList<WorkspaceModel>> ListAsync(string? parentPath, CancellationToken cancellationToken)
     {
         var normalizedParent = string.IsNullOrWhiteSpace(parentPath) ? null : WorkspacePath.Normalize(parentPath);
-        var entities = await repository.ListWithPathsAsync(currentDepot.DepotId, normalizedParent, cancellationToken);
+        var entities = await repository.ListWithPathsAsync(normalizedParent, cancellationToken);
         return entities
             .Select(lookup => WorkspaceModelMapper.ToModel(lookup.Workspace, lookup.Path))
             .ToArray();
     }
 
     public Task<WorkspaceTopology> LoadTopologyAsync(CancellationToken cancellationToken) =>
-        repository.LoadVisibleTopologyAsync(currentDepot.DepotId, cancellationToken);
+        repository.LoadVisibleTopologyAsync(cancellationToken);
 
     /// <summary>Lists readable named scopes without restricting them to a parent level.</summary>
     public async Task<IReadOnlyList<WorkspaceModel>> ListVisibleAsync(CancellationToken cancellationToken)
     {
-        var entities = await repository.ListVisibleWithPathsAsync(currentDepot.DepotId, cancellationToken);
+        var entities = await repository.ListVisibleWithPathsAsync(cancellationToken);
         return entities.Select(lookup => WorkspaceModelMapper.ToModel(lookup.Workspace, lookup.Path)).ToArray();
     }
 
     public async Task<WorkspaceModel> UpsertAsync(UpsertWorkspaceCommand command, CancellationToken cancellationToken)
     {
         var (path, name, description) = NormalizeWrite(command.Path, command.Name, command.Description, command.MetadataJson);
-        var plan = await writer.UpsertAsync(currentDepot.DepotId, command with
+        var plan = await writer.UpsertAsync(command with
         {
             Path = path, Name = name, Description = description
         }, timeProvider.GetUtcNow(), cancellationToken);
@@ -60,7 +59,7 @@ public sealed class WorkspaceAppService(
     public async Task<WorkspaceSubjectResolution> ResolveSubjectAsync(WorkspaceSubject subject, CancellationToken cancellationToken)
     {
         var normalized = WorkspaceSubjectNormalizer.Normalize(subject, sourceSafety);
-        var snapshot = await repository.LoadEnsureSnapshotAsync(currentDepot.DepotId, normalized, cancellationToken);
+        var snapshot = await repository.LoadEnsureSnapshotAsync(normalized, cancellationToken);
         var target = snapshot.Binding is null ? null :
             snapshot.Workspaces.SingleOrDefault(item => item.Workspace.Id == snapshot.Binding.WorkspaceId);
         var status = !snapshot.Access.IsActive ? WorkspaceSubjectStatus.Unavailable :
@@ -76,7 +75,7 @@ public sealed class WorkspaceAppService(
     {
         var subject = WorkspaceSubjectNormalizer.Normalize(command.Subject, sourceSafety);
         var (path, name, description) = NormalizeWrite(command.Path, command.Name, command.Description, command.MetadataJson);
-        var plan = await writer.EnsureAsync(currentDepot.DepotId, command with
+        var plan = await writer.EnsureAsync(command with
         {
             Subject = subject, Path = path, Name = name, Description = description
         }, timeProvider.GetUtcNow(), cancellationToken);

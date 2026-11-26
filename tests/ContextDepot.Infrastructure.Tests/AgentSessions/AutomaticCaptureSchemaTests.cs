@@ -1,6 +1,6 @@
 using ContextDepot.Domain.AgentSessions;
 using ContextDepot.Domain.Contexts;
-using ContextDepot.Infrastructure.CurrentDepot;
+using ContextDepot.Infrastructure.Access;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -11,7 +11,7 @@ namespace ContextDepot.Infrastructure.Tests.AgentSessions;
 public sealed class AutomaticCaptureSchemaTests
 {
     private static ContextDepotDbContext CreateDb() => new(new DbContextOptionsBuilder<ContextDepotDbContext>()
-        .UseNpgsql("Host=localhost;Database=model_only;Username=model_only").Options, new CurrentDepotAccessContext());
+        .UseNpgsql("Host=localhost;Database=model_only;Username=model_only").Options, new WorkspaceAccessContext());
 
     [Fact]
     public void Inbox_foreign_key_covers_the_entire_route_identity_and_does_not_bind_a_session()
@@ -19,7 +19,7 @@ public sealed class AutomaticCaptureSchemaTests
         using var db = CreateDb();
         var inbox = db.Model.FindEntityType(typeof(SessionCaptureInboxEvent))!;
         var fk = Assert.Single(inbox.GetForeignKeys());
-        Assert.Equal(new[] { "TurnRouteId", "DepotId", "AccessKeyId", "Agent", "ClientSessionId", "TurnId" }, fk.Properties.Select(p => p.Name));
+        Assert.Equal(new[] { "TurnRouteId", "AccessKeyId", "Agent", "ClientSessionId", "TurnId" }, fk.Properties.Select(p => p.Name));
         Assert.Equal(typeof(SessionCaptureTurnRoute), fk.PrincipalEntityType.ClrType);
         Assert.Equal(DeleteBehavior.Restrict, fk.DeleteBehavior);
         Assert.Contains(inbox.GetIndexes(), x => x.IsUnique && x.Properties.Select(p => p.Name).SequenceEqual(new[] { "TurnRouteId", "Phase" }));
@@ -33,7 +33,7 @@ public sealed class AutomaticCaptureSchemaTests
         var evidence = db.Model.FindEntityType(typeof(ContextCaptureEvidence))!;
         Assert.Equal("ContextId", Assert.Single(evidence.FindPrimaryKey()!.Properties).Name);
         var context = Assert.Single(evidence.GetForeignKeys(), x => x.PrincipalEntityType.ClrType == typeof(ContextItem));
-        Assert.Equal(new[] { "ContextId", "DepotId", "WorkspaceId" }, context.Properties.Select(p => p.Name));
+        Assert.Equal(new[] { "ContextId", "WorkspaceId" }, context.Properties.Select(p => p.Name));
         Assert.Equal(DeleteBehavior.Cascade, context.DeleteBehavior);
         Assert.All(evidence.GetForeignKeys().Where(x => x != context), x => Assert.Equal(DeleteBehavior.Restrict, x.DeleteBehavior));
         Assert.DoesNotContain("CurrentAccessKeyId", Assert.Single(evidence.GetDeclaredQueryFilters()).Expression!.ToString());

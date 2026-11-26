@@ -23,23 +23,28 @@ import { useSpaceDialogMotion } from "@/features/spaces/use-space-dialog-motion"
 import "@/styles/create-workspace.css";
 
 type FieldErrors = Partial<Record<"name" | "path", string>>;
+type CreateFailure =
+  "spaceCreateError" | "spaceCreateForbidden" | "spaceChildParentUnavailable";
 export function CreateWorkspaceDialog({
   onCreated,
+  parent,
   children,
   triggerClassName,
 }: {
   onCreated: () => void | Promise<void>;
+  parent?: { id: string; name: string; path: string };
   children?: ReactNode;
   triggerClassName?: string;
 }) {
   const { t } = useTranslation();
+  const label = t(parent ? "newChildSpace" : "newSpace");
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [path, setPath] = useState("");
   const [pathCustomized, setPathCustomized] = useState(false);
   const [description, setDescription] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
-  const [failure, setFailure] = useState(false);
+  const [failure, setFailure] = useState<CreateFailure>();
   const [pending, setPending] = useState(false);
   const request = useRef<AbortController | null>(null);
   const nameInput = useRef<HTMLInputElement>(null);
@@ -47,7 +52,7 @@ export function CreateWorkspaceDialog({
   const triggerContent = children ?? (
     <>
       <PlusIcon data-icon="inline-start" aria-hidden="true" />
-      <span>{t("newSpace")}</span>
+      <span>{label}</span>
     </>
   );
   const created = useRef(false);
@@ -80,7 +85,7 @@ export function CreateWorkspaceDialog({
     )
       next.path = t("spacePathInvalid");
     setErrors(next);
-    setFailure(false);
+    setFailure(undefined);
     if (next.name || next.path) {
       (next.name ? nameInput : pathInput).current?.focus();
       return;
@@ -96,18 +101,26 @@ export function CreateWorkspaceDialog({
           description: description.trim(),
         },
         controller.signal,
+        parent?.id,
       );
       created.current = true;
       closeDialog();
-      toast.success(t("spaceCreated"));
+      toast.success(t(parent ? "spaceChildCreated" : "spaceCreated"));
       void onCreated();
     } catch (error) {
       if (controller.signal.aborted) return;
-      if (axios.isAxiosError(error) && error.response?.status === 409) {
-        setErrors({ path: t("spacePathConflict") });
+      const response = axios.isAxiosError(error) ? error.response : undefined;
+      if (response?.status === 409) {
+        setErrors({
+          path: t(parent ? "spaceChildPathConflict" : "spacePathConflict"),
+        });
         requestAnimationFrame(() => pathInput.current?.focus());
-      } else if (axios.isAxiosError(error) && error.response?.status === 400) {
-        const fields: unknown = error.response.data?.errors;
+      } else if (response?.status === 401 || response?.status === 403) {
+        setFailure("spaceCreateForbidden");
+      } else if (response?.status === 404 && parent) {
+        setFailure("spaceChildParentUnavailable");
+      } else if (response?.status === 400) {
+        const fields: unknown = response.data?.errors;
         if (fields && typeof fields === "object") {
           const invalid: FieldErrors = {};
           if ("name" in fields || "Name" in fields)
@@ -115,12 +128,13 @@ export function CreateWorkspaceDialog({
           if ("path" in fields || "Path" in fields)
             invalid.path = t("spacePathInvalid");
           setErrors(invalid);
-          setFailure(!invalid.name && !invalid.path);
-          requestAnimationFrame(() =>
-            (invalid.name ? nameInput : pathInput).current?.focus(),
-          );
-        } else setFailure(true);
-      } else setFailure(true);
+          if (invalid.name || invalid.path)
+            requestAnimationFrame(() =>
+              (invalid.name ? nameInput : pathInput).current?.focus(),
+            );
+          else setFailure("spaceCreateError");
+        } else setFailure("spaceCreateError");
+      } else setFailure("spaceCreateError");
     } finally {
       if (!controller.signal.aborted) setPending(false);
     }
@@ -154,11 +168,15 @@ export function CreateWorkspaceDialog({
         className="create-space-dialog"
         overlayClassName="space-dialog-overlay"
         titleIcon={FolderPlusIcon}
-        title={t("newSpace")}
-        description={t("createSpaceDescription")}
+        title={label}
+        description={
+          parent
+            ? t("createChildSpaceDescription", { name: parent.name })
+            : t("createSpaceDescription")
+        }
         closeLabel={t("cancel")}
         pending={pending}
-        error={failure ? t("spaceCreateError") : undefined}
+        error={failure ? t(failure) : undefined}
         onSubmit={(event) => void submit(event)}
         footer={
           <>
@@ -173,7 +191,7 @@ export function CreateWorkspaceDialog({
             <SubmitButton
               icon={PlusIcon}
               pending={pending}
-              label={t("newSpace")}
+              label={label}
               pendingLabel={t("spaceCreating")}
             />
           </>
@@ -228,11 +246,7 @@ export function CreateWorkspaceDialog({
             required
             disabled={pending}
             aria-invalid={!!errors.path}
-            aria-describedby={
-              errors.path
-                ? "space-path-error space-path-hint"
-                : "space-path-hint"
-            }
+            aria-describedby={`space-path-hint${parent ? " space-path-preview" : ""}${errors.path ? " space-path-error" : ""}`}
             autoComplete="off"
             autoCapitalize="none"
             spellCheck={false}
@@ -240,6 +254,16 @@ export function CreateWorkspaceDialog({
           <FieldDescription id="space-path-hint">
             {t("spaceCreatePathHint")}
           </FieldDescription>
+          {parent && (
+            <FieldDescription
+              id="space-path-preview"
+              className="space-path-preview"
+            >
+              {t("spacesChildPath", {
+                path: `${parent.path}/${path.trim() || "…"}`,
+              })}
+            </FieldDescription>
+          )}
           {errors.path && (
             <p id="space-path-error" className="form-dialog-error" role="alert">
               {errors.path}

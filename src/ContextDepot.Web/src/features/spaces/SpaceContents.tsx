@@ -3,34 +3,53 @@ import { Separator } from "@/components/ui/separator";
 import { knowledgeReturnTarget } from "@/features/knowledge/knowledge-navigation";
 import { useDisplayPreference } from "@/lib/display-preferences";
 import { changeDisplay } from "@/lib/display-transition";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useMatch } from "react-router";
 import { useTranslation } from "react-i18next";
-import { ArchiveIcon, FilesIcon, LayoutGridIcon, ListIcon } from "lucide-react";
+import {
+  ArchiveIcon,
+  FilesIcon,
+  FolderIcon,
+  LayoutGridIcon,
+  ListIcon,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CreateWorkspaceDialog } from "@/features/home/CreateWorkspaceDialog";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { SpaceKnowledge } from "./SpaceKnowledge";
 import { ArchivedDocuments } from "./ArchivedDocuments";
 import { spaceContentsPath } from "@/features/knowledge/knowledge-routes";
 import { SegmentIndicator } from "./SegmentIndicator";
+import { SpaceChildren } from "./SpaceChildren";
+import type { Space } from "./spaces-api";
+import type { SpaceRouteData } from "./space-route-loader";
 
 export function SpaceContents({
-  spaceId,
-  contentCount,
+  space,
+  panel,
+  onChildCreated,
   actions,
 }: {
-  spaceId: string;
-  contentCount: number;
+  space: Space;
+  panel?: SpaceRouteData["panel"];
+  onChildCreated: () => void;
   actions?: ReactNode;
 }) {
   const { t, i18n } = useTranslation();
-  const formattedCount = new Intl.NumberFormat(i18n.resolvedLanguage).format(
-    contentCount,
-  );
+  const { id: spaceId, subspaceCount } = space;
+  const contentCount = space.contextCount + space.documentCount;
+  const number = new Intl.NumberFormat(i18n.resolvedLanguage);
+  const formattedCount = number.format(contentCount);
   const location = useLocation();
   const reading = /\/(contexts|documents)\/[^/]+$/.test(location.pathname);
   const basePath = reading
     ? knowledgeReturnTarget(location.state, spaceId).to.split("?")[0]
     : location.pathname;
-  const view = basePath?.endsWith("/archived") ? "archived" : "current";
+  const showingChildren = !!useMatch("/spaces/:spaceId/children");
+  const view = showingChildren
+    ? "children"
+    : basePath?.endsWith("/archived")
+      ? "archived"
+      : "current";
   const [layout, setLayout] = useDisplayPreference("knowledgeLayout");
   const region = useRef<HTMLDivElement>(null);
   return (
@@ -41,15 +60,17 @@ export function SpaceContents({
         aria-label={t("spacesActions")}
       >
         <nav className="space-content-view" aria-label={t("spacesContentView")}>
-          <SegmentIndicator value={view} selector='a[aria-current="page"]' />
+          <SegmentIndicator
+            value={showingChildren ? "children" : "knowledge"}
+            selector='a[aria-current="page"]'
+          />
           <Link
             preventScrollReset
-            viewTransition
             to={spaceContentsPath(spaceId) + location.search}
-            aria-current={view === "current" ? "page" : undefined}
+            aria-current={showingChildren ? undefined : "page"}
           >
             <FilesIcon aria-hidden="true" />
-            {t("spacesCurrentContent")}
+            {t("spacesKnowledgeTab")}
             <span
               className="space-content-count"
               title={t("spacesKnowledgeCount", {
@@ -62,12 +83,14 @@ export function SpaceContents({
           </Link>
           <Link
             preventScrollReset
-            viewTransition
-            to={spaceContentsPath(spaceId, true) + location.search}
-            aria-current={view === "archived" ? "page" : undefined}
+            to={`${spaceContentsPath(spaceId)}/children${location.search}`}
+            aria-current={showingChildren ? "page" : undefined}
           >
-            <ArchiveIcon aria-hidden="true" />
-            {t("spacesArchiveView")}
+            <FolderIcon aria-hidden="true" />
+            {t("spacesChildrenTab")}
+            <span className="space-content-count">
+              {number.format(subspaceCount)}
+            </span>
           </Link>
         </nav>
         <div className="space-content-actions">
@@ -101,7 +124,7 @@ export function SpaceContents({
               </ToggleGroupItem>
             </ToggleGroup>
           )}
-          {actions && (
+          {(actions || showingChildren) && (
             <>
               {view === "current" && (
                 <Separator
@@ -109,16 +132,61 @@ export function SpaceContents({
                   className="space-toolbar-divider"
                 />
               )}
-              <div className="space-toolbar-commands">{actions}</div>
+              <div className="space-toolbar-commands">
+                {view === "current" && (
+                  <Button asChild variant="outline" size="sm">
+                    <Link
+                      preventScrollReset
+                      to={spaceContentsPath(spaceId, true) + location.search}
+                    >
+                      <ArchiveIcon
+                        data-icon="inline-start"
+                        aria-hidden="true"
+                      />
+                      {t("spacesArchiveView")}
+                    </Link>
+                  </Button>
+                )}
+                {view === "archived" && (
+                  <Button asChild variant="outline" size="sm">
+                    <Link
+                      preventScrollReset
+                      to={spaceContentsPath(spaceId) + location.search}
+                    >
+                      {t("spacesBackToKnowledge")}
+                    </Link>
+                  </Button>
+                )}
+                {actions}
+                {showingChildren && (
+                  <CreateWorkspaceDialog
+                    parent={space}
+                    onCreated={onChildCreated}
+                  />
+                )}
+              </div>
             </>
           )}
         </div>
       </div>
       <div className="space-content-region" key={view} ref={region}>
-        {view === "current" ? (
-          <SpaceKnowledge spaceId={spaceId} />
-        ) : (
-          <ArchivedDocuments spaceId={spaceId} />
+        {view === "current" && (
+          <SpaceKnowledge
+            spaceId={spaceId}
+            seed={panel?.view === "knowledge" ? panel.seed : undefined}
+          />
+        )}
+        {view === "archived" && (
+          <ArchivedDocuments
+            spaceId={spaceId}
+            seed={panel?.view === "archive" ? panel.seed : undefined}
+          />
+        )}
+        {view === "children" && (
+          <SpaceChildren
+            spaceId={spaceId}
+            seed={panel?.view === "children" ? panel.seed : undefined}
+          />
         )}
       </div>
     </>

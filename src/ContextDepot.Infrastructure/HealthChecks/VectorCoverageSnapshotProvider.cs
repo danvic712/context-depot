@@ -27,113 +27,54 @@ public sealed class VectorCoverageSnapshotProvider(
     private readonly string profileFingerprint = inferenceSnapshot.Value.Embedding?.ProfileFingerprint ?? string.Empty;
 
     public async Task<VectorCoverageSnapshot> GetAsync(
-        Guid depotId,
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
-        var snapshots = await GetAsync([depotId], now, cancellationToken);
-        return snapshots[depotId];
-    }
-
-    public async Task<IReadOnlyDictionary<Guid, VectorCoverageSnapshot>> GetAsync(
-        IReadOnlyCollection<Guid> depotIds,
-        DateTimeOffset now,
-        CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(depotIds);
-        var cacheDuration = TimeSpan.FromSeconds(options.CurrentValue.CacheDurationSeconds);
-        var ids = depotIds.Distinct().ToArray();
-        if (ids.Length == 0)
-        {
-            return new Dictionary<Guid, VectorCoverageSnapshot>();
-        }
-
-        var snapshots = new Dictionary<Guid, VectorCoverageSnapshot>(ids.Length);
-        var missingIds = new List<Guid>(ids.Length);
-        foreach (var depotId in ids)
-        {
-            if (cache.TryGetValue<VectorCoverageSnapshot>(GetCacheKey(depotId), out var cached) && cached is not null)
-            {
-                snapshots[depotId] = cached;
-            }
-            else
-            {
-                missingIds.Add(depotId);
-            }
-        }
-
-        if (missingIds.Count == 0)
-        {
-            return snapshots;
-        }
+        var key = $"context-depot:vector-coverage:{profileFingerprint}";
+        if (cache.TryGetValue<VectorCoverageSnapshot>(key, out var cached) && cached is not null) return cached;
 
         await computationGate.Semaphore.WaitAsync(cancellationToken);
         try
         {
-            // A different request may have populated the cache while this one waited.
-            var stillMissing = new List<Guid>();
-            foreach (var depotId in missingIds)
-            {
-                if (cache.TryGetValue<VectorCoverageSnapshot>(GetCacheKey(depotId), out var cached) && cached is not null)
-                    snapshots[depotId] = cached;
-                else
-                    stillMissing.Add(depotId);
-            }
-            if (stillMissing.Count == 0) return snapshots;
-            var computed = await ComputeAsync(stillMissing, now, cancellationToken);
-            foreach (var (depotId, snapshot) in computed)
-            {
-                cache.Set(GetCacheKey(depotId), snapshot, cacheDuration);
-                snapshots[depotId] = snapshot;
-            }
+            if (cache.TryGetValue<VectorCoverageSnapshot>(key, out cached) && cached is not null) return cached;
+            var computed = await ComputeAsync(now, cancellationToken);
+            cache.Set(key, computed, TimeSpan.FromSeconds(options.CurrentValue.CacheDurationSeconds));
+            return computed;
         }
         finally
         {
             computationGate.Semaphore.Release();
         }
-
-        return snapshots;
     }
 
-    private async Task<IReadOnlyDictionary<Guid, VectorCoverageSnapshot>> ComputeAsync(
-        IReadOnlyList<Guid> depotIds,
-        DateTimeOffset now,
-        CancellationToken cancellationToken)
+    private async Task<VectorCoverageSnapshot> ComputeAsync(DateTimeOffset now, CancellationToken cancellationToken)
     {
-        var workspaces = await db.Workspaces.AsNoTracking()
-            .Where(workspace => depotIds.Contains(workspace.DepotId))
-            .ToListAsync(cancellationToken);
-        var workspacePathsByDepot = workspaces
-            .GroupBy(workspace => workspace.DepotId)
-            .ToDictionary(group => group.Key, group => WorkspacePath.BuildPaths(group));
-
-        var contextSources = db.ContextItems.AsNoTracking()
-            .WhereRetrievableAt(now).Where(context => depotIds.Contains(context.DepotId));
+        var workspacePaths = WorkspacePath.BuildPaths(await db.Workspaces.AsNoTracking().ToArrayAsync(cancellationToken));
+        var contextSources = db.ContextItems.AsNoTracking().WhereRetrievableAt(now);
         var documentSources = db.DocumentChunks.AsNoTracking()
-            .Where(chunk => depotIds.Contains(chunk.DepotId) && chunk.Document != null &&
-                chunk.Document.Status == DocumentStatus.Active && chunk.Document.IndexStatus == DocumentIndexStatus.Indexed);
-        var contextTotals = new Dictionary<Guid, int>();
-        var documentTotals = new Dictionary<Guid, int>();
-        var contextIndexedByDepot = new Dictionary<Guid, int>();
-        var documentIndexedByDepot = new Dictionary<Guid, int>();
+            .Where(chunk => chunk.Document != null && chunk.Document.Status == DocumentStatus.Active &&
+                chunk.Document.IndexStatus == DocumentIndexStatus.Indexed);
+        var contextTotal = 0;
+        var documentTotal = 0;
+        var contextIndexed = 0;
+        var documentIndexed = 0;
         Guid? contextAfter = null;
         while (true)
         {
             var pageQuery = contextAfter is Guid cursor ? contextSources.Where(source => source.Id.CompareTo(cursor) > 0) : contextSources;
             var page = await pageQuery.OrderBy(source => source.Id).Take(HashLookupBatchSize)
-                .Select(context => new ContextCoverageSource(context.Id, context.DepotId, context.WorkspaceId,
+                .Select(context => new ContextCoverageSource(context.Id, context.WorkspaceId,
                     context.Kind, context.Key, context.Title, context.TagsJson, context.Content)).ToListAsync(cancellationToken);
             if (page.Count == 0) break;
             var hashes = await vectorIndexRepository.GetContextInputHashesAsync(page.Select(source => source.Id).ToArray(), cancellationToken);
             foreach (var context in page)
             {
-                contextTotals[context.DepotId] = contextTotals.GetValueOrDefault(context.DepotId) + 1;
-                if (!workspacePathsByDepot.TryGetValue(context.DepotId, out var paths) ||
-                    !paths.TryGetValue(context.WorkspaceId, out var path) || !hashes.TryGetValue(context.Id, out var stored)) continue;
+                contextTotal++;
+                if (!workspacePaths.TryGetValue(context.WorkspaceId, out var path) || !hashes.TryGetValue(context.Id, out var stored)) continue;
                 var hash = EmbeddingInputHash.Compute(contextTextBuilder.Build(new ContextEmbeddingSource(
                     path, context.Kind, context.Key, context.Title, ParseTags(context.TagsJson), context.Content)));
                 if (string.Equals(stored, hash, StringComparison.OrdinalIgnoreCase))
-                    contextIndexedByDepot[context.DepotId] = contextIndexedByDepot.GetValueOrDefault(context.DepotId) + 1;
+                    contextIndexed++;
             }
             if (page.Count < HashLookupBatchSize) break;
             contextAfter = page[^1].Id;
@@ -143,33 +84,24 @@ public sealed class VectorCoverageSnapshotProvider(
         {
             var pageQuery = documentAfter is Guid cursor ? documentSources.Where(source => source.Id.CompareTo(cursor) > 0) : documentSources;
             var page = await pageQuery.OrderBy(source => source.Id).Take(HashLookupBatchSize)
-                .Select(chunk => new DocumentCoverageSource(chunk.Id, chunk.DepotId, chunk.WorkspaceId,
+                .Select(chunk => new DocumentCoverageSource(chunk.Id, chunk.WorkspaceId,
                     chunk.Document!.Path, chunk.Document.Title, chunk.HeadingPath, chunk.Content)).ToListAsync(cancellationToken);
             if (page.Count == 0) break;
             var hashes = await vectorIndexRepository.GetDocumentInputHashesAsync(page.Select(source => source.Id).ToArray(), cancellationToken);
             foreach (var document in page)
             {
-                documentTotals[document.DepotId] = documentTotals.GetValueOrDefault(document.DepotId) + 1;
-                if (!workspacePathsByDepot.TryGetValue(document.DepotId, out var paths) ||
-                    !paths.TryGetValue(document.WorkspaceId, out var path) || !hashes.TryGetValue(document.Id, out var stored)) continue;
+                documentTotal++;
+                if (!workspacePaths.TryGetValue(document.WorkspaceId, out var path) || !hashes.TryGetValue(document.Id, out var stored)) continue;
                 var hash = EmbeddingInputHash.Compute(documentTextBuilder.Build(new DocumentChunkEmbeddingSource(
                     path, document.Path, document.Title, document.HeadingPath, document.Content)));
                 if (string.Equals(stored, hash, StringComparison.OrdinalIgnoreCase))
-                    documentIndexedByDepot[document.DepotId] = documentIndexedByDepot.GetValueOrDefault(document.DepotId) + 1;
+                    documentIndexed++;
             }
             if (page.Count < HashLookupBatchSize) break;
             documentAfter = page[^1].Id;
         }
-        return depotIds.ToDictionary(
-            depotId => depotId,
-            depotId => new VectorCoverageSnapshot(
-                contextTotals.GetValueOrDefault(depotId),
-                contextIndexedByDepot.GetValueOrDefault(depotId),
-                documentTotals.GetValueOrDefault(depotId),
-                documentIndexedByDepot.GetValueOrDefault(depotId)));
+        return new(contextTotal, contextIndexed, documentTotal, documentIndexed);
     }
-
-    private string GetCacheKey(Guid depotId) => $"context-depot:vector-coverage:{profileFingerprint}:{depotId:N}";
 
     private static IReadOnlyList<string> ParseTags(string tagsJson) =>
         JsonSerializer.Deserialize<string[]>(tagsJson) ?? [];

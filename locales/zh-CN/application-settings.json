@@ -149,8 +149,6 @@
   "settingsIntegrationGuide": "查看详细连接步骤",
   "settingsCurrentVersion": "当前版本",
   "settingsCopyVersion": "复制版本号",
-  "settingsLibraryUnavailable": "暂时无法读取",
-  "settingsDepot": "当前知识库",
   "settingsRepository": "在 GitHub 上查看",
   "settingsState_unknown": "未知",
   "settingsState_available": "可用",

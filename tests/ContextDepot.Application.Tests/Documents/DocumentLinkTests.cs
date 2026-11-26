@@ -53,23 +53,22 @@ public sealed class DocumentLinkTests
     [InlineData("archived-target")]
     public async Task Resolution_requires_an_active_source_and_target_in_the_authorized_workspace(string scenario)
     {
-        var depotId = Guid.NewGuid();
         var workspaceId = Guid.NewGuid();
-        var source = new Document(Guid.NewGuid(), depotId, workspaceId, "docs/source.md", "Source", DateTimeOffset.UtcNow);
-        var target = new Document(Guid.NewGuid(), depotId, workspaceId, "guide.md", "Target", DateTimeOffset.UtcNow);
+        var source = new Document(Guid.NewGuid(), workspaceId, "docs/source.md", "Source", DateTimeOffset.UtcNow);
+        var target = new Document(Guid.NewGuid(), workspaceId, "guide.md", "Target", DateTimeOffset.UtcNow);
         if (scenario == "archived-source") source.MarkArchived(DateTimeOffset.UtcNow);
         if (scenario == "archived-target") target.MarkArchived(DateTimeOffset.UtcNow);
         var repository = new Mock<IDocumentRepository>();
-        repository.Setup(x => x.GetByIdAsync(depotId, source.Id, default))
+        repository.Setup(x => x.GetByIdAsync(source.Id, default))
             .ReturnsAsync(scenario == "missing-source" ? null : source);
-        repository.Setup(x => x.GetByPathAsync(depotId, workspaceId, "guide.md", default))
+        repository.Setup(x => x.GetByPathAsync(workspaceId, "guide.md", default))
             .ReturnsAsync(scenario == "missing-target" ? null : target);
         var workspaces = new Mock<IWorkspaceAppService>();
         workspaces.Setup(x => x.GetAsync(workspaceId, default)).ReturnsAsync(scenario == "missing-workspace" ? null :
-            new WorkspaceModel(workspaceId, depotId, "project", "Project", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
-        var depot = new Mock<ICurrentDepotContext>();
-        depot.SetupGet(x => x.DepotId).Returns(depotId);
-        var service = new DocumentAppService(depot.Object, workspaces.Object, repository.Object,
+            new WorkspaceModel(workspaceId, "project", "Project", null, "{}", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
+
+
+        var service = new DocumentAppService(workspaces.Object, repository.Object,
             Mock.Of<IMarkdownStore>(), new HeadingAwareMarkdownChunker(), new DocumentWriteCoordinator(),
             Mock.Of<ISourceSafetyService>(), Mock.Of<IIdGenerator>(), TimeProvider.System);
         var constraint = scenario == "wrong-workspace" ? Guid.NewGuid() : workspaceId;
@@ -82,6 +81,6 @@ public sealed class DocumentLinkTests
             Assert.Equal(ApplicationErrorCodes.DocumentNotFound, error.ErrorCode);
         }
         if (scenario is "missing-source" or "archived-source" or "missing-workspace" or "wrong-workspace")
-            repository.Verify(x => x.GetByPathAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), default), Times.Never);
+            repository.Verify(x => x.GetByPathAsync(It.IsAny<Guid>(), It.IsAny<string>(), default), Times.Never);
     }
 }

@@ -20,9 +20,6 @@ public sealed class ContextManagementRepository(ContextDepotDbContext db, IOptio
     /// <summary>
     /// Deletes the observed context revision and every vector profile in one database transaction.
     /// </summary>
-    /// <param name="depotId">
-    /// The server-selected depot that owns the context.
-    /// </param>
     /// <param name="contextId">
     /// The context identifier.
     /// </param>
@@ -40,23 +37,25 @@ public sealed class ContextManagementRepository(ContextDepotDbContext db, IOptio
     /// A revision mismatch rolls back all changes, including successor-reference updates.
     /// </remarks>
     /// <exception cref="ContextDepotApplicationException">
-    /// The context does not exist in the selected depot.
+    /// The context was not found.
     /// </exception>
     /// <exception cref="OperationCanceledException">
     /// The operation was canceled before completion.
     /// </exception>
-    public async Task<bool> DeleteAsync(Guid depotId, Guid contextId, DateTimeOffset expectedUpdatedAt, CancellationToken cancellationToken)
+    public async Task<bool> DeleteAsync(Guid contextId, DateTimeOffset expectedUpdatedAt, CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-        if (!await db.ContextItems.AnyAsync(x => x.DepotId == depotId && x.Id == contextId, cancellationToken))
+        var workspaceId = await db.ContextItems.Where(item => item.Id == contextId)
+            .Select(item => (Guid?)item.WorkspaceId).SingleOrDefaultAsync(cancellationToken);
+        if (workspaceId is null)
             throw new ContextDepotApplicationException(ApplicationErrorCodes.ContextNotFound);
         // Preserve successor records while removing their reference to the deleted history item.
-        await db.ContextItems.Where(x => x.DepotId == depotId && x.SupersedesId == contextId)
+        await db.ContextItems.Where(x => x.SupersedesId == contextId)
             .ExecuteUpdateAsync(x => x.SetProperty(y => y.SupersedesId, (Guid?)null), cancellationToken);
-        var deleted = await db.ContextItems.Where(x => x.DepotId == depotId && x.Id == contextId && x.UpdatedAt == expectedUpdatedAt)
+        var deleted = await db.ContextItems.Where(x => x.Id == contextId && x.UpdatedAt == expectedUpdatedAt)
             .ExecuteDeleteAsync(cancellationToken);
         if (deleted == 0) return false;
-        await KnowledgeVectorDeletion.DeleteContextAsync(db, options.Value.Schema, depotId, contextId, transaction, cancellationToken);
+        await KnowledgeVectorDeletion.DeleteContextAsync(db, options.Value.Schema, workspaceId.Value, contextId, transaction, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return true;
     }

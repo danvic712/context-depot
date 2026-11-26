@@ -11,17 +11,17 @@ namespace ContextDepot.Application.Tests.Workspaces;
 
 public sealed class WorkspaceBrowserAppServiceTests
 {
-    private readonly Guid depotId = Guid.NewGuid();
+
     private readonly Mock<IWorkspaceBrowserRepository> repository = new();
     private readonly DateTimeOffset now = DateTimeOffset.Parse("2026-10-02T00:00:00Z");
 
     private WorkspaceBrowserAppService CreateService()
     {
-        var depot = new Mock<ICurrentDepotContext>();
-        depot.SetupGet(x => x.DepotId).Returns(depotId);
+
+
         var clock = new Mock<TimeProvider>();
         clock.Setup(x => x.GetUtcNow()).Returns(now);
-        return new(depot.Object, repository.Object, clock.Object);
+        return new(repository.Object, clock.Object);
     }
 
     [Theory]
@@ -59,7 +59,7 @@ public sealed class WorkspaceBrowserAppServiceTests
         var query = new WorkspaceDirectoryQuery { Query = "  project  ", Content = WorkspaceContentType.Both,
             UpdatedWithinDays = WorkspaceUpdateWindow.Month, Sort = WorkspaceSortOrder.Name, Page = 2 };
         var normalized = query with { Query = "project" };
-        repository.Setup(x => x.BrowseAsync(depotId, normalized, now, default))
+        repository.Setup(x => x.BrowseAsync(normalized, now, default))
             .ReturnsAsync(new WorkspaceDirectory(now, [], 0, 2, PaginationQuery.DefaultPageSize));
         Assert.Equal(now, (await CreateService().BrowseAsync(query, default)).AsOf);
         repository.VerifyAll();
@@ -83,9 +83,9 @@ public sealed class WorkspaceBrowserAppServiceTests
     {
         var parentId = Guid.NewGuid();
         var query = new WorkspaceDirectoryQuery { ParentId = parentId, Page = 2 };
-        repository.Setup(x => x.GetAsync(depotId, parentId, now, default)).ReturnsAsync(
+        repository.Setup(x => x.GetAsync(parentId, now, default)).ReturnsAsync(
             new WorkspaceDetail(new(parentId, "Root", null, "root", 0, 0, 0, now), []));
-        repository.Setup(x => x.BrowseAsync(depotId, query, now, default)).ReturnsAsync(new WorkspaceDirectory(now, [], 0, 2, 12));
+        repository.Setup(x => x.BrowseAsync(query, now, default)).ReturnsAsync(new WorkspaceDirectory(now, [], 0, 2, 12));
         var result = await CreateService().BrowseAsync(query, default);
         Assert.Equal(now, result.AsOf);
         repository.VerifyAll();
@@ -95,10 +95,10 @@ public sealed class WorkspaceBrowserAppServiceTests
     public async Task MissingOrOtherDepotParentCannotBeBrowsed()
     {
         var parentId = Guid.NewGuid();
-        repository.Setup(x => x.GetAsync(depotId, parentId, now, default)).ReturnsAsync((WorkspaceDetail?)null);
+        repository.Setup(x => x.GetAsync(parentId, now, default)).ReturnsAsync((WorkspaceDetail?)null);
         var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => CreateService().BrowseAsync(new() { ParentId = parentId }, default));
         Assert.Equal(ApplicationErrorCodes.WorkspaceNotFound, error.ErrorCode);
-        repository.Verify(x => x.BrowseAsync(It.IsAny<Guid>(), It.IsAny<WorkspaceDirectoryQuery>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()), Times.Never);
+        repository.Verify(x => x.BrowseAsync(It.IsAny<WorkspaceDirectoryQuery>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -107,7 +107,7 @@ public sealed class WorkspaceBrowserAppServiceTests
         var id = Guid.NewGuid();
         var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => CreateService().GetAsync(id, default));
         Assert.Equal(ApplicationErrorCodes.WorkspaceNotFound, error.ErrorCode);
-        repository.Verify(x => x.GetAsync(depotId, id, now, default), Times.Once);
+        repository.Verify(x => x.GetAsync(id, now, default), Times.Once);
     }
 
     [Fact]
@@ -115,7 +115,7 @@ public sealed class WorkspaceBrowserAppServiceTests
     {
         var id = Guid.CreateVersion7();
         var query = new PaginationQuery { Page = 2 };
-        repository.Setup(x => x.ListKnowledgeAsync(depotId, id, query, now, default))
+        repository.Setup(x => x.ListKnowledgeAsync(id, query, now, default))
             .ReturnsAsync(new WorkspaceKnowledge(now, [], 0, 2, 12));
         var result = await CreateService().ListKnowledgeAsync(id, query, default);
         Assert.Equal(2, result.Page);

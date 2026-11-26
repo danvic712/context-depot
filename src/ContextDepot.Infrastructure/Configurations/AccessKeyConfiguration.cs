@@ -1,19 +1,16 @@
-using ContextDepot.Domain.Depots;
+using ContextDepot.Domain.Access;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace ContextDepot.Infrastructure.Configurations;
 
-public sealed class DepotAccessKeyConfiguration : IEntityTypeConfiguration<DepotAccessKey>
+public sealed class AccessKeyConfiguration : IEntityTypeConfiguration<AccessKey>
 {
-    public void Configure(EntityTypeBuilder<DepotAccessKey> entity)
+    public void Configure(EntityTypeBuilder<AccessKey> entity)
     {
-        entity.ToTable("depot_access_keys", table => table.HasCheckConstraint("ck_depot_access_keys_access_version", "access_version >= 0"));
-        entity.HasKey(x => x.Id).HasName("pk_depot_access_keys");
-        entity.HasAlternateKey(x => new { x.Id, x.DepotId })
-            .HasName("ak_depot_access_keys_id_depot_id");
+        entity.ToTable("access_keys", table => table.HasCheckConstraint("ck_access_keys_access_version", "access_version >= 0"));
+        entity.HasKey(x => x.Id).HasName("pk_access_keys");
         entity.Property(x => x.Id).HasColumnName("id");
-        entity.Property(x => x.DepotId).HasColumnName("depot_id");
         entity.Property(x => x.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
         entity.Property(x => x.KeyPrefix).HasColumnName("key_prefix").HasMaxLength(32).IsRequired();
         entity.Property(x => x.SecretHash).HasColumnName("secret_hash").HasMaxLength(128).IsRequired();
@@ -24,13 +21,8 @@ public sealed class DepotAccessKeyConfiguration : IEntityTypeConfiguration<Depot
         entity.Property(x => x.AccessVersion).HasColumnName("access_version").HasDefaultValue(0L);
         entity.HasIndex(x => x.KeyPrefix)
             .IsUnique()
-            .HasDatabaseName("ux_depot_access_keys_key_prefix");
-        entity.HasIndex(x => new { x.DepotId, x.Name })
-            .HasDatabaseName("ix_depot_access_keys_depot_name");
-        entity.HasOne(x => x.Depot)
-            .WithMany(x => x.AccessKeys)
-            .HasForeignKey(x => x.DepotId)
-            .OnDelete(DeleteBehavior.Restrict)
-            .HasConstraintName("fk_depot_access_keys_depot_id");
+            .HasDatabaseName("ux_access_keys_key_prefix");
+        entity.HasIndex(x => new { x.Name })
+            .HasDatabaseName("ix_access_keys_name");
     }
 }

@@ -13,7 +13,7 @@ public static class WorkspaceEnsurePolicy
             access.CanAccess(parentId.Value) || createdIds?.Contains(parentId.Value) == true));
 
     public static WorkspaceWritePlan Ensure(WorkspaceWriteSnapshot snapshot, EnsureWorkspaceCommand command,
-        Guid depotId, IIdGenerator ids, DateTimeOffset now)
+        IIdGenerator ids, DateTimeOffset now)
     {
         var bound = snapshot.Binding is null ? null :
             snapshot.Workspaces.SingleOrDefault(item => item.Workspace.Id == snapshot.Binding.WorkspaceId);
@@ -34,15 +34,15 @@ public static class WorkspaceEnsurePolicy
         var parent = split < 0 ? null : snapshot.Workspaces.SingleOrDefault(item => item.Path == command.Path[..split]);
         if ((split >= 0 && parent is null) || !CanCreate(snapshot.Access, parent?.Workspace.Id)) Unavailable();
         var workspace = NewWorkspace(command.Path, command.Name, command.Description, command.MetadataJson,
-            parent?.Workspace.Id, depotId, ids, now);
+            parent?.Workspace.Id, ids, now);
         return new(snapshot, new(workspace, command.Path), [workspace], false, Binding(workspace.Id));
 
-        WorkspaceSubjectBinding Binding(Guid workspaceId) => new(ids.NewId(), depotId, workspaceId,
+        WorkspaceSubjectBinding Binding(Guid workspaceId) => new(ids.NewId(), workspaceId,
             command.Subject.Type, command.Subject.Key, now);
     }
 
     public static WorkspaceWritePlan Upsert(WorkspaceWriteSnapshot snapshot, UpsertWorkspaceCommand command,
-        Guid depotId, IIdGenerator ids, DateTimeOffset now)
+        IIdGenerator ids, DateTimeOffset now)
     {
         var existing = snapshot.Workspaces.SingleOrDefault(item => item.Path == command.Path);
         if (existing is not null)
@@ -52,8 +52,8 @@ public static class WorkspaceEnsurePolicy
             if (entity.Name == command.Name && entity.Description == command.Description && entity.MetadataJson == command.MetadataJson)
                 return new(snapshot, existing, [], false, null);
             // Keep the expected snapshot immutable while preparing an update.
-            var updated = new Workspace(entity.Id, entity.DepotId, entity.ParentWorkspaceId, entity.Name,
-                entity.Slug, entity.Description, entity.CreatedAt);
+            var updated = new Workspace(entity.Id, entity.ParentWorkspaceId, entity.Name,
+                entity.Slug, entity.Description, entity.CreatedAt, entity.StoragePath);
             updated.Update(command.Name, command.Description, command.MetadataJson, now);
             return new(snapshot, new(updated, command.Path), [], true, null);
         }
@@ -70,7 +70,7 @@ public static class WorkspaceEnsurePolicy
             var leaf = path == command.Path;
             if ((!leaf && !command.CreateMissingParents) || !CanCreate(snapshot.Access, parentId, createdIds)) ParentUnavailable();
             var workspace = NewWorkspace(path, leaf ? command.Name : segment, leaf ? command.Description : null,
-                leaf ? command.MetadataJson : "{}", parentId, depotId, ids, now);
+                leaf ? command.MetadataJson : "{}", parentId, ids, now);
             created.Add(workspace);
             createdIds.Add(workspace.Id);
             parentId = workspace.Id;
@@ -79,9 +79,9 @@ public static class WorkspaceEnsurePolicy
     }
 
     private static Workspace NewWorkspace(string path, string name, string? description, string metadata,
-        Guid? parentId, Guid depotId, IIdGenerator ids, DateTimeOffset now)
+        Guid? parentId, IIdGenerator ids, DateTimeOffset now)
     {
-        var workspace = new Workspace(ids.NewId(), depotId, parentId, name, path[(path.LastIndexOf('/') + 1)..], description, now);
+        var workspace = new Workspace(ids.NewId(), parentId, name, path[(path.LastIndexOf('/') + 1)..], description, now);
         workspace.Update(name, description, metadata, now);
         return workspace;
     }

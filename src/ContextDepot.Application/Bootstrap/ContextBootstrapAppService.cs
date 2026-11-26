@@ -18,7 +18,6 @@ namespace ContextDepot.Application.Bootstrap;
 
 public sealed class ContextBootstrapAppService : IContextBootstrapAppService
 {
-    private readonly ICurrentDepotContext currentDepot;
     private readonly IWorkspaceAccessContext workspaceAccess;
     private readonly IWorkspaceAppService workspaceAppService;
     private readonly IBootstrapRepository repository;
@@ -36,7 +35,6 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
     private readonly ILogger<ContextBootstrapAppService> logger;
 
     public ContextBootstrapAppService(
-        ICurrentDepotContext currentDepot,
         IWorkspaceAccessContext workspaceAccess,
         IWorkspaceAppService workspaceAppService,
         IBootstrapRepository repository,
@@ -51,7 +49,6 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
         TimeProvider timeProvider,
         ILogger<ContextBootstrapAppService> logger)
     {
-        this.currentDepot = currentDepot;
         this.workspaceAccess = workspaceAccess;
         this.workspaceAppService = workspaceAppService;
         this.repository = repository;
@@ -99,7 +96,6 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
             scopeResolution = new ScopeResolution(ScopeResolutionStatus.Resolved, resolvedPaths);
         }
         var bootstrapQuery = new BootstrapQuery(
-            currentDepot.DepotId,
             scopeIds ?? permittedWorkspaceIds,
             timeProvider.GetUtcNow(),
             Query: query);
@@ -136,7 +132,6 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
         {
             var semantic = await semanticSearcher.SearchAsync(
                 new SemanticCandidateQuery(
-                    currentDepot.DepotId,
                     permittedWorkspaceIds?.ToArray(),
                     null,
                     retrievalSettings.Semantic.ScopeTopK,
@@ -180,7 +175,6 @@ public sealed class ContextBootstrapAppService : IContextBootstrapAppService
         {
             var semantic = await semanticSearcher.SearchAsync(
                 new SemanticCandidateQuery(
-                    currentDepot.DepotId,
                     scopeIds?.ToArray(),
                     null,
                     retrievalSettings.Semantic.CandidateTopKPerSource,

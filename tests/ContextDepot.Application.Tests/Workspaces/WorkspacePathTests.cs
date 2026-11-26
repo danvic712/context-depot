@@ -8,10 +8,9 @@ public sealed class WorkspacePathTests
     [Fact]
     public void BuildPaths_orders_nested_workspace_slugs_from_root_to_leaf()
     {
-        var depotId = Guid.CreateVersion7();
-        var root = new Workspace(Guid.CreateVersion7(), depotId, null, "Projects", "projects", null, DateTimeOffset.UtcNow);
-        var child = new Workspace(Guid.CreateVersion7(), depotId, root.Id, "Context Depot", "context-depot", null, DateTimeOffset.UtcNow);
-        var leaf = new Workspace(Guid.CreateVersion7(), depotId, child.Id, "Notes", "notes", null, DateTimeOffset.UtcNow);
+        var root = new Workspace(Guid.CreateVersion7(), null, "Projects", "projects", null, DateTimeOffset.UtcNow);
+        var child = new Workspace(Guid.CreateVersion7(), root.Id, "Context Depot", "context-depot", null, DateTimeOffset.UtcNow);
+        var leaf = new Workspace(Guid.CreateVersion7(), child.Id, "Notes", "notes", null, DateTimeOffset.UtcNow);
 
         var paths = WorkspacePath.BuildPaths([leaf, child, root]);
 

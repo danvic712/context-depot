@@ -69,7 +69,7 @@ describe("Space browser navigation", () => {
   test("a space selection carries its directory page into the detail route", async () => {
     const html = await render("/spaces?page=3", <WorkspaceRow space={space} />);
     expect(html).toContain('href="/spaces/research?directoryPage=3"');
-    expect(html).not.toContain("subspace");
+    expect(html).toContain("1 subspace");
   });
   test("space switcher links preserve the directory page and omit the previous knowledge selection", async () => {
     const html = await render(

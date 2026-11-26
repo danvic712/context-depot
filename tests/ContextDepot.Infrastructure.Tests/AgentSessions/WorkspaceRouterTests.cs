@@ -23,7 +23,7 @@ public sealed class WorkspaceRouterTests
     public void Selection_requires_current_authorization_and_actual_support()
     {
         var workspace = new RoutingWorkspace(Guid.NewGuid(), "photos", "photos", null);
-        var authorized = new AuthorizedWorkspaceSnapshot(Guid.NewGuid(), Guid.NewGuid(), [workspace]);
+        var authorized = new AuthorizedWorkspaceSnapshot(Guid.NewGuid(), [workspace]);
         var json = "{\"decision\":\"resolved\",\"candidateId\":\"c1\",\"evidence\":\"photos\"}";
         var supported = new RoutingCandidateSet([new(workspace, true, false, 0, 0)]);
         Assert.Equal("permanent_failure", AgentFrameworkWorkspaceRouter.ParseResponse(json, "photos", supported,
@@ -46,8 +46,40 @@ public sealed class WorkspaceRouterTests
     public void Strict_response_contract(string json, string expected)
     {
         var workspace = new RoutingWorkspace(Guid.NewGuid(), "photos", "photos", null);
-        var scope = new AuthorizedWorkspaceSnapshot(Guid.NewGuid(), Guid.NewGuid(), [workspace]);
+        var scope = new AuthorizedWorkspaceSnapshot(Guid.NewGuid(), [workspace]);
         var set = new RoutingCandidateSet([new(workspace, false, true, 0, 0)]);
         Assert.Equal(expected, AgentFrameworkWorkspaceRouter.ParseResponse(json, "I use photos", set, scope).Decision);
+    }
+
+    [Theory]
+    [InlineData("p1", "SampleProject", true, "prepare")]
+    [InlineData("p1", "SampleProject", false, "permanent_failure")]
+    [InlineData("p2", "SampleProject", true, "permanent_failure")]
+    [InlineData("p1", "InventedProject", true, "permanent_failure")]
+    [InlineData("p1", "Sample", true, "permanent_failure")]
+    public void Preparation_requires_an_allowed_parent_and_a_project_name_from_the_user(string parentId,
+        string name, bool allowPreparation, string expected)
+    {
+        var parent = new RoutingWorkspace(Guid.NewGuid(), "Development", "development", null);
+        var scope = new AuthorizedWorkspaceSnapshot(Guid.NewGuid(), [parent]);
+        var json = $$"""{"decision":"prepare","parentId":"{{parentId}}","projectName":"{{name}}"}""";
+        var outcome = AgentFrameworkWorkspaceRouter.ParseResponse(json, "SampleProject uses PostgreSQL.",
+            new([]), scope, allowPreparation ? [parent] : null);
+        Assert.Equal(expected, outcome.Decision);
+        if (expected == "prepare") Assert.Equal(new WorkspacePreparation(parent.Id, name), outcome.Preparation);
+    }
+
+    [Theory]
+    [InlineData(true, true, "prepare")]
+    [InlineData(false, true, "permanent_failure")]
+    [InlineData(true, false, "permanent_failure")]
+    public void Root_preparation_requires_the_creation_capability(bool canCreateRoot, bool allowPreparation, string expected)
+    {
+        var scope = new AuthorizedWorkspaceSnapshot(Guid.NewGuid(), [], canCreateRoot);
+        const string json = """{"decision":"prepare","parentId":"root","projectName":"SampleProject"}""";
+        var outcome = AgentFrameworkWorkspaceRouter.ParseResponse(json, "SampleProject uses PostgreSQL.",
+            new([]), scope, allowPreparation ? [] : null);
+        Assert.Equal(expected, outcome.Decision);
+        if (expected == "prepare") Assert.Equal(new WorkspacePreparation(null, "SampleProject"), outcome.Preparation);
     }
 }

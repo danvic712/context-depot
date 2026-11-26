@@ -13,13 +13,14 @@ namespace ContextDepot.Infrastructure.Repositories;
 public sealed class WorkspaceBrowserRepository(ContextDepotDbContext db) : IWorkspaceBrowserRepository
 {
     /// <inheritdoc />
-    public async Task<WorkspaceDirectory> BrowseAsync(Guid depotId, WorkspaceDirectoryQuery filter,
+    public async Task<WorkspaceDirectory> BrowseAsync(WorkspaceDirectoryQuery filter,
         DateTimeOffset asOf, CancellationToken cancellationToken)
     {
-        var nodes = await LoadNodesAsync(depotId, cancellationToken);
+        var nodes = await LoadNodesAsync(cancellationToken);
         var paths = Topology(nodes).Paths;
-        var query = Summaries(depotId, asOf);
-        if (filter.ParentId is not null) query = query.Where(x => x.ParentId == filter.ParentId);
+        var query = Summaries(asOf);
+        if (filter.RootsOnly || filter.ParentId is not null)
+            query = query.Where(x => x.ParentId == filter.ParentId);
         if (!string.IsNullOrEmpty(filter.Query))
         {
             var matchingPaths = paths.Where(x => x.Value.Contains(filter.Query, StringComparison.OrdinalIgnoreCase))
@@ -48,11 +49,11 @@ public sealed class WorkspaceBrowserRepository(ContextDepotDbContext db) : IWork
     }
 
     /// <inheritdoc />
-    public async Task<WorkspaceDetail?> GetAsync(Guid depotId, Guid id, DateTimeOffset asOf, CancellationToken cancellationToken)
+    public async Task<WorkspaceDetail?> GetAsync(Guid id, DateTimeOffset asOf, CancellationToken cancellationToken)
     {
-        var row = await Summaries(depotId, asOf).SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        var row = await Summaries(asOf).SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (row is null) return null;
-        var nodes = await LoadNodesAsync(depotId, cancellationToken);
+        var nodes = await LoadNodesAsync(cancellationToken);
         var paths = Topology(nodes).Paths;
         var byId = nodes.ToDictionary(x => x.Id);
         var ancestors = new List<WorkspaceAncestor>();
@@ -68,19 +69,19 @@ public sealed class WorkspaceBrowserRepository(ContextDepotDbContext db) : IWork
     }
 
     /// <inheritdoc />
-    public async Task<WorkspaceKnowledge?> ListKnowledgeAsync(Guid depotId, Guid id, PaginationQuery pagination,
+    public async Task<WorkspaceKnowledge?> ListKnowledgeAsync(Guid id, PaginationQuery pagination,
         DateTimeOffset asOf, CancellationToken cancellationToken)
     {
-        var nodes = await LoadNodesAsync(depotId, cancellationToken);
+        var nodes = await LoadNodesAsync(cancellationToken);
         if (!nodes.Any(node => node.Id == id)) return null;
-        var contexts = db.ContextItems.AsNoTracking().Where(x => x.DepotId == depotId && x.WorkspaceId == id)
+        var contexts = db.ContextItems.AsNoTracking().Where(x => x.WorkspaceId == id)
             .WhereRetrievableAt(asOf).Select(x => new KnowledgeRow
             {
                 Id = x.Id, Type = "context", Kind = x.Kind.ToString(), Title = x.Title, Key = x.Key,
                 Content = x.Content, UpdatedAt = x.UpdatedAt, IndexStatus = null
             });
         var documents = db.Documents.AsNoTracking()
-            .Where(x => x.DepotId == depotId && x.WorkspaceId == id && x.Status == DocumentStatus.Active)
+            .Where(x => x.WorkspaceId == id && x.Status == DocumentStatus.Active)
             .Select(x => new KnowledgeRow
             {
                 Id = x.Id, Type = "document", Kind = null, Title = x.Title, Key = x.Path,
@@ -99,11 +100,11 @@ public sealed class WorkspaceBrowserRepository(ContextDepotDbContext db) : IWork
             x.IndexStatus is null ? null : Enum.Parse<DocumentIndexStatus>(x.IndexStatus, true))).ToArray(), total, pagination.Page, pagination.PageSize);
     }
 
-    private IQueryable<SummaryRow> Summaries(Guid depotId, DateTimeOffset asOf)
+    private IQueryable<SummaryRow> Summaries(DateTimeOffset asOf)
     {
-        var contexts = db.ContextItems.AsNoTracking().Where(x => x.DepotId == depotId).WhereRetrievableAt(asOf);
-        var documents = db.Documents.AsNoTracking().Where(x => x.DepotId == depotId && x.Status == DocumentStatus.Active);
-        var workspaces = db.Workspaces.AsNoTracking().Where(x => x.DepotId == depotId);
+        var contexts = db.ContextItems.AsNoTracking().WhereRetrievableAt(asOf);
+        var documents = db.Documents.AsNoTracking().Where(x => x.Status == DocumentStatus.Active);
+        var workspaces = db.Workspaces.AsNoTracking();
         return workspaces.Select(x => new
         {
             x.Id, x.Name, x.Description, x.ParentWorkspaceId, x.UpdatedAt,
@@ -122,8 +123,8 @@ public sealed class WorkspaceBrowserRepository(ContextDepotDbContext db) : IWork
         });
     }
 
-    private Task<Node[]> LoadNodesAsync(Guid depotId, CancellationToken cancellationToken) =>
-        db.Workspaces.AsNoTracking().Where(x => x.DepotId == depotId)
+    private Task<Node[]> LoadNodesAsync(CancellationToken cancellationToken) =>
+        db.Workspaces.AsNoTracking()
             .Select(x => new Node(x.Id, x.ParentWorkspaceId, x.Name, x.Slug)).ToArrayAsync(cancellationToken);
 
     private static WorkspaceTopology Topology(IEnumerable<Node> nodes) =>

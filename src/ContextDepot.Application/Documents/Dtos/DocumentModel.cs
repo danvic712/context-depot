@@ -5,7 +5,6 @@ namespace ContextDepot.Application.Documents.Dtos;
 
 public sealed record DocumentModel(
     Guid Id,
-    Guid DepotId,
     Guid WorkspaceId,
     string Workspace,
     string Path,

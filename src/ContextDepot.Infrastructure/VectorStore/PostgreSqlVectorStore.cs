@@ -108,7 +108,7 @@ public sealed class PostgreSqlVectorStore(
         return null;
     }
 
-    public async Task RemoveObsoleteVectorsAsync(Guid depotId, int batchSize, DateTimeOffset now, CancellationToken cancellationToken)
+    public async Task RemoveObsoleteVectorsAsync(int batchSize, DateTimeOffset now, CancellationToken cancellationToken)
     {
         var names = new List<string>();
         await foreach (var name in ListCollectionNamesAsync(cancellationToken)) names.Add(name);
@@ -126,13 +126,13 @@ public sealed class PostgreSqlVectorStore(
             command.CommandText = $"""
                 WITH obsolete AS (
                     SELECT vectors.{key} FROM {table} AS vectors
-                    WHERE vectors.depot_id = @depot_id AND NOT ({sourceExists})
+                    WHERE NOT ({sourceExists})
                     ORDER BY vectors.{key} LIMIT @batch_size
                 )
                 DELETE FROM {table} AS vectors USING obsolete
                 WHERE vectors.{key} = obsolete.{key};
                 """;
-            command.Parameters.AddWithValue("depot_id", depotId);
+
             command.Parameters.AddWithValue("batch_size", batchSize);
             command.Parameters.AddWithValue("source_now", now);
             await command.ExecuteNonQueryAsync(cancellationToken);

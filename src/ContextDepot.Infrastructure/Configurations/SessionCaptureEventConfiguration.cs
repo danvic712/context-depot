@@ -1,5 +1,5 @@
 using ContextDepot.Domain.AgentSessions;
-using ContextDepot.Domain.Depots;
+using ContextDepot.Domain.Access;
 using ContextDepot.Domain.Workspaces;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore;
@@ -21,8 +21,8 @@ public sealed class SessionCaptureEventConfiguration : IEntityTypeConfiguration<
             table.HasCheckConstraint("ck_session_capture_status", "status IN ('pending', 'processing', 'completed', 'failed')");
         });
         entity.HasKey(x => x.Id);
-        entity.HasOne<AgentSession>().WithMany().HasForeignKey(x => new { x.SessionId, x.DepotId, x.AccessKeyId, x.WorkspaceId })
-            .HasPrincipalKey(s => new { s.Id, s.DepotId, s.AccessKeyId, s.WorkspaceId }).OnDelete(DeleteBehavior.Restrict);
+        entity.HasOne<AgentSession>().WithMany().HasForeignKey(x => new { x.SessionId, x.AccessKeyId, x.WorkspaceId })
+            .HasPrincipalKey(s => new { s.Id, s.AccessKeyId, s.WorkspaceId }).OnDelete(DeleteBehavior.Restrict);
         foreach (var property in entity.Metadata.GetProperties())
         {
             var name = System.Text.RegularExpressions.Regex.Replace(property.Name, "([a-z0-9])([A-Z])", "$1_$2").ToLowerInvariant();
@@ -34,7 +34,7 @@ public sealed class SessionCaptureEventConfiguration : IEntityTypeConfiguration<
         entity.Property(x => x.ProviderCallCount).HasDefaultValue(0);
         entity.Property(x => x.PersistenceAttemptCount).HasDefaultValue(0);
         entity.Property(x => x.CandidateOutcomesJson).HasColumnType("jsonb").HasDefaultValue("[]");
-        entity.HasIndex(x => new { x.DepotId, x.AccessKeyId, x.LastProviderCallAt });
+        entity.HasIndex(x => new { x.AccessKeyId, x.LastProviderCallAt });
         entity.Property(x => x.Agent).HasMaxLength(30);
         entity.Property(x => x.ClientSessionId).HasMaxLength(200);
         entity.Property(x => x.TurnId).HasMaxLength(200);
@@ -43,15 +43,15 @@ public sealed class SessionCaptureEventConfiguration : IEntityTypeConfiguration<
         entity.Property(x => x.Status).HasMaxLength(20);
         entity.Property(x => x.ContentHash).HasMaxLength(64);
         entity.Property(x => x.ResultCode).HasMaxLength(60);
-        entity.HasIndex(x => new { x.DepotId, x.AccessKeyId, x.Agent, x.ClientSessionId, x.EventId }).IsUnique()
+        entity.HasIndex(x => new { x.AccessKeyId, x.Agent, x.ClientSessionId, x.EventId }).IsUnique()
             .HasDatabaseName("ux_session_capture_event_identity");
         // Also prevents a second event ID from becoming another message in the same turn.
-        entity.HasIndex(x => new { x.DepotId, x.AccessKeyId, x.Agent, x.ClientSessionId, x.TurnId, x.Phase }).IsUnique()
+        entity.HasIndex(x => new { x.AccessKeyId, x.Agent, x.ClientSessionId, x.TurnId, x.Phase }).IsUnique()
             .HasDatabaseName("ux_session_capture_turn_phase");
         entity.HasIndex(x => new { x.Status, x.NextAttemptAt }).HasDatabaseName("ix_session_capture_pending");
-        entity.HasOne<Workspace>().WithMany().HasForeignKey(x => new { x.WorkspaceId, x.DepotId })
-            .HasPrincipalKey(x => new { x.Id, x.DepotId }).OnDelete(DeleteBehavior.Restrict);
-        entity.HasOne<DepotAccessKey>().WithMany().HasForeignKey(x => new { x.AccessKeyId, x.DepotId })
-            .HasPrincipalKey(x => new { x.Id, x.DepotId }).OnDelete(DeleteBehavior.Restrict);
+        entity.HasOne<Workspace>().WithMany().HasForeignKey(x => x.WorkspaceId)
+            .OnDelete(DeleteBehavior.Restrict);
+        entity.HasOne<AccessKey>().WithMany().HasForeignKey(x => x.AccessKeyId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

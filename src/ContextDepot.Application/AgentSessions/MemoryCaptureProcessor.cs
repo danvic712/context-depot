@@ -22,7 +22,7 @@ public sealed class MemoryCaptureProcessor(ISessionCaptureAuthorization authoriz
         if (plan is null)
         {
             if (turn.LeaseToken is not Guid token) return new(SessionCaptureDisposition.Failed, null, "lease_lost");
-            var reservation = await budget.TryReserveAsync(new(turn.DepotId, turn.AccessKeyId, "extraction", turn.UserEventId, token),
+            var reservation = await budget.TryReserveAsync(new(turn.AccessKeyId, "extraction", turn.UserEventId, token),
                 ProviderCallKind.ExtractionChat, cancellationToken);
             if (reservation.Status != "granted") return reservation.Status switch
             {

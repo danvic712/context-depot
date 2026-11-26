@@ -1,13 +1,13 @@
-using ContextDepot.Infrastructure.CurrentDepot;
+using ContextDepot.Infrastructure.Access;
 
 namespace ContextDepot.Infrastructure.Tests;
 
-public sealed class DepotAccessKeySecretHasherTests
+public sealed class AccessKeySecretHasherTests
 {
     [Fact]
     public void Generated_key_verifies_with_either_hex_case_and_rejects_another_key()
     {
-        var hasher = new DepotAccessKeySecretHasher();
+        var hasher = new AccessKeySecretHasher();
         var key = hasher.Generate();
 
         Assert.True(hasher.Verify(key.Plaintext, key.SecretHash));
@@ -24,7 +24,7 @@ public sealed class DepotAccessKeySecretHasherTests
     [InlineData("000000000000000000000000000000000000000000000000000000000000000000")]
     public void Invalid_or_mismatched_hash_returns_false_without_throwing(string hash)
     {
-        var hasher = new DepotAccessKeySecretHasher();
+        var hasher = new AccessKeySecretHasher();
 
         Assert.False(hasher.Verify(hasher.Generate().Plaintext, hash));
     }

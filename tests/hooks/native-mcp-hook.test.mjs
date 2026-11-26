@@ -15,7 +15,7 @@ function placeholders(value) {
   return [];
 }
 
-test('both lifecycle events call only the existing native MCP capture tool', () => {
+test('both lifecycle events call the existing session_capture tool', () => {
   assert.deepEqual(Object.keys(config), ['hooks']);
   assert.deepEqual(Object.keys(config.hooks), eventNames);
   for (const event of eventNames) {
@@ -30,7 +30,7 @@ test('both lifecycle events call only the existing native MCP capture tool', () 
   }
 });
 
-test('capture arguments opt in to schema 2 auto without workspace or managed lifecycle', () => {
+test('both events use auto mode and send only the visible phase', () => {
   for (const event of eventNames) {
     const { clientSessionId, turnId, eventId, messages, ...protocol } = handler(event).input;
     assert.deepEqual(protocol, { schemaVersion: 2, agent: 'codex', workspaceMode: 'auto', mode: 'message' });

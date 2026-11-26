@@ -3,7 +3,7 @@ using ContextDepot.Application.Settings.Contracts;
 using ContextDepot.Application.Settings.Dtos;
 using ContextDepot.Application.Shared.Exceptions;
 using ContextDepot.Application.Shared.Runtime.Contracts;
-using ContextDepot.Domain.Depots;
+using ContextDepot.Domain.Access;
 using Moq;
 
 namespace ContextDepot.Application.Tests.Settings;
@@ -18,20 +18,20 @@ public sealed class AccessKeyCreationCapabilityTests
         var keys = new Mock<IAccessKeyRepository>(MockBehavior.Strict);
         var secrets = new Mock<IAccessKeySecretGenerator>(MockBehavior.Strict);
         var ids = new Mock<IIdGenerator>(MockBehavior.Strict);
-        var depot = new Mock<ICurrentDepotContext>(); depot.SetupGet(item => item.DepotId).Returns(Guid.CreateVersion7());
+
         var access = new Mock<IWorkspaceAccessContext>(); access.SetupGet(item => item.HasUnrestrictedAccess).Returns(true);
-        DepotAccessKey? stored = null;
+        AccessKey? stored = null;
         if (allowed)
         {
             secrets.Setup(item => item.Generate()).Returns(new GeneratedAccessKey("example-secret", "example-prefix", "example-hash"));
             ids.Setup(item => item.NewId()).Returns(Guid.CreateVersion7());
-            keys.Setup(item => item.CreateAsync(It.IsAny<DepotAccessKey>(), default)).ReturnsAsync((DepotAccessKey key, CancellationToken _) =>
+            keys.Setup(item => item.CreateAsync(It.IsAny<AccessKey>(), default)).ReturnsAsync((AccessKey key, CancellationToken _) =>
             {
                 stored = key;
                 return new AccessKeyDto(key.Id, key.Name, key.KeyPrefix, key.CreatedAt, null, null, [], key.CanCreateRootWorkspaces, "0");
             });
         }
-        var service = new AccessKeyAppService(keys.Object, secrets.Object, depot.Object, access.Object, ids.Object, TimeProvider.System);
+        var service = new AccessKeyAppService(keys.Object, secrets.Object, access.Object, ids.Object, TimeProvider.System);
         if (allowed)
         {
             await service.CreateAsync(new("Creator", [], capability), default);
@@ -86,9 +86,9 @@ public sealed class AccessKeyCreationCapabilityTests
     {
         var keys = new Mock<IAccessKeyRepository>(MockBehavior.Strict);
         var access = new Mock<IWorkspaceAccessContext>(); access.SetupGet(item => item.HasUnrestrictedAccess).Returns(true);
-        var depot = new Mock<ICurrentDepotContext>(); depot.SetupGet(item => item.DepotId).Returns(Guid.CreateVersion7());
+
         var service = new AccessKeyAppService(keys.Object, new Mock<IAccessKeySecretGenerator>().Object,
-            depot.Object, access.Object, new Mock<IIdGenerator>().Object, TimeProvider.System);
+            access.Object, new Mock<IIdGenerator>().Object, TimeProvider.System);
         Assert.Equal(ApplicationErrorCodes.InvalidRequest, (await Assert.ThrowsAsync<ContextDepotApplicationException>(() =>
             service.SetGrantsAsync(Guid.CreateVersion7(), new([], true, expected), default))).ErrorCode);
         keys.VerifyNoOtherCalls();
@@ -107,6 +107,6 @@ public sealed class AccessKeyCreationCapabilityTests
             AccessKeyAccessPolicy.Approve(key, new([], true, 1))).ErrorCode);
     }
 
-    private static DepotAccessKey Key(bool capability) => new(Guid.CreateVersion7(), Guid.CreateVersion7(),
+    private static AccessKey Key(bool capability) => new(Guid.CreateVersion7(),
         "Client", "example-prefix", "example-hash", DateTimeOffset.UtcNow, capability);
 }

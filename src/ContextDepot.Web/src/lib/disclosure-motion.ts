@@ -1,9 +1,10 @@
 import { createSpring } from "@/lib/spring-motion";
 
 /** Measure only on resize or a new target, never on every animation frame. */
-export function createFilterDisclosureMotion(
+export function createDisclosureMotion(
   node: HTMLDivElement,
   initialOpen: boolean,
+  onClosed?: () => void,
 ) {
   let open = initialOpen;
   let moving = false;
@@ -20,9 +21,14 @@ export function createFilterDisclosureMotion(
   function rested() {
     moving = false;
     if (open) node.style.height = "auto";
-    else node.hidden = true;
+    else {
+      node.hidden = true;
+      onClosed?.();
+    }
   }
-  rested();
+  if (open) node.style.height = "auto";
+  else node.hidden = true;
+
   const observer = new ResizeObserver(() => {
     if (!disposed && moving && open) height.to(measure(), rested);
   });

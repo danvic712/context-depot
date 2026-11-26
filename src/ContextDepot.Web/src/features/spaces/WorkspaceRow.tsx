@@ -1,4 +1,4 @@
-import { ChevronRightIcon, FolderIcon } from "lucide-react";
+import { ChevronRightIcon, FolderIcon, FolderOpenIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,9 +15,13 @@ import {
 export function WorkspaceRow({
   space,
   directoryPage,
+  showPath = false,
+  expanded = false,
 }: {
   space: Space;
   directoryPage?: number;
+  showPath?: boolean;
+  expanded?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const location = useLocation();
@@ -31,6 +35,8 @@ export function WorkspaceRow({
   const locale = i18n.resolvedLanguage;
   const contentCount = space.contextCount + space.documentCount;
   const number = new Intl.NumberFormat(locale);
+  const subtitle = showPath ? space.path : space.description || space.path;
+  const WorkspaceIcon = expanded ? FolderOpenIcon : FolderIcon;
   return (
     <Link
       className="workspace-row"
@@ -59,29 +65,39 @@ export function WorkspaceRow({
       }}
     >
       <span className="workspace-row-icon" aria-hidden="true">
-        <FolderIcon />
+        <WorkspaceIcon />
       </span>
       <div className="workspace-row-identity">
         <div className="workspace-row-title">
           <h3 title={space.name}>{space.name}</h3>
         </div>
         <p
-          title={space.description || space.path}
-          data-identifier={!space.description || undefined}
+          title={subtitle}
+          data-identifier={showPath || !space.description || undefined}
         >
-          {space.description || space.path}
+          {subtitle}
         </p>
       </div>
       <span
         className="workspace-row-summary"
-        data-empty={contentCount === 0 || undefined}
+        data-empty={
+          (contentCount === 0 && space.subspaceCount === 0) || undefined
+        }
       >
         {contentCount > 0
           ? t("spacesKnowledgeCount", {
               count: contentCount,
               value: number.format(contentCount),
             })
-          : t("spacesFilterEmpty")}
+          : space.subspaceCount === 0 && t("spacesFilterEmpty")}
+        {space.subspaceCount > 0 && (
+          <span className="workspace-row-child-count">
+            {t("spacesChildCount", {
+              count: space.subspaceCount,
+              value: number.format(space.subspaceCount),
+            })}
+          </span>
+        )}
       </span>
       <ChevronRightIcon className="workspace-row-arrow" aria-hidden="true" />
     </Link>

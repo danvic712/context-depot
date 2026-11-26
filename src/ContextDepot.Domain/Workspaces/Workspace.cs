@@ -1,6 +1,6 @@
 using ContextDepot.Domain.Contexts;
 using ContextDepot.Domain.Documents;
-using ContextDepot.Domain.Depots;
+using ContextDepot.Domain.Access;
 
 namespace ContextDepot.Domain.Workspaces;
 
@@ -10,10 +10,10 @@ public sealed class Workspace
     {
     }
 
-    public Workspace(Guid id, Guid depotId, Guid? parentWorkspaceId, string name, string slug, string? description, DateTimeOffset now)
+    public Workspace(Guid id, Guid? parentWorkspaceId, string name, string slug, string? description, DateTimeOffset now, string? storagePath = null)
     {
         Id = id;
-        DepotId = depotId;
+        StoragePath = storagePath ?? $"workspaces/{id:N}";
         ParentWorkspaceId = parentWorkspaceId;
         Name = name;
         Slug = slug;
@@ -25,11 +25,11 @@ public sealed class Workspace
 
     public Guid Id { get; private set; }
 
-    public Guid DepotId { get; private set; }
-
     public Guid? ParentWorkspaceId { get; private set; }
 
     public string Name { get; private set; } = string.Empty;
+
+    public string StoragePath { get; private set; } = string.Empty;
 
     public string Slug { get; private set; } = string.Empty;
 
@@ -40,8 +40,6 @@ public sealed class Workspace
     public DateTimeOffset CreatedAt { get; private set; }
 
     public DateTimeOffset UpdatedAt { get; private set; }
-
-    public Depot? Depot { get; private set; }
 
     public Workspace? ParentWorkspace { get; private set; }
 

@@ -10,6 +10,11 @@ import { PageNotFound } from "@/components/feedback/PageState";
 
 import type { PageHandle } from "@/hooks/use-app-context";
 import { setupLoader } from "@/features/setup/setup-loader";
+import {
+  spaceDirectoryLoader,
+  spaceRouteLoader,
+  shouldRevalidateSpaceRoute,
+} from "@/features/spaces/space-route-loader";
 
 type PageRoute = RouteObject & { handle: PageHandle };
 
@@ -67,6 +72,7 @@ export const appRoutes: RouteObject[] = [
       {
         path: "spaces",
         id: "spaces",
+        loader: spaceDirectoryLoader,
         ErrorBoundary: PageRouteError,
         handle: {
           page: "spaces",
@@ -82,6 +88,8 @@ export const appRoutes: RouteObject[] = [
       {
         path: "spaces/:spaceId",
         id: "space",
+        loader: spaceRouteLoader,
+        shouldRevalidate: shouldRevalidateSpaceRoute,
         ErrorBoundary: PageRouteError,
         handle: {
           page: "space",
@@ -94,6 +102,13 @@ export const appRoutes: RouteObject[] = [
           ),
         ),
         children: [
+          {
+            path: "children",
+            id: "space-children",
+            ErrorBoundary: PageRouteError,
+            handle: { page: "space", title: "spaces", navigation: "spaces" },
+            Component: () => null,
+          },
           {
             path: "archived",
             id: "space-archive",

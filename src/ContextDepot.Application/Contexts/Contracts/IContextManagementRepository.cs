@@ -10,9 +10,6 @@ public interface IContextManagementRepository
     /// <summary>
     /// Deletes the observed context revision and every vector profile in one database transaction.
     /// </summary>
-    /// <param name="depotId">
-    /// The server-selected depot that owns the context.
-    /// </param>
     /// <param name="contextId">
     /// The context identifier.
     /// </param>
@@ -30,10 +27,10 @@ public interface IContextManagementRepository
     /// A revision mismatch rolls back all changes, including successor-reference updates.
     /// </remarks>
     /// <exception cref="ContextDepotApplicationException">
-    /// The context does not exist in the selected depot.
+    /// The context was not found.
     /// </exception>
     /// <exception cref="OperationCanceledException">
     /// The operation was canceled before completion.
     /// </exception>
-    Task<bool> DeleteAsync(Guid depotId, Guid contextId, DateTimeOffset expectedUpdatedAt, CancellationToken cancellationToken);
+    Task<bool> DeleteAsync(Guid contextId, DateTimeOffset expectedUpdatedAt, CancellationToken cancellationToken);
 }

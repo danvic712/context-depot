@@ -69,7 +69,7 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
         var sourceQuery = db.ContextItems
             .AsNoTracking()
             .WhereRetrievableAt(query.Now)
-            .Where(x => x.DepotId == query.DepotId && ids.Contains(x.Id));
+            .Where(x => ids.Contains(x.Id));
         var workspaceIds = query.WorkspaceIds?.ToArray();
         var kinds = query.Kinds?.ToArray();
         if (workspaceIds is not null)
@@ -85,7 +85,6 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
         var source = await sourceQuery
             .Select(x => new BootstrapContextCandidate(
                 x.Id,
-                x.DepotId,
                 x.WorkspaceId,
                 x.Kind,
                 x.Key,
@@ -136,8 +135,7 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
         var ids = vectorCandidates.Select(candidate => candidate.Id).Distinct().ToArray();
         var sourceQuery = db.DocumentChunks
             .AsNoTracking()
-            .Where(x => x.DepotId == query.DepotId &&
-                        x.Document != null &&
+            .Where(x => x.Document != null &&
                         x.Document.Status == DocumentStatus.Active &&
                         x.Document.IndexStatus == DocumentIndexStatus.Indexed &&
                         ids.Contains(x.Id));
@@ -150,7 +148,6 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
         var source = await sourceQuery
             .Select(x => new BootstrapDocumentChunkCandidate(
                 x.Id,
-                x.DepotId,
                 x.DocumentId,
                 x.WorkspaceId,
                 x.Ordinal,
@@ -258,39 +255,36 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
 
     private static Expression<Func<ContextVectorRecord, bool>> BuildContextFilter(SemanticCandidateQuery query)
     {
-        var depotId = query.DepotId;
         var workspaceIds = query.WorkspaceIds?.ToArray();
         var kinds = query.Kinds?.Select(kind => kind.ToString().ToLowerInvariant()).ToArray();
         if (workspaceIds is not null && kinds is not null)
         {
-            return record => record.DepotId == depotId &&
-                             workspaceIds.Contains(record.WorkspaceId) &&
+            return record => workspaceIds.Contains(record.WorkspaceId) &&
                              kinds.Contains(record.Kind);
         }
 
         if (workspaceIds is not null)
         {
-            return record => record.DepotId == depotId && workspaceIds.Contains(record.WorkspaceId);
+            return record => workspaceIds.Contains(record.WorkspaceId);
         }
 
         if (kinds is not null)
         {
-            return record => record.DepotId == depotId && kinds.Contains(record.Kind);
+            return record => kinds.Contains(record.Kind);
         }
 
-        return record => record.DepotId == depotId;
+        return record => true;
     }
 
     private static Expression<Func<DocumentVectorRecord, bool>> BuildDocumentFilter(SemanticCandidateQuery query)
     {
-        var depotId = query.DepotId;
         var workspaceIds = query.WorkspaceIds?.ToArray();
         if (workspaceIds is not null)
         {
-            return record => record.DepotId == depotId && workspaceIds.Contains(record.WorkspaceId);
+            return record => workspaceIds.Contains(record.WorkspaceId);
         }
 
-        return record => record.DepotId == depotId;
+        return record => true;
     }
 
     private static bool HasEmptyScope(SemanticCandidateQuery query) =>
@@ -301,7 +295,7 @@ public sealed class VectorDataSemanticRetrievalRepository : ISemanticRetrievalRe
     private static void ValidateQuery(SemanticCandidateQuery query)
     {
         ArgumentNullException.ThrowIfNull(query);
-        if (query.TopK <= 0 || query.OversampleFactor is < 1 or > 10 || query.DepotId == Guid.Empty)
+        if (query.TopK <= 0 || query.OversampleFactor is < 1 or > 10)
         {
             throw new ContextDepotApplicationException(ApplicationErrorCodes.InvalidSearchQuery);
         }

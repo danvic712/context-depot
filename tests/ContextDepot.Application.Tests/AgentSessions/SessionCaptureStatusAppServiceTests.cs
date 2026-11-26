@@ -15,7 +15,7 @@ public sealed class SessionCaptureStatusAppServiceTests
     public async Task Requires_exactly_one_receipt(bool both)
     {
         var repository = new Mock<ISessionCaptureStatusRepository>(MockBehavior.Strict);
-        var service = new SessionCaptureStatusAppService(Mock.Of<ICurrentDepotContext>(), Mock.Of<IWorkspaceAccessContext>(), repository.Object);
+        var service = new SessionCaptureStatusAppService(Mock.Of<IWorkspaceAccessContext>(), repository.Object);
         var request = both ? new SessionCaptureStatusRequest(Guid.NewGuid(), Guid.NewGuid()) : new();
         var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => service.GetAsync(request, default));
         Assert.Equal(ApplicationErrorCodes.InvalidSessionCapture, error.ErrorCode);
@@ -30,11 +30,10 @@ public sealed class SessionCaptureStatusAppServiceTests
         var request = new SessionCaptureStatusRequest(receipt);
         var expected = new SessionCaptureStatusResult(receipt, null, "not_applicable", "completed", "saved", null,
             "development", [], [], DateTimeOffset.UtcNow, null, null, 0, 1);
-        repository.Setup(r => r.GetAsync(depot, key, request, default)).ReturnsAsync(expected);
-        var service = new SessionCaptureStatusAppService(Mock.Of<ICurrentDepotContext>(x => x.DepotId == depot),
-            Mock.Of<IWorkspaceAccessContext>(x => x.DepotAccessKeyId == key), repository.Object);
+        repository.Setup(r => r.GetAsync(key, request, default)).ReturnsAsync(expected);
+        var service = new SessionCaptureStatusAppService(Mock.Of<IWorkspaceAccessContext>(x => x.AccessKeyId == key), repository.Object);
         Assert.Same(expected, await service.GetAsync(request, default));
-        repository.Verify(r => r.GetAsync(depot, key, request, default), Times.Once);
+        repository.Verify(r => r.GetAsync(key, request, default), Times.Once);
     }
 
     [Fact]
@@ -42,8 +41,7 @@ public sealed class SessionCaptureStatusAppServiceTests
     {
         var depot = Guid.NewGuid(); var key = Guid.NewGuid();
         var repository = new Mock<ISessionCaptureStatusRepository>();
-        var service = new SessionCaptureStatusAppService(Mock.Of<ICurrentDepotContext>(x => x.DepotId == depot),
-            Mock.Of<IWorkspaceAccessContext>(x => x.DepotAccessKeyId == key), repository.Object);
+        var service = new SessionCaptureStatusAppService(Mock.Of<IWorkspaceAccessContext>(x => x.AccessKeyId == key), repository.Object);
         var error = await Assert.ThrowsAsync<ContextDepotApplicationException>(() => service.GetAsync(new(Guid.NewGuid()), default));
         Assert.Equal(ApplicationErrorCodes.SessionCaptureUnavailable, error.ErrorCode);
     }

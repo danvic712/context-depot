@@ -1,30 +1,38 @@
 import { useKnowledgeReading } from "@/features/knowledge/knowledge-reading-context";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Outlet, useLocation, useParams, useSearchParams } from "react-router";
-import { useTranslation } from "react-i18next";
-import { ChevronLeftIcon, SearchIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { RequestFeedback } from "@/components/feedback/RequestFeedback";
-import { useRequestResource } from "@/hooks/use-request-resource";
-import { getSpace } from "@/features/spaces/spaces-api";
+import { useEffect, useRef } from "react";
 import {
-  SpaceDetailHeading,
-  SpaceDetailHeadingSkeleton,
-} from "@/features/spaces/SpaceDetailHeading";
+  Link,
+  Outlet,
+  useLocation,
+  useLoaderData,
+  useNavigate,
+  useRevalidator,
+  useSearchParams,
+} from "react-router";
+import { useTranslation } from "react-i18next";
+import { SearchIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { RequestFeedback } from "@/components/feedback/RequestFeedback";
+import { SpaceDetailHeading } from "@/features/spaces/SpaceDetailHeading";
 import { SpaceContents } from "@/features/spaces/SpaceContents";
-import { SpaceKnowledgeSkeleton } from "@/features/spaces/SpaceKnowledgeList";
-import { Link } from "react-router";
 import { SpaceSwitcher } from "@/features/spaces/SpaceBrowser";
 import "@/styles/spaces.css";
 import { workspaceDirectoryParams } from "@/features/spaces/directory-query";
+import { SpaceBreadcrumbs } from "@/features/spaces/SpaceBreadcrumbs";
+import {
+  readSpacePanelPage,
+  type SpaceRouteData,
+} from "@/features/spaces/space-route-loader";
 
 export function SpaceDetail() {
   const { t } = useTranslation();
   const workbench = useRef<HTMLDivElement>(null);
-  const { spaceId = "" } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const revision = useKnowledgeReading()?.revision ?? 0;
+  const previousRevision = useRef(revision);
+  const { detail, panel } = useLoaderData<SpaceRouteData>();
+  const { revalidate, state } = useRevalidator();
   const [params, setParams] = useSearchParams();
   useEffect(() => {
     if (!params.has("spaceView") && !params.has("page")) return;
@@ -33,17 +41,21 @@ export function SpaceDetail() {
     next.delete("page");
     setParams(next, { replace: true, preventScrollReset: true });
   }, [params, setParams]);
-  const [attempt, setAttempt] = useState(0);
-  const load = useCallback(
-    (signal: AbortSignal) => getSpace(spaceId, signal),
-    [spaceId],
-  );
-  const detail = useRequestResource(spaceId, attempt + revision, load);
+  useEffect(() => {
+    if (previousRevision.current === revision) return;
+    previousRevision.current = revision;
+    void revalidate();
+  }, [revision, revalidate]);
   const directory = workspaceDirectoryParams(params, true);
-  const rootQuery = directory.size ? `?${directory}` : "";
-  const data =
-    detail.error && !detail.error.retryable ? undefined : detail.data;
+  const data = detail.data;
   const space = data?.workspace;
+  function childCreated() {
+    if (readSpacePanelPage(params, "childrenPage") > 1) {
+      const next = new URLSearchParams(params);
+      next.delete("childrenPage");
+      setParams(next, { replace: true, preventScrollReset: true });
+    } else void revalidate();
+  }
   useEffect(() => {
     if (
       !space ||
@@ -65,12 +77,13 @@ export function SpaceDetail() {
       <Button asChild variant="outline" size="sm">
         <Link
           to={`/search?${new URLSearchParams({ workspace: space.path })}`}
+          className="space-search-action"
           state={{ focusSearch: true }}
           aria-label={t("spacesSearchHere")}
           title={t("spacesSearchHere")}
         >
           <SearchIcon data-icon="inline-start" aria-hidden="true" />
-          {t("spacesSearchAction")}
+          <span>{t("spacesSearchAction")}</span>
         </Link>
       </Button>
     </>
@@ -81,67 +94,35 @@ export function SpaceDetail() {
         <div className="space-browser">
           <div className="space-browser-main">
             <div className="space-detail-header">
-              <nav
-                className="space-detail-navigation"
-                aria-label={t("spacesReturnDirectory")}
-              >
-                <Button
-                  asChild
-                  variant="ghost"
-                  size="sm"
-                  className="space-directory-back"
-                >
-                  <Link
-                    to={`/spaces${rootQuery}`}
-                    aria-label={t("spacesReturnDirectory")}
-                    title={t("spacesReturnDirectory")}
-                  >
-                    <ChevronLeftIcon
-                      data-icon="inline-start"
-                      aria-hidden="true"
-                    />
-                    {t("spacesDirectoryLink")}
-                  </Link>
-                </Button>
-              </nav>
-              {space ? (
-                <SpaceDetailHeading key={space.id} space={space} />
-              ) : detail.pending && !detail.error ? (
-                <SpaceDetailHeadingSkeleton />
-              ) : null}
+              <SpaceBreadcrumbs detail={data} directory={directory} />
+              {space && <SpaceDetailHeading space={space} />}
             </div>
             {detail.error && (
               <RequestFeedback
                 title={t("spacesDetailError")}
                 failure={detail.error}
-                onRetry={() => setAttempt((value) => value + 1)}
-                pending={detail.pending}
+                onRetry={revalidate}
+                pending={state === "loading"}
                 stale={!!space}
+                recoveryAction={
+                  !detail.error.retryable
+                    ? {
+                        label: t("spacesReturnDirectory"),
+                        onClick: () =>
+                          void navigate(
+                            `/spaces${directory.size ? `?${directory}` : ""}`,
+                          ),
+                      }
+                    : undefined
+                }
               />
-            )}
-            {!space && detail.pending && !detail.error && (
-              <div className="space-detail-skeleton" aria-busy="true">
-                <span className="sr-only" role="status">
-                  {t("loading")}
-                </span>
-                <div className="space-content-toolbar" aria-hidden="true">
-                  <Skeleton className="h-12 w-44" />
-                  <div className="space-content-actions">
-                    <Skeleton className="space-layout-switch h-11 w-24" />
-                    <div className="space-toolbar-commands">
-                      <Skeleton className="h-11 w-28" />
-                      <Skeleton className="h-11 w-24" />
-                    </div>
-                  </div>
-                </div>
-                <SpaceKnowledgeSkeleton />
-              </div>
             )}
             {space && (
               <SpaceContents
                 key={`${space.id}:${location.state?.refreshKnowledge ?? revision}`}
-                spaceId={space.id}
-                contentCount={space.contextCount + space.documentCount}
+                space={space}
+                panel={panel}
+                onChildCreated={childCreated}
                 actions={actions}
               />
             )}

@@ -91,7 +91,6 @@ public sealed class RetrievalDeduplicatorTests
         string? key,
         string content) => new(
         Guid.CreateVersion7(),
-        Guid.CreateVersion7(),
         workspaceId,
         kind,
         key,
@@ -113,7 +112,6 @@ public sealed class RetrievalDeduplicatorTests
         "{}");
 
     private static BootstrapDocumentChunkCandidate Document(Guid workspaceId, Guid documentId, int ordinal) => new(
-        Guid.CreateVersion7(),
         Guid.CreateVersion7(),
         documentId,
         workspaceId,

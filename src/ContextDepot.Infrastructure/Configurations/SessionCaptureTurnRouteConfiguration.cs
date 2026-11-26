@@ -1,6 +1,6 @@
 using ContextDepot.Domain.AgentSessions;
 using ContextDepot.Domain.Contexts;
-using ContextDepot.Domain.Depots;
+using ContextDepot.Domain.Access;
 using ContextDepot.Domain.Workspaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -20,10 +20,10 @@ public sealed class SessionCaptureTurnRouteConfiguration : IEntityTypeConfigurat
             table.HasCheckConstraint("ck_capture_route_expiry", "expires_at > created_at");
             table.HasCheckConstraint("ck_capture_route_counts", "attempt_count >= 0 AND provider_call_count >= 0");
             table.HasCheckConstraint("ck_capture_route_vector", "(encrypted_routing_vector IS NULL AND routing_vector_hash IS NULL AND routing_embedding_fingerprint IS NULL) OR (encrypted_routing_vector IS NOT NULL AND routing_vector_hash IS NOT NULL AND routing_embedding_fingerprint IS NOT NULL)");
+            table.HasCheckConstraint("ck_capture_route_plan", "(encrypted_extraction_plan IS NULL AND extraction_plan_hash IS NULL) OR (state = 'resolved' AND encrypted_extraction_plan IS NOT NULL AND extraction_plan_hash IS NOT NULL AND extraction_plan_hash ~ '^[0-9A-F]{64}$')");
         });
         entity.HasKey(x => x.Id);
         entity.Property(x => x.Id).HasColumnName("id");
-        entity.Property(x => x.DepotId).HasColumnName("depot_id");
         entity.Property(x => x.AccessKeyId).HasColumnName("access_key_id");
         entity.Property(x => x.Agent).HasColumnName("agent").HasMaxLength(30);
         entity.Property(x => x.ClientSessionId).HasColumnName("client_session_id").HasMaxLength(200);
@@ -47,16 +47,18 @@ public sealed class SessionCaptureTurnRouteConfiguration : IEntityTypeConfigurat
         entity.Property(x => x.EncryptedRoutingVector).HasColumnName("encrypted_routing_vector");
         entity.Property(x => x.RoutingVectorHash).HasColumnName("routing_vector_hash").HasMaxLength(64);
         entity.Property(x => x.RoutingEmbeddingFingerprint).HasColumnName("routing_embedding_fingerprint").HasMaxLength(200);
+        entity.Property(x => x.EncryptedExtractionPlan).HasColumnName("encrypted_extraction_plan");
+        entity.Property(x => x.ExtractionPlanHash).HasColumnName("extraction_plan_hash").HasMaxLength(64);
 
-        entity.HasAlternateKey(x => new { x.Id, x.DepotId, x.AccessKeyId, x.Agent, x.ClientSessionId, x.TurnId });
-        entity.HasIndex(x => new { x.DepotId, x.AccessKeyId, x.Agent, x.ClientSessionId, x.TurnId }).IsUnique();
-        entity.HasOne<Workspace>().WithMany().HasForeignKey(x => new { x.WorkspaceId, x.DepotId }).HasPrincipalKey(x => new { x.Id, x.DepotId }).OnDelete(DeleteBehavior.Restrict);
+        entity.HasAlternateKey(x => new { x.Id, x.AccessKeyId, x.Agent, x.ClientSessionId, x.TurnId });
+        entity.HasIndex(x => new { x.AccessKeyId, x.Agent, x.ClientSessionId, x.TurnId }).IsUnique();
+        entity.HasOne<Workspace>().WithMany().HasForeignKey(x => x.WorkspaceId).OnDelete(DeleteBehavior.Restrict);
         entity.HasIndex(x => new { x.State, x.NextAttemptAt, x.Id });
         entity.HasIndex(x => new { x.State, x.LeaseUntil, x.Id });
         entity.HasIndex(x => new { x.ExpiresAt, x.Id });
-        entity.HasIndex(x => new { x.DepotId, x.AccessKeyId, x.LastProviderCallAt });
+        entity.HasIndex(x => new { x.AccessKeyId, x.LastProviderCallAt });
         entity.Property(x => x.AttemptCount).HasDefaultValue(0);
         entity.Property(x => x.ProviderCallCount).HasDefaultValue(0);
-        entity.HasOne<DepotAccessKey>().WithMany().HasForeignKey(x => new { x.AccessKeyId, x.DepotId }).HasPrincipalKey(x => new { x.Id, x.DepotId }).OnDelete(DeleteBehavior.Restrict);
+        entity.HasOne<AccessKey>().WithMany().HasForeignKey(x => x.AccessKeyId).OnDelete(DeleteBehavior.Restrict);
     }
 }

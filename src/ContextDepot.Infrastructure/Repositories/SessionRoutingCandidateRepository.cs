@@ -20,7 +20,7 @@ public sealed class SessionRoutingCandidateRepository(ScopedInferenceRuntimeSnap
     public async Task<RoutingCandidateSet> GetCandidatesAsync(RouteLease lease, AuthorizedWorkspaceSnapshot scope,
         CancellationToken cancellationToken)
     {
-        if (scope.DepotId != lease.Locator.DepotId || scope.KeyId != lease.Locator.KeyId)
+        if (scope.KeyId != lease.Locator.KeyId)
             return new([], Outcome: new("permanent_failure", ResultCode: "unauthorized"));
         var profile = runtime.Value.Embedding;
         if (scope.Workspaces.Count is 0 or > 512 || profile is null)
@@ -43,7 +43,7 @@ public sealed class SessionRoutingCandidateRepository(ScopedInferenceRuntimeSnap
         if (vector is not null && (vector.Length != profile.Dimensions || vector.Any(v => !float.IsFinite(v)))) vector = null;
         if (vector is null)
         {
-            var reservation = await budget.TryReserveAsync(new(scope.DepotId, scope.KeyId, "route", lease.Locator.RouteId,
+            var reservation = await budget.TryReserveAsync(new(scope.KeyId, "route", lease.Locator.RouteId,
                 lease.LeaseToken), ProviderCallKind.RoutingEmbedding, cancellationToken);
             if (reservation.Status != "granted") return new([], Outcome: ReservationDecision(reservation));
             var generated = await embeddings.GenerateAsync([lease.UserContent], cancellationToken);
@@ -58,12 +58,12 @@ public sealed class SessionRoutingCandidateRepository(ScopedInferenceRuntimeSnap
                 return new([], Outcome: new("transient_failure", ResultCode: "lease_lost"));
         }
         var ids = scope.Workspaces.Select(w => w.Id).Distinct().ToArray();
-        var query = new SemanticCandidateQuery(scope.DepotId, ids, null, 129, time.GetUtcNow());
+        var query = new SemanticCandidateQuery(ids, null, 129, time.GetUtcNow());
         var contexts = await semantic.FindContextCandidatesAsync(query, vector, cancellationToken);
         var documents = await semantic.FindDocumentCandidatesAsync(query, vector, cancellationToken);
-        var scores = contexts.Where(c => c.DepotId == scope.DepotId && ids.Contains(c.WorkspaceId))
+        var scores = contexts.Where(c => ids.Contains(c.WorkspaceId))
             .Select(c => (c.WorkspaceId, c.Similarity)).Concat(documents
-                .Where(c => c.DepotId == scope.DepotId && ids.Contains(c.WorkspaceId)).Select(c => (c.WorkspaceId, c.Similarity))).ToArray();
+                .Where(c => ids.Contains(c.WorkspaceId)).Select(c => (c.WorkspaceId, c.Similarity))).ToArray();
         var truncated = contexts.Count >= 129 && contexts[128].Similarity >= .82 ||
                         documents.Count >= 129 && documents[128].Similarity >= .82;
         return RoutingCandidatePolicy.Select(scope, lease.UserContent,

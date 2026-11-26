@@ -16,7 +16,6 @@ public sealed class SessionCaptureEvent
     public int PersistenceAttemptCount { get; set; }
     public Guid Id { get; set; }
     public Guid? SessionId { get; set; }
-    public Guid DepotId { get; set; }
     public Guid AccessKeyId { get; set; }
     public Guid WorkspaceId { get; set; }
     public string Agent { get; set; } = string.Empty;

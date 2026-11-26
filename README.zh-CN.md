@@ -148,12 +148,12 @@ npx skills add danvic712/context-depot --skill context-depot --global
 
 ## 可选：启用 Codex 会话记忆
 
-开启后，Codex 会在提交提问和结束一轮时，把可见的提问、回复和会话标识发给 ContextDepot。ContextDepot 在后台提取值得长期保留的知识，并把它保存到有权限的空间。配置时需要在服务端开启会话记忆，并在 Codex 安装和信任 Hook。
+开启后，Codex 会在提交提问和结束一轮时，把可见的提问、回复和会话标识发给 ContextDepot。后台处理完整回合，复用适合的空间。如果用户明确谈到一个新项目，并且原话中有可保存的长期知识，ContextDepot 可为独立项目创建根级空间，或在匹配的已授权父空间下创建子空间，再保存摘要和必要的原文证据。
 
 ### 在 ContextDepot 开启会话记忆
 
 1. 在**设置 → 模型服务**中配置**对话模型（Chat）**。使用向量搜索候选空间时，再配置搜索模型（Embedding）。
-2. 在**设置 → 访问密钥**中，为 Codex 的密钥授权要使用的已有空间。空间的名称和描述会帮助 ContextDepot 选择去向。
+2. 在**设置 → 访问密钥**中，为 Codex 的密钥授权要使用的项目空间或父空间。如果希望自动创建独立的根级项目空间，为该密钥开启创建根空间的权限。空间的名称和描述会帮助 ContextDepot 识别项目归属。
 3. 在**设置 → 会话记忆**中打开开关。此开关默认关闭，并对整个应用生效。
 
 自动选择空间仍处于预览阶段。真实模型的质量评测和安装版 Codex 的端到端验收尚未完成。
@@ -206,13 +206,15 @@ env_http_headers = { "X-ContextDepot-Key" = "CONTEXTDEPOT_MCP_TOKEN" }
 
 将 [GitHub 上的 Hook 模板](https://github.com/danvic712/context-depot/blob/main/scripts/codex/hooks.example.json) 中的两条规则合并到选定的 `hooks.json`。两处 `server` 要与实际连接名一致，例如有的配置使用 `context_depot`。
 
+从旧版本升级时，更新服务端和数据库即可。已有的 `session_capture` Hook 保留 `workspaceMode: "auto"`，服务端升级后便会按新流程处理。
+
 ### 确认保存结果
 
-重启 Codex 以加载配置，再开启新聊天。使用项目级 Hook 时，请在该受信任项目中开启。用 `/mcp` 确认 ContextDepot 已连接，自动抓取还需要工具列表中有 `session_capture`，并在桌面端**设置 → Hooks**或 CLI 的 `/hooks` 中审查并信任两条规则。
+重启 Codex 以加载配置，再开启新聊天。使用项目级 Hook 时，请在该受信任项目中开启。用 `/mcp` 确认 ContextDepot 已连接且提供 `session_capture`，并在桌面端**设置 → Hooks**或 CLI 的 `/hooks` 中审查并信任两条规则。
 
-说一条明确、希望长期保留的项目决策，带上目标空间或项目名。完成一轮后，在 ContextDepot 网页的目标空间搜索该决策。处理任务每分钟运行一次，结果可能需要等待几个周期。
+说一条明确、希望长期保留的项目决策，带上项目名。若要验证创建子空间，也可以写明它所属的现有类别。完成一轮后，在 ContextDepot 网页的目标空间搜索该决策。处理任务每分钟运行一次，结果可能需要等待几个周期。
 
-如果拿到了 `receiptId` 或 `turnReceiptId`，可以任选其一用 `session_capture_status` 查询。`accepted` 表示已入队，`saved` 表示已保存。用返回的 Context ID 调用 `context_get` 可以检查空间、摘要和用户原文。只有找到有长期价值的用户依据且能明确匹配已授权空间时，服务才会保存。
+如果从 MCP 调用的结构化结果中取到了 `receiptId` 或 `turnReceiptId`，可以任选其一用 `session_capture_status` 查询。`accepted` 表示已入队，`saved` 表示已保存。用返回的 Context ID 调用 `context_get` 可以检查空间、摘要和用户原文。
 
 ### 使用时需要了解
 
@@ -235,6 +237,10 @@ Hangfire 的定义、排队任务和执行历史只保存在内存中。重启�
 若回滚到依赖旧数据库设置的版本，先停止新版并回退这项清理 migration，再启动旧版。回退会恢复历史默认的 30 秒间隔，不覆盖已有设置，也不会恢复删除前的自定义值。保留全部业务数据；无需备份或迁移 Hangfire 内存状态。
 
 ## 备份与更新
+
+Workspace 是知识组织的最高层。可以创建独立的根空间，也可以通过子空间组织相关知识。每把访问密钥分别获得 Workspace 授权。
+
+如果旧数据库仍有 Depot 表，请先备份 PostgreSQL 和 Markdown 目录。升级会移除 Depot 表，并保留现有密钥、Workspace ID、授权和原位置的 Markdown 文件。如果旧数据库有多个 Depot，迁移会停止。若需回退到仍使用这些表的版本，请恢复升级前的备份。
 
 Compose 将持久化数据保存在 `DATA_DIR` 下，默认是 `./data`：
 

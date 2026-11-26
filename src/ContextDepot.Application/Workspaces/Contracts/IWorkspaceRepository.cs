@@ -5,27 +5,26 @@ namespace ContextDepot.Application.Workspaces.Contracts;
 
 public interface IWorkspaceRepository
 {
-    Task<Workspace?> GetByIdAsync(Guid depotId, Guid workspaceId, CancellationToken cancellationToken);
+    Task<Workspace?> GetByIdAsync(Guid workspaceId, CancellationToken cancellationToken);
 
-    Task<WorkspacePathLookup?> GetByIdWithPathAsync(Guid depotId, Guid workspaceId, CancellationToken cancellationToken);
+    Task<WorkspacePathLookup?> GetByIdWithPathAsync(Guid workspaceId, CancellationToken cancellationToken);
 
-    Task<Workspace?> GetByPathAsync(Guid depotId, string normalizedPath, CancellationToken cancellationToken);
+    Task<Workspace?> GetByPathAsync(string normalizedPath, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<WorkspacePathLookup>> ListWithPathsAsync(Guid depotId, string? parentPath, CancellationToken cancellationToken);
+    Task<IReadOnlyList<WorkspacePathLookup>> ListWithPathsAsync(string? parentPath, CancellationToken cancellationToken);
 
-    /// <summary>Loads every readable workspace in the depot with its resolved path.</summary>
-    Task<IReadOnlyList<WorkspacePathLookup>> ListVisibleWithPathsAsync(Guid depotId, CancellationToken cancellationToken);
+    /// <summary>Loads every readable workspace with its resolved path.</summary>
+    Task<IReadOnlyList<WorkspacePathLookup>> ListVisibleWithPathsAsync(CancellationToken cancellationToken);
 
-    Task<WorkspaceTopology> LoadVisibleTopologyAsync(Guid depotId, CancellationToken cancellationToken);
+    Task<WorkspaceTopology> LoadVisibleTopologyAsync(CancellationToken cancellationToken);
 
-    Task<WorkspaceWriteSnapshot> LoadEnsureSnapshotAsync(Guid depotId, WorkspaceSubject? subject,
+    Task<WorkspaceWriteSnapshot> LoadEnsureSnapshotAsync(WorkspaceSubject? subject,
         CancellationToken cancellationToken);
 
-    Task<WorkspaceWritePersistenceResult> TryApplyEnsureAsync(Guid depotId, WorkspaceWritePlan plan,
+    Task<WorkspaceWritePersistenceResult> TryApplyEnsureAsync(WorkspaceWritePlan plan,
         DateTimeOffset now, CancellationToken cancellationToken);
 
     Task<WorkspaceUpsertPersistenceResult> UpsertPathAsync(
-        Guid depotId,
         string normalizedPath,
         string name,
         string? description,

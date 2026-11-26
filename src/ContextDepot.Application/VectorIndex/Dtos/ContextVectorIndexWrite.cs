@@ -4,7 +4,6 @@ namespace ContextDepot.Application.VectorIndex.Dtos;
 
 public sealed record ContextVectorIndexWrite(
     Guid ContextItemId,
-    Guid DepotId,
     Guid WorkspaceId,
     ContextKind Kind,
     string EmbeddingInputHash,

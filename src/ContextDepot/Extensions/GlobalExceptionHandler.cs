@@ -98,7 +98,7 @@ public sealed class GlobalExceptionHandler(
         ApplicationErrorCodes.WorkspacePathConflict or ApplicationErrorCodes.WorkspaceConcurrencyConflict or
             ApplicationErrorCodes.ContextConcurrencyConflict or ApplicationErrorCodes.ContextKindConflict or
             ApplicationErrorCodes.DocumentConflict or ApplicationErrorCodes.KnowledgeDeleteConflict => StatusCodes.Status409Conflict,
-        ApplicationErrorCodes.WebDepotUnavailable or ApplicationErrorCodes.SetupRequired or
+        ApplicationErrorCodes.SetupRequired or
             ApplicationErrorCodes.SetupUnavailable or ApplicationErrorCodes.DatabaseUnavailable or
             ApplicationErrorCodes.MarkdownRootUnavailable or ApplicationErrorCodes.EmbeddingGeneratorUnavailable => StatusCodes.Status503ServiceUnavailable,
         ApplicationErrorCodes.InternalError or ApplicationErrorCodes.ContextWriteFailed or

@@ -1,17 +1,17 @@
 using ContextDepot.Infrastructure.Contracts;
-using ContextDepot.Infrastructure.CurrentDepot;
+using ContextDepot.Infrastructure.Access;
 using ContextDepot.Application.Shared.Exceptions;
 
 namespace ContextDepot.Middlewares;
 
-public sealed class DepotAccessKeyAuthenticationMiddleware(RequestDelegate next)
+public sealed class AccessKeyAuthenticationMiddleware(RequestDelegate next)
 {
     private const string HeaderName = "X-ContextDepot-Key";
 
     public async Task InvokeAsync(
         HttpContext httpContext,
-        IDepotAccessKeyAuthenticator authenticator,
-        CurrentDepotAccessContext accessContext)
+        IAccessKeyAuthenticator authenticator,
+        WorkspaceAccessContext accessContext)
     {
         if (!httpContext.Request.Path.StartsWithSegments("/mcp"))
         {

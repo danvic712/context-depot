@@ -18,11 +18,11 @@ namespace ContextDepot.Application.AgentContext;
 public sealed class AgentContextAppService(IContextBootstrapAppService bootstrap, IWorkspaceAppService workspaces,
     IWorkspaceAccessContext access, ISourceSafetyService safety, IIdGenerator ids, TimeProvider clock) : IAgentContextAppService
 {
-    private static readonly HashSet<string> DepotOperations = new(StringComparer.Ordinal)
+    private static readonly HashSet<string> ContextOperations = new(StringComparer.Ordinal)
     {
         "context_bootstrap", "context_activity", "context_search",
         "session_start", "session_capture", "session_recall", "session_end", "session_status", "context_get", "context_save", "context_archive", "document_upsert", "document_get", "document_archive",
-        "workspace_list", "workspace_upsert", "depot_get"
+        "workspace_list", "workspace_upsert"
     };
 
     public async Task<AgentContextResult> PrepareAsync(PrepareAgentContextRequest request, CancellationToken cancellationToken)
@@ -78,7 +78,7 @@ public sealed class AgentContextAppService(IContextBootstrapAppService bootstrap
         if (contextEvent.Type != AgentContextEventType.OperationCompleted || request.Operation is null ||
             string.IsNullOrWhiteSpace(request.Operation.ToolName) || request.Operation.ToolName.Length > 200 ||
             !Enum.IsDefined(request.Operation.Status) || request.Operation.OperationId?.Length > 200) Invalid();
-        var self = DepotOperations.Contains(request.Operation.ToolName.Trim());
+        var self = ContextOperations.Contains(request.Operation.ToolName.Trim());
         var capture = !self && request.Workflow?.AutomaticCapture == true;
         return Result(contextEvent, new(null, WorkspaceSubjectStatus.NotEvaluated, null, [], null),
             new(capture ? AgentRetrievalStatus.NotRequested : AgentRetrievalStatus.Skipped,

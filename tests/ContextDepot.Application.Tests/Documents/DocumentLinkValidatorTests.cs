@@ -9,13 +9,13 @@ namespace ContextDepot.Application.Tests.Documents;
 
 public sealed class DocumentLinkValidatorTests
 {
-    private readonly Guid depotId = Guid.NewGuid();
+
     private readonly Guid workspaceId = Guid.NewGuid();
     private readonly Mock<IDocumentRepository> repository = new();
     private readonly Mock<IMarkdownStore> store = new();
     private DocumentLinkValidator Create() => new(repository.Object, store.Object);
     private Task<DocumentLinkValidation> Validate(string content) =>
-        Create().ValidateAsync(depotId, workspaceId, "project", "docs/source.md", content, default);
+        Create().ValidateAsync(workspaceId, "project", "docs/source.md", content, default);
 
     [Theory]
     [InlineData("C:\\docs\\guide.md")]
@@ -97,8 +97,8 @@ public sealed class DocumentLinkValidatorTests
             """);
         Assert.True(result.IsValid);
         Assert.Empty(result.Warnings);
-        repository.Verify(x => x.GetByPathAsync(depotId, workspaceId, "reference/中文 指南.md", default), Times.Once);
-        store.Verify(x => x.GetAsync(depotId, "project/reference/中文 指南.md", default), Times.Once);
+        repository.Verify(x => x.GetByPathAsync(workspaceId, "reference/中文 指南.md", default), Times.Once);
+        store.Verify(x => x.GetAsync("project/reference/中文 指南.md", default), Times.Once);
     }
 
     [Fact]
@@ -108,7 +108,7 @@ public sealed class DocumentLinkValidatorTests
         Target("docs/archived.md", "# Archived").MarkArchived(DateTimeOffset.UtcNow);
         Target("docs/no-file.md", null);
         Target("docs/unreadable.md", null);
-        store.Setup(x => x.GetAsync(depotId, "project/docs/unreadable.md", default)).ThrowsAsync(new IOException());
+        store.Setup(x => x.GetAsync("project/docs/unreadable.md", default)).ThrowsAsync(new IOException());
         var result = await Validate("""
             [Missing](missing.md)
             [Archived](archived.md)
@@ -123,7 +123,7 @@ public sealed class DocumentLinkValidatorTests
             "anchor_not_found", "unsupported_local_link" }, result.Warnings.Select(warning => warning.Code));
         Assert.Equal("docs/active.md", result.Warnings[4].TargetPath);
         Assert.Equal("absent", result.Warnings[4].Fragment);
-        store.Verify(x => x.GetAsync(depotId, "project/docs/archived.md", default), Times.Never);
+        store.Verify(x => x.GetAsync("project/docs/archived.md", default), Times.Never);
     }
 
     [Fact]
@@ -163,17 +163,17 @@ public sealed class DocumentLinkValidatorTests
         var result = await Validate("[Target](target.md#target)");
         Assert.True(result.IsValid);
         Assert.Empty(result.Warnings);
-        repository.Verify(x => x.GetByPathAsync(depotId, workspaceId, "docs/target.md", default), Times.Once);
+        repository.Verify(x => x.GetByPathAsync(workspaceId, "docs/target.md", default), Times.Once);
         repository.VerifyNoOtherCalls();
     }
 
     private Document Target(string path, string? canonical, string? indexed = null)
     {
-        var target = new Document(Guid.NewGuid(), depotId, workspaceId, path, "Target", DateTimeOffset.UtcNow);
-        if (indexed is not null) target.Chunks.Add(new DocumentChunk(Guid.NewGuid(), depotId, target.Id, workspaceId,
+        var target = new Document(Guid.NewGuid(), workspaceId, path, "Target", DateTimeOffset.UtcNow);
+        if (indexed is not null) target.Chunks.Add(new DocumentChunk(Guid.NewGuid(), target.Id, workspaceId,
             0, "", indexed, "old-hash", DateTimeOffset.UtcNow));
-        repository.Setup(x => x.GetByPathAsync(depotId, workspaceId, path, default)).ReturnsAsync(target);
-        store.Setup(x => x.GetAsync(depotId, "project/" + path, default))
+        repository.Setup(x => x.GetByPathAsync(workspaceId, path, default)).ReturnsAsync(target);
+        store.Setup(x => x.GetAsync("project/" + path, default))
             .ReturnsAsync(canonical is null ? null : new MarkdownDocument(path, canonical, "hash"));
         return target;
     }
